@@ -14,33 +14,14 @@ void print_usage(){
   printf("usage: grind path_to_beef_assembly\n");
 }
 
-int main(int argc, char** argv){
-  if(argc < 2){
-    print_usage();
-    return 1;
-  }
-  Grinder* vm = create_grinder(3);
-  FILE* insns = fopen(argv[1],"r");
-  FILE* prog = insns;
-
-  //load the whole program
-  fseek(prog,0,SEEK_END);
-  long len = ftell(prog);
-  char instruction_cache[len];
-  char* icache = instruction_cache;
-  fseek(prog,0,SEEK_SET);
-
+unsigned int preprocessor(FILE* src,char* icache,unsigned int* branch_shortcuts){
   char insn;
   unsigned int insn_c = 0;
-  while((insn=fgetc(prog))!=EOF){
+  while((insn=fgetc(src))!=EOF){
     if(is_instruction(insn)){
       icache[insn_c++] = insn;
     }
   }
-  printf("Loaded program %s (%d instructions).\n",argv[1],insn_c);
- 
-  //program preprocessor -- not an efficient implementation
-  unsigned int branch_shortcuts[len];
   GStack* branch_stack = gcreate_stack(16,sizeof(unsigned int));
   unsigned int pc,branch_to;
   for(pc = 0; pc < insn_c; pc++){
@@ -58,6 +39,30 @@ int main(int argc, char** argv){
     }
   }
 
+  return insn_c;
+}
+
+int main(int argc, char** argv){
+  if(argc < 2){
+    print_usage();
+    return 1;
+  }
+  Grinder* vm = create_grinder(3);
+  FILE* insns = fopen(argv[1],"r");
+  FILE* prog = insns;
+
+  //load the whole program
+  fseek(prog,0,SEEK_END);
+  long len = ftell(prog);
+  char instruction_cache[len];
+  char* icache = instruction_cache;
+  fseek(prog,0,SEEK_SET);
+ 
+  //program preprocessor -- not an efficient implementation
+  unsigned int branch_shortcuts[len];
+  unsigned int insn_c = preprocessor(prog,icache,branch_shortcuts);
+  printf("Loaded program %s (%d instructions).\n",argv[1],insn_c);
+
   // gsdump(branch_stack);
 
   // printf("Branch Shortcuts:\n");
@@ -68,6 +73,7 @@ int main(int argc, char** argv){
   int running = 1;
   unsigned int step_counter = 0;
   int status = 0;
+  char insn;
   while(1){
     insn = instruction_cache[vm->pc];
     if((status=process(vm,insn))>0){

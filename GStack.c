@@ -48,10 +48,13 @@ GSTACK_DATA_PTR_T gspop(GStack* stack){
 
 void gsdump(GStack* stack){
     printf("Dumping Stack...\n");
-    char* fmt = "Size: %u\nHeight: %u\nWidth:%d\nData:\n";
-    printf(fmt,stack->size,stack->top,stack->width);
+    char* fmt = "Size: %u\nHeight: %u\nWidth: %d byte%s\nData:\n";
+    printf(fmt,stack->size,stack->top,stack->width,(stack->width==1)?"":"s");
     GSTACK_PTR_T i;
     for(i = 0; i < stack->top; i++){
         gsprint_elem_hex(stack,i);
+    }
+    if(stack->top == 0){
+        printf(" <EMPTY>\n");
     }
 }
