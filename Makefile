@@ -1,7 +1,7 @@
 
 CC = gcc
 
-TARGET = run_beef
+TARGET = grind
 
 SOURCES = Interpreter.c Grinder.c GStack.c
 INCLUDES = Grinder.h GStack.h

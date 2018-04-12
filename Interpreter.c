@@ -11,7 +11,7 @@
 #include "GStack.h"
 
 void print_usage(){
-  printf("usage:\n");
+  printf("usage: grind path_to_beef_assembly\n");
 }
 
 int main(int argc, char** argv){
