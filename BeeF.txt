@@ -1,0 +1,102 @@
+================================================================================
+BeeF Processor Design Notes
+================================================================================
+ISA: width: 3 bits (8 instructions)
+--> see: https://en.wikipedia.org/wiki/Brainfuck
+
+000[^]: PSH - push current cell to stack 
+001[+]: INC - increment data 
+010[-]: DEC - decrement data
+011[>]: MVR - move data head right
+100[<]: MVL - move data head left
+101[[]: CBF - if data is 0, skip to matching "]"
+110[]]: CBB - if data is not 0, skip to matchin "["
+111[v]: POP - pop item from stack, overwriting current cell
+================================================================================
+Assembling:
+- BeeF is a minimal ISA, so the assembler must do extra work to provide
+  some basic functionality
+- bitwise OPs are going to be verbose, because we will need to manually shift
+- the concept of "scratch space" allows for computations to be much more
+  concise, since we dont need to shift the data head to free space constantly
+- assembler/programmers must respect "scratch space" when using complex ops
+
+*** Basic Building Blocks ***
+ADD: current cell and next cell
+[->+<]
+
+SUB: current cell and next cell
+[->-<]
+
+ZER: zero the current cell
+[-]
+
+*** Complex Assembler Constructs ***
+- for operations which use the swap register, their functional block must
+  restore the register value on completion
+
+INV: invert the current cell
+    - atomic
+    MVR PSH ZER MVL SUB MVR PSH MVL POP MVR POP MVL
+    >^[-]<[->-<]>^<v>v<
+
+SHR: right-shift cell value by doubling it
+    MVR PSH ZER MVL ADD MVR PSH MVL POP MVR POP MVL
+
+NOT: logical not of the current cell
+   - use the right adjacent cell as scratch space loop condition
+    > ^ [-]+ < [ [-] >- ] [ <[-]+ >- ] v <
+
+IFT BLOCK_1 ELS BLOCK_2 END: if-then-else construct
+    - if the current cell is nonzero, then execute BLOCK_1
+    - else execute BLOCK_2
+    - uses one cell of scratch space, to the left
+    1) Store a one on the stack         <^[-]+^>
+    2) try loop 1                       [
+      i)  execute BLOCK_1                 BLOCK_1
+      ii) pop stored one, store a zero    <v-^
+                                        ]
+    3) pop stored value                 v
+    4) try loop 2                       [>
+      i)  execute BLOCK_2                 BLOCK_2
+                                          <[-]
+    5) restore scratch space            ]v>
+    
+    <^[-]+^>[ BLOCK_1 <v-^]v[> BLOCK_2 <[-]]v>
+
+
+
+
+SHL: left-shift cell value by halving it
+    - atomic
+    1) use c-1 as scratch space         <^>
+    2) use c+1 as construction site     >^[-]<
+    3) loop:                            [
+      i)   decrement operand              -
+      ii)  copy operand to scratch        ^<v
+      iii) check zero in scratch          [>
+      iv)  decrement operand                -
+      v)   increment result                 >+<
+      vi)  break out of conditional         <[-]
+                                          ]
+      vii) check operand                  >
+                                        ]
+    4) clean up                         >^<v>v<<v>
+                                          
+
+XOR: current cell and next cell
+
+
+
+================================================================================
+TERMS
+
+- atomic: program state does not appear to change
+  - ITE construct is not atomic because scratch space is in use while BLOCKS
+    are executing
+- block: an atomic routine (series of instructions which, when complete, does
+          has the same stack and data head configuration as before execution)
+
+
+
+
