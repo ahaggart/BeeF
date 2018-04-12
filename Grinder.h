@@ -33,6 +33,7 @@ typedef struct{
 Grinder* create_grinder(CELL_IDX initial_size);
 int process(Grinder* g, char insn);
 void dump_grinder(Grinder* g);
+int is_instruction(char insn);
 
 
 #endif

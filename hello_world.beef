@@ -1,0 +1,43 @@
+the final result we want is:
+index:  char:   ascii:
+0       H       72
+1       E       69
+2       L       76
+3       L       76
+4       O       79
+5               32
+6       W       87
+7       O       79
+8       R       82
+9       L       76
+10      D       68
+11      !       33
+
+start by building some constants
++                   c0 = 1
+>++                 c1 = 2
+>++++               c2 = 4
+>++++++++           c3 = 8
+^[->++<]_>          c4 = 16
+^[->++<]_>          c5 = 32
+^[->++<]_>          c6 = 64
+
+now we have enough to work with, lets start building the string
+the data head is pointing at c8 right now
+
+start by placing the space and ! chars
+<^>>>>>>_^+<<<<<<_
+
+data head at c5
+>^>>        now at c8, grabbed 64
+>>_++++^    place the 'D'
+<<<<<<<<<   now at c1
+_+^         place the 'E'
+<_+++^      place the 'H'
+>>_++++^    place the 'L'
+>_^         anotha one
+>_+++^      place the 'O'
+>>>_^       another 'O'
+>>_^---     place an 'L'
+<_+++^      place the 'R'
+<<_+++++    place the 'W'

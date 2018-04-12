@@ -32,8 +32,10 @@ void dump_grinder(Grinder* g){
   gsdump(g->stack);
   printf("Cells:\n");
   int i;
+  char val;
   for(i = 0; i < g->num_cells; i++){
-    printf("%cc%d:\t%d\t0x%x\n",(i==g->data_head)?'>':' ',i,g->cells[i],g->cells[i]);
+    val = g->cells[i];
+    printf("%cc%d:\t%d\t0x%x\t%c\n",(i==g->data_head)?'>':' ',i,val,val,val);
   }
 
 }
@@ -148,6 +150,22 @@ int process(Grinder* g,char insn){
     case '_':
       DEBUG("POP\n");
       return grinder_pop(g);
+    default: //ignore invalid char
+      return 0;
+  }
+}
+
+int is_instruction(char c){
+  switch(c){
+    case '^':
+    case '>':
+    case '<':
+    case '+':
+    case '-':
+    case '[':
+    case ']':
+    case '_':
+      return 1;
     default: //ignore invalid char
       return 0;
   }

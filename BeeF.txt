@@ -20,6 +20,9 @@ Assembling:
 - the concept of "scratch space" allows for computations to be much more
   concise, since we dont need to shift the data head to free space constantly
 - assembler/programmers must respect "scratch space" when using complex ops
+- it is much more efficient to add smaller numbers to larger numbers
+- pre-constructing constants allows for much less time to be spent manually
+  producing constants in-place
 
 *** Basic Building Blocks ***
 ADD: current cell and next cell

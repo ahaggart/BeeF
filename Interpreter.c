@@ -33,9 +33,11 @@ int main(int argc, char** argv){
   char insn;
   unsigned int insn_c = 0;
   while((insn=fgetc(prog))!=EOF){
-    icache[insn_c++] = insn;
+    if(is_instruction(insn)){
+      icache[insn_c++] = insn;
+    }
   }
-  printf("Loaded program %s with  %ld instructions.\n",argv[1],len);
+  printf("Loaded program %s (%d instructions).\n",argv[1],insn_c);
  
   //program preprocessor -- not an efficient implementation
   unsigned int branch_shortcuts[len];
@@ -66,7 +68,7 @@ int main(int argc, char** argv){
   int running = 1;
   unsigned int step_counter = 0;
   int status = 0;
-  while(running){
+  while(1){
     insn = instruction_cache[vm->pc];
     if((status=process(vm,insn))>0){
       printf("Error: Interpreter exited with code: %d\n",status);
@@ -78,9 +80,6 @@ int main(int argc, char** argv){
       break;
     }
     step_counter++;
-    // if(step_counter == 200){
-    //   break;
-    // }
   }
   printf("Done interpretting!\nCompleted in %u steps\n",step_counter);
   dump_grinder(vm);
