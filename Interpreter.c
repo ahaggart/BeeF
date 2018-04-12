@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include "Grinder.h"
+#include "GStack.h"
 
 void print_usage(){
   printf("usage:\n");
@@ -20,52 +21,69 @@ int main(int argc, char** argv){
   }
   Grinder* vm = create_grinder(3);
   FILE* insns = fopen(argv[1],"r");
+  FILE* prog = insns;
 
-  char instruction_count = 0;
-  char instruction_cache[100];
-  
+  //load the whole program
+  fseek(prog,0,SEEK_END);
+  long len = ftell(prog);
+  char instruction_cache[len];
+  char* icache = instruction_cache;
+  fseek(prog,0,SEEK_SET);
+
   char insn;
-  int ret;
-  int running = 1;
-  PC_t pc = 0;
-  while(running){
-    while(instruction_count <= pc){
-      if((insn=fgetc(insns))!=EOF){
-        instruction_cache[instruction_count] = insn;
-        instruction_count++;
-      }else{
-        running = 0;
-        break;
-      }
-    }
-
-    insn = instruction_cache[pc];
-
-    if((ret=process(vm,insn))>0){
-      printf("Interpreter exited with code: %d\n",ret);
-      break;
-    }else if(ret == GRINDREQ_BRANCH_FWD){
-      printf("seeking next instruction\n");
-      while(insn != ']'){
-        if(pc++ >= instruction_count){
-          if((insn=fgetc(insns)!=EOF)){
-            instruction_cache[instruction_count] = insn;
-            instruction_count++;
-          }else{
-            printf("Error: Reached EOF expecting: ']'\n");
-            running = 0;
-            break;
-          }
-        }else{
-          insn = instruction_cache[pc-1];
-        }
-      }
-    }
-
-    pc = vm->pc;
+  unsigned int insn_c = 0;
+  while((insn=fgetc(prog))!=EOF){
+    icache[insn_c++] = insn;
   }
-  printf("Done interpretting!\n");
+  printf("Loaded program %s with  %ld instructions.\n",argv[1],len);
+ 
+  //program preprocessor -- not an efficient implementation
+  unsigned int branch_shortcuts[len];
+  GStack* branch_stack = gcreate_stack(16,sizeof(unsigned int));
+  unsigned int pc,branch_to;
+  for(pc = 0; pc < insn_c; pc++){
+    if((insn=icache[pc]) == '['){
+      gspush(branch_stack,(GSTACK_DATA_PTR_T)&pc);
+    } else if(insn == ']'){
+      if(!(branch_to = *(unsigned int*)gspop(branch_stack))){
+        printf("Error: Unmatched conditional branches at %u.\n",pc);
+        return 1;
+      }
+      branch_shortcuts[branch_to] = pc+1;
+      branch_shortcuts[pc] = branch_to+1;
+    } else{
+      branch_shortcuts[pc] = 0;
+    }
+  }
+
+  // gsdump(branch_stack);
+
+  // printf("Branch Shortcuts:\n");
+  // for(pc = 0;pc < insn_c;pc++){
+  //   printf("\tshortcut @ %u: %u\n",pc,branch_shortcuts[pc]);
+  // }
+
+  int running = 1;
+  unsigned int step_counter = 0;
+  int status = 0;
+  while(running){
+    insn = instruction_cache[vm->pc];
+    if((status=process(vm,insn))>0){
+      printf("Error: Interpreter exited with code: %d\n",status);
+      break;
+    }else if(status == GRINDREQ_BRANCH){
+      vm->pc = branch_shortcuts[vm->pc-1]; //find matching brace
+    }
+    if(vm->pc >= len){
+      break;
+    }
+    step_counter++;
+    // if(step_counter == 200){
+    //   break;
+    // }
+  }
+  printf("Done interpretting!\nCompleted in %u steps\n",step_counter);
   dump_grinder(vm);
 
-  return 0;
+  return status;
 }

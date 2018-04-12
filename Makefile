@@ -1,11 +1,9 @@
 
 CC = gcc
 
+SOURCES = Interpreter.c Grinder.c GStack.c
+INCLUDES = Grinder.h GStack.h
 
+build: ${SOURCES} ${INCLUDES}
+	${CC} ${SOURCES} -o build/run_beef
 
-build: Interpreter.c Grinder.c
-	${CC} Interpreter.c Grinder.c -o build/run_beef
-
-Interpreter.c: Grinder.c
-
-Grinder.c: Grinder.h

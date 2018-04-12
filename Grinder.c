@@ -16,26 +16,24 @@ Grinder* create_grinder(CELL_IDX initial_size){
   g->data_head = 0;
 
   //set up the data stack
-  g->stack = (CELL*)calloc(initial_size,sizeof(CELL));
-  g->stack_mem = initial_size;
-  g->stack_ptr = -1;
+  g->stack = gcreate_stack(initial_size,sizeof(CELL));
 
   //set up the branch stack
-  g->branch_stack = (CELL_IDX*)calloc(initial_size,sizeof(CELL_IDX));
-  g->branch_mem = initial_size;
-  g->branch_stack_ptr = -1;
+  // g->branch_stack = (CELL_IDX*)calloc(initial_size,sizeof(CELL_IDX));
+  // g->branch_mem = initial_size;
+  // g->branch_stack_ptr = -1;
 
   return g;
 }
 
 void dump_grinder(Grinder* g){
   printf("Dumping Grinder...\n");
-  printf("Stack:\n");
-  printf("size: %d\n",g->branch_stack_ptr);
+  printf("Data Head Position: %u\n",g->data_head);
+  gsdump(g->stack);
   printf("Cells:\n");
   int i;
   for(i = 0; i < g->num_cells; i++){
-    printf("c%d:\t%d\n",i,g->cells[i]);
+    printf("%cc%d:\t%d\t0x%x\n",(i==g->data_head)?'>':' ',i,g->cells[i],g->cells[i]);
   }
 
 }
@@ -44,6 +42,7 @@ void dump_grinder(Grinder* g){
  *  push current cell value to the grinder data stack
  */
 int grinder_psh(Grinder* g){
+  gspush(g->stack,(GSTACK_DATA_PTR_T)(g->cells + g->data_head));
   return GRINDER_SUCCESS;
 }
 
@@ -51,13 +50,13 @@ int grinder_psh(Grinder* g){
  *  move the grinder data head right
  */
 int grinder_mvr(Grinder* g){
+  g->data_head++;
   if(g->data_head == g->num_cells){
     CELL* tmp = (CELL*)calloc(g->num_cells*2,sizeof(CELL));
-    memcpy(g->cells,tmp,g->num_cells);
+    memcpy(tmp,g->cells,g->num_cells);
     g->cells = tmp;
     g->num_cells *= 2;
   }
-  g->data_head++;
   return GRINDER_SUCCESS;
 }
 
@@ -92,16 +91,8 @@ int grinder_dec(Grinder* g){
  * conditional branch forward to matching CBB
  */
 int grinder_cbf(Grinder* g){
-  if(g->cells[g->data_head]){
-    if(g->branch_stack_ptr == g->branch_mem){
-      CELL_IDX* tmp = (CELL_IDX*)calloc(g->num_cells*2,sizeof(CELL_IDX));
-      memcpy(g->branch_stack,tmp,g->branch_mem);
-      g->branch_stack = tmp;
-      g->branch_mem *= 2;
-    }
-    //store the index of this insn
-    g->branch_stack_ptr++;
-    g->branch_stack[g->branch_stack_ptr] = g->pc;
+  if(!(g->cells[g->data_head])){
+    return GRINDREQ_BRANCH;
   }
   return GRINDER_SUCCESS;
 }
@@ -110,13 +101,8 @@ int grinder_cbf(Grinder* g){
  * conditional branch back to matching CBF
  */
 int grinder_cbb(Grinder* g){
-  if(!(g->cells[g->data_head])){
-    if(g->branch_stack_ptr == -1){
-      return GRINDERR_EMPTY_STACK;
-    }
-    g->branch_stack_ptr--;
-  }else{
-    g->pc = g->branch_stack[g->branch_stack_ptr];
+  if(g->cells[g->data_head]){
+    return GRINDREQ_BRANCH;
   }
   return GRINDER_SUCCESS;
 }
@@ -125,11 +111,17 @@ int grinder_cbb(Grinder* g){
  * pop grinder data stack into current cell
  */
 int grinder_pop(Grinder* g){
+  CELL* popped = (CELL*)gspop(g->stack);
+  if(popped == 0){
+    return GRINDERR_EMPTY_STACK;
+  }
+  g->cells[g->data_head] = *popped;
   return GRINDER_SUCCESS;
 }
 
 
 int process(Grinder* g,char insn){
+  // printf("size: %u,\thead: %u\n",g->num_cells,g->data_head);
   g->pc++;
   switch(insn){
     case '^':
@@ -153,11 +145,10 @@ int process(Grinder* g,char insn){
     case ']':
       DEBUG("CBB\n");
       return grinder_cbb(g);
-    case 'v':
+    case '_':
       DEBUG("POP\n");
       return grinder_pop(g);
     default: //ignore invalid char
-      g->pc--;
       return 0;
   }
 }

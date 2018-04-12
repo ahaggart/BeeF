@@ -1,1 +1,9 @@
-++++>+++++<[->[-]<]
++[^[->++<]_>]       build a table of powers of two (up to 128) for quicker constant building
+<
+<^>>^[-]<[-^<_[>->+<<[-]]>]>^<_>_<<_>   left shift operator
+<^>>^[-]<[-^<_[>->+<<[-]]>]>^<_>_<<_>
+<^>>^[-]<[-^<_[>->+<<[-]]>]>^<_>_<<_>
+>^[-]<[->++<]>^<_>_<                    right shift operator
+>^[-]<[->++<]>^<_>_<
+><^>_                                   grab a 64 from the "table"
+>^[-]<^[ _[-]-^+ ]_+>_<                 logical NOT
