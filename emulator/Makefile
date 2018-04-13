@@ -1,0 +1,25 @@
+
+CC = gcc
+
+TARGET = grind
+
+INC_DIR = includes/
+SRC_DIR = src/
+
+CODE_DIR = ../code
+BUILD_DIR = build
+
+SOURCES = Interpreter.c Grinder.c GStack.c
+INCLUDES = Grinder.h GStack.h
+
+SRC_PATH = $(addprefix ${SRC_DIR},${SOURCES})
+INC_PATH = $(addprefix ${INC_DIR},${INCLUDES})
+
+export CPATH = ${INC_DIR}
+
+build: ${SRC_PATH} ${INC_PATH}
+	${CC} ${SRC_PATH} -o ${BUILD_DIR}/${TARGET}
+
+hello: build
+	./${BUILD_DIR}/${TARGET} ${CODE_DIR}/hello_world.beef
+
