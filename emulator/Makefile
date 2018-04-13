@@ -23,3 +23,6 @@ build: ${SRC_PATH} ${INC_PATH}
 hello: build
 	./${BUILD_DIR}/${TARGET} ${CODE_DIR}/hello_world.beef
 
+clean:
+	rm ${BUILD_DIR}/*
+
