@@ -23,7 +23,7 @@ start by building some constants
 ^[->++<]_>          c6 = 64
 
 now we have enough to work with, lets start building the string
-the data head is pointing at c8 right now
+the data head is pointing at c6 right now
 
 start by placing the space and ! chars
 <^>>>>>>_^+<<<<<<_

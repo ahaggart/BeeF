@@ -55,11 +55,11 @@ NOT: logical not of the current cell
 
 
 
-IFT BLOCK_1 ELS BLOCK_2 END: if-then-else construct
+IFT BLOCK 1 ELS BLOCK 2 END: if-then-else construct
     - verified
     - right-atomic
-    - if the current cell is nonzero, then execute BLOCK_1
-    - else execute BLOCK_2
+    - if the current cell is nonzero, then execute BLOCK 1
+    - else execute BLOCK 2
     - uses one cell of scratch space, to the left
     1) Store a one on the stack         <^[-]+^>
     2) try loop 1                       [>
@@ -99,7 +99,11 @@ SHL: left-shift cell value by halving it
 
                                           
 
-XOR: current cell and next cell
+XOR: bitwise xor current cell and next cell
+
+AND: bitwise and current cell and next cell
+
+ORR: bitwise or current cell and next cell
 
 
 

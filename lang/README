@@ -1,0 +1,76 @@
+===============================================================================
+Assembly Language Spec for BeeF machine code
+===============================================================================
+LANGUAGE ARCHITECTURE NOTES:
+* makes use of one "control cell" at position 0
+
+Instruction Layout:
+<preamble> [ <header block> <functional blocks> <footer block>] <postamble>
+===============================================================================
+Preamble:
+* sets up memory for functional block execution
+    * makes room for control cell (if necessary) by shifting starting cells
+    * "bootloader": configures control cell to execute program entry point
+        * pushes a 255 onto stack (for program exit)
+
+===============================================================================
+Header Block:
+* currently doesn't do anything
+
+===============================================================================
+Counting Functional Block: 
+* basic building block for function call structure
+* each block decrements the control cell if it is nonzero
+    * block which "zeroes" control cell is executed
+    * subsequent blocks will see "zeroed" control cell and skip execution
+
+Functional Block Prototype:
+^                       push cc to stack for breathing room
+[                       block container (skipped if cc is zeroed)
+    _-^                 decrement cc and push back to stack
+    >^[-]+^             save adjacent cell, then set to one and push to stack
+    <                   return to cc 
+    [                   skip block 1: skipped if cc is (now zero)
+        _[-]^           overwrite stacked one to zero
+    ]                 
+    _                   pull stacked value (one if cc was zero, zero ow)
+    [                   skip block 2: skipped if cc was not zero
+        >_              restore adjacent cell
+* FUNCTION CODE GOES HERE *
+        <[-]            zero cc (exit skip block 2)
+    ]
+                        (exit container)
+]_                      restore cc
+
+
+Function Call Prototype:
+* within skip block two, the stack top is control cell
+    * we can overwrite this value if the target funcion has a higher call ID
+        * run two functions in one control loop (efficiency!)
+        * assembler can calculate offset and write correct value to stack
+    * otherwise, do some stack magic to properly branch control flow
+        * abuse the fact that cc will always be zero
+            * we can use cc as free scratch space, which lets us manipulate
+                the stack
+            1) pop the saved cc
+            2) push our own call ID
+            3) push successor call ID
+            4) push a zero
+            * pushed zero will be popped as control cell at end of func block
+            * next call ID will be loaded from stack in exec loop footer
+            * skip step 2 for context handoff
+
+
+===============================================================================
+Footer Block:
+* unpacks function call ID from stack
+    * function call ID of 255 will exit control loop and execute postamble
+        * functions which fail to push new call IDs will "pop" to lower
+            execution context (context exit)
+        * lowest execution context pushed by preamble, exits program
+    * branching implemented by pushing new function call ID
+        * current control context is passed to called function
+    * branch-and-link implemented by pushing new call ID and own call ID
+        * "creates" new execution context
+        * control returns to caller function when context "exits"
+
