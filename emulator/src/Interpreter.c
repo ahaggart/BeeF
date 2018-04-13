@@ -82,7 +82,7 @@ int main(int argc, char** argv){
     }else if(status == BVM_REQ_BRANCH){
       vm->pc = branch_shortcuts[vm->pc-1]; //find matching brace
     }
-    if(vm->pc >= len){
+    if(vm->pc >= insn_c){
       break;
     }
     step_counter++;
