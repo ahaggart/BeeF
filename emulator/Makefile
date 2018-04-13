@@ -1,7 +1,7 @@
 
 CC = gcc
 
-TARGET = grind
+TARGET = roast
 
 INC_DIR = includes/
 SRC_DIR = src/
@@ -9,8 +9,8 @@ SRC_DIR = src/
 CODE_DIR = ../code
 BUILD_DIR = build
 
-SOURCES = Interpreter.c Grinder.c GStack.c
-INCLUDES = Grinder.h GStack.h
+SOURCES = Interpreter.c BeeFVirtualMachine.c BVMStack.c
+INCLUDES = BeeFVirtualMachine.h BVMStack.h
 
 SRC_PATH = $(addprefix ${SRC_DIR},${SOURCES})
 INC_PATH = $(addprefix ${INC_DIR},${INCLUDES})

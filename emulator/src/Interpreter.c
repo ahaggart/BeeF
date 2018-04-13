@@ -7,11 +7,11 @@
  */
 
 #include <stdio.h>
-#include "Grinder.h"
-#include "GStack.h"
+#include "BeeFVirtualMachine.h"
+#include "BVMStack.h"
 
 void print_usage(){
-  printf("usage: grind path_to_beef_assembly\n");
+  printf("usage: roast path_to_beef_assembly\n");
 }
 
 unsigned int preprocessor(FILE* src,char* icache,unsigned int* branch_shortcuts){
@@ -22,13 +22,13 @@ unsigned int preprocessor(FILE* src,char* icache,unsigned int* branch_shortcuts)
       icache[insn_c++] = insn;
     }
   }
-  GStack* branch_stack = gcreate_stack(16,sizeof(unsigned int));
+  BVMS* branch_stack = bvms_create_stack(16,sizeof(unsigned int));
   unsigned int pc,branch_to;
   for(pc = 0; pc < insn_c; pc++){
     if((insn=icache[pc]) == '['){
-      gspush(branch_stack,(GSTACK_DATA_PTR_T)&pc);
+      bvms_push(branch_stack,(BVMS_DATA_PTR_T)&pc);
     } else if(insn == ']'){
-      if(!(branch_to = *(unsigned int*)gspop(branch_stack))){
+      if(!(branch_to = *(unsigned int*)bvms_pop(branch_stack))){
         printf("Error: Unmatched conditional branches at %u.\n",pc);
         return 1;
       }
@@ -47,7 +47,7 @@ int main(int argc, char** argv){
     print_usage();
     return 1;
   }
-  Grinder* vm = create_grinder(3);
+  BVM* vm = create_bvm(3);
   FILE* insns = fopen(argv[1],"r");
   FILE* prog = insns;
 
@@ -79,7 +79,7 @@ int main(int argc, char** argv){
     if((status=process(vm,insn))>0){
       printf("Error: Interpreter exited with code: %d\n",status);
       break;
-    }else if(status == GRINDREQ_BRANCH){
+    }else if(status == BVM_REQ_BRANCH){
       vm->pc = branch_shortcuts[vm->pc-1]; //find matching brace
     }
     if(vm->pc >= len){
@@ -88,7 +88,7 @@ int main(int argc, char** argv){
     step_counter++;
   }
   printf("Done interpretting!\nCompleted in %u steps\n",step_counter);
-  dump_grinder(vm);
+  dump_bvm(vm);
 
   return status;
 }

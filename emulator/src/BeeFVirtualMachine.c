@@ -1,12 +1,12 @@
 /**
  *  Alexander Haggart, 4/11/18
  *
- *  BeeF Grinder virtual machine implementation
+ *  BeeF BVM virtual machine implementation
  */
-#include "Grinder.h"
+#include "BeeFVirtualMachine.h"
 
-Grinder* create_grinder(CELL_IDX initial_size){
-  Grinder* g = (Grinder*)malloc(sizeof(Grinder));
+BVM* create_bvm(CELL_IDX initial_size){
+  BVM* g = (BVM*)malloc(sizeof(BVM));
 
   g->pc = 0;
 
@@ -16,20 +16,15 @@ Grinder* create_grinder(CELL_IDX initial_size){
   g->data_head = 0;
 
   //set up the data stack
-  g->stack = gcreate_stack(initial_size,sizeof(CELL));
-
-  //set up the branch stack
-  // g->branch_stack = (CELL_IDX*)calloc(initial_size,sizeof(CELL_IDX));
-  // g->branch_mem = initial_size;
-  // g->branch_stack_ptr = -1;
-
+  g->stack = bvms_create_stack(initial_size,sizeof(CELL));
+  
   return g;
 }
 
-void dump_grinder(Grinder* g){
-  printf("Dumping Grinder...\n");
+void dump_bvm(BVM* g){
+  printf("Dumping Virtual Machine...\n");
   printf("Data Head Position: %u\n",g->data_head);
-  gsdump(g->stack);
+  bvms_dump(g->stack);
   printf("Cells:\n");
   int i;
   char val;
@@ -41,17 +36,17 @@ void dump_grinder(Grinder* g){
 }
 
 /**
- *  push current cell value to the grinder data stack
+ *  push current cell value to the bvm data stack
  */
-int grinder_psh(Grinder* g){
-  gspush(g->stack,(GSTACK_DATA_PTR_T)(g->cells + g->data_head));
-  return GRINDER_SUCCESS;
+int bvm_psh(BVM* g){
+  bvms_push(g->stack,(BVMS_DATA_PTR_T)(g->cells + g->data_head));
+  return BVM_SUCCESS;
 }
 
 /**
- *  move the grinder data head right
+ *  move the bvm data head right
  */
-int grinder_mvr(Grinder* g){
+int bvm_mvr(BVM* g){
   g->data_head++;
   if(g->data_head == g->num_cells){
     CELL* tmp = (CELL*)calloc(g->num_cells*2,sizeof(CELL));
@@ -59,97 +54,97 @@ int grinder_mvr(Grinder* g){
     g->cells = tmp;
     g->num_cells *= 2;
   }
-  return GRINDER_SUCCESS;
+  return BVM_SUCCESS;
 }
 
 /**
- * move the grinder data head left, error if head is at leftmost position
+ * move the bvm data head left, error if head is at leftmost position
  */
-int grinder_mvl(Grinder* g){
+int bvm_mvl(BVM* g){
   if(g->data_head == 0){
-    return GRINDERR_AT_LEFTMOST;
+    return BVM_ERR_AT_LEFTMOST;
   }
   g->data_head--;
-  return GRINDER_SUCCESS;
+  return BVM_SUCCESS;
 }
 
 /**
  *  increment the cell at the data head
  */
-int grinder_inc(Grinder* g){
+int bvm_inc(BVM* g){
   g->cells[g->data_head]++;
-  return GRINDER_SUCCESS;
+  return BVM_SUCCESS;
 }
 
 /**
  *  decrement the cell at the data head
  */
-int grinder_dec(Grinder* g){
+int bvm_dec(BVM* g){
   g->cells[g->data_head]--;
-  return GRINDER_SUCCESS;
+  return BVM_SUCCESS;
 }
 
 /**
  * conditional branch forward to matching CBB
  */
-int grinder_cbf(Grinder* g){
+int bvm_cbf(BVM* g){
   if(!(g->cells[g->data_head])){
-    return GRINDREQ_BRANCH;
+    return BVM_REQ_BRANCH;
   }
-  return GRINDER_SUCCESS;
+  return BVM_SUCCESS;
 }
 
 /**
  * conditional branch back to matching CBF
  */
-int grinder_cbb(Grinder* g){
+int bvm_cbb(BVM* g){
   if(g->cells[g->data_head]){
-    return GRINDREQ_BRANCH;
+    return BVM_REQ_BRANCH;
   }
-  return GRINDER_SUCCESS;
+  return BVM_SUCCESS;
 }
 
 /**
- * pop grinder data stack into current cell
+ * pop bvm data stack into current cell
  */
-int grinder_pop(Grinder* g){
-  CELL* popped = (CELL*)gspop(g->stack);
+int bvm_pop(BVM* g){
+  CELL* popped = (CELL*)bvms_pop(g->stack);
   if(popped == 0){
-    return GRINDERR_EMPTY_STACK;
+    return BVM_ERR_EMPTY_STACK;
   }
   g->cells[g->data_head] = *popped;
-  return GRINDER_SUCCESS;
+  return BVM_SUCCESS;
 }
 
 
-int process(Grinder* g,char insn){
+int process(BVM* g,char insn){
   // printf("size: %u,\thead: %u\n",g->num_cells,g->data_head);
   g->pc++;
   switch(insn){
     case '^':
       DEBUG("PSH\n");
-      return grinder_psh(g);
+      return bvm_psh(g);
     case '>':
       DEBUG("MVR\n");
-      return grinder_mvr(g);
+      return bvm_mvr(g);
     case '<':
       DEBUG("MVL\n");
-      return grinder_mvl(g);
+      return bvm_mvl(g);
     case '+':
       DEBUG("INC\n");
-      return grinder_inc(g);
+      return bvm_inc(g);
     case '-':
       DEBUG("DEC\n");
-      return grinder_dec(g);
+      return bvm_dec(g);
     case '[':
       DEBUG("CBF\n");
-      return grinder_cbf(g);
+      return bvm_cbf(g);
     case ']':
       DEBUG("CBB\n");
-      return grinder_cbb(g);
+      return bvm_cbb(g);
     case '_':
       DEBUG("POP\n");
-      return grinder_pop(g);
+      return bvm_pop(g);
     default: //ignore invalid char
       return 0;
   }
