@@ -9,8 +9,8 @@ SRC_DIR = src/
 CODE_DIR = ../code
 BUILD_DIR = build
 
-SOURCES = Interpreter.c BeeFVirtualMachine.c BVMStack.c
-INCLUDES = BeeFVirtualMachine.h BVMStack.h
+SOURCES = Interpreter.c BeeFVirtualMachine.c BVMStack.c Preprocessor.c
+INCLUDES = BeeFVirtualMachine.h BVMStack.h Preprocessor.h
 
 SRC_PATH = $(addprefix ${SRC_DIR},${SOURCES})
 INC_PATH = $(addprefix ${INC_DIR},${INCLUDES})

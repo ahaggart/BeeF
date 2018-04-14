@@ -146,6 +146,7 @@ int process(BVM* g,char insn){
       DEBUG("POP\n");
       return bvm_pop(g);
     default: //ignore invalid char
+      printf("Got some garbage: 0x%x\n",insn);
       return 0;
   }
 }

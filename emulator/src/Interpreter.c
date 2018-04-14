@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include "BeeFVirtualMachine.h"
 #include "BVMStack.h"
+#include "Preprocessor.h"
 
 void print_usage(){
   printf("usage: roast path_to_beef_assembly\n");
@@ -63,12 +64,8 @@ int main(int argc, char** argv){
   unsigned int insn_c = preprocessor(prog,icache,branch_shortcuts);
   printf("Loaded program %s (%d instructions).\n",argv[1],insn_c);
 
-  // gsdump(branch_stack);
-
-  // printf("Branch Shortcuts:\n");
-  // for(pc = 0;pc < insn_c;pc++){
-  //   printf("\tshortcut @ %u: %u\n",pc,branch_shortcuts[pc]);
-  // }
+  fseek(prog,0,SEEK_SET);
+  ppreprocessor(prog);
 
   int running = 1;
   unsigned int step_counter = 0;
