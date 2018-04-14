@@ -4,34 +4,47 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 #include "BVMStack.h"
+#include "BeeFVirtualMachine.h"
+#include "Common.h"
 
 #define PP_DIR_CONSOLE_OUT      0
 
 #define SRC_LEN_T   long
-#define PP_DELIM    '#'    
+#define PP_DELIM    '#'   
 
 #define PP_INFO_T   Preprocessor_Info
 #define PP_DEBUG_T  Debug_Data
+#define PPD_TYPE_T  int
+#define PPD_DATA_PTR_T  void*
+
+#define BF_INSN_T          char
+#define BF_INSN_PTR_T      BF_INSN_T*
+
+#define PPD_REF_INVALID -1
+#define PP_NO_BRANCH    -1
 
 #define PP_MK_DEBUG_BUF(sz) (PP_DEBUG_T*)malloc(sz*sizeof(PP_DEBUG_T))
 
 typedef struct {
-    int ID;
-    void* data;
+    PPD_TYPE_T type;
+    CELL trigger;
+    PPD_DATA_PTR_T data;
 } Debug_Data;
 
 typedef struct {
     SRC_LEN_T i_count;
-    int d_count;
+    SRC_LEN_T d_count;
 
-    char* i_cache;
+    BF_INSN_PTR_T i_cache;
     SRC_LEN_T* br_cache;
-    PP_DEBUG_T* debug_cache;
+    SRC_LEN_T* d_cache;
     PP_DEBUG_T* debug_data;
 } Preprocessor_Info;
 
 PP_INFO_T* ppreprocessor(FILE* src);
+void pp_dump_info(PP_INFO_T* info);
 
 #endif //PREPROCESSOR_H

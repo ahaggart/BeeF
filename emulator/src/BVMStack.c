@@ -48,13 +48,16 @@ BVMS_DATA_PTR_T bvms_pop(BVMS* stack){
 
 void bvms_dump(BVMS* stack){
     printf("Dumping Stack...\n");
-    char* fmt = "Size: %u\nHeight: %u\nWidth: %d byte%s\nData:\n";
+    char* fmt = FMT_INDENT"Size: %u\n"
+                FMT_INDENT"Height: %u\n"
+                FMT_INDENT"Width: %d byte%s\n"
+                FMT_INDENT"Data:\n";
     printf(fmt,stack->size,stack->top,stack->width,(stack->width==1)?"":"s");
     BVMS_PTR_T i;
     for(i = 0; i < stack->top; i++){
         bvms_print_elem_hex(stack,i);
     }
     if(stack->top == 0){
-        printf(" <EMPTY>\n");
+        printf(FMT_INDENT " <EMPTY>\n");
     }
 }

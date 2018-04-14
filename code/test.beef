@@ -1,9 +1,13 @@
+#0#message printout ref
+#1#other message printout ref
+#2#third message printout directive header
 +[^[->++<]_>]       build a table of powers of two (up to 128) for quicker constant building
-<
+<                                       #12#
 <^>>^[-]<[-^<_[>->+<<[-]]>]>^<_>_<<_>   left shift operator
 <^>>^[-]<[-^<_[>->+<<[-]]>]>^<_>_<<_>
 <^>>^[-]<[-^<_[>->+<<[-]]>]>^<_>_<<_>
 >^[-]<[->++<]>^<_>_<                    right shift operator
 >^[-]<[->++<]>^<_>_<
 ><^>_                                   grab a 64 from the "table"
+>^[-]<^[ _[-]-^+ ]_+>_<                 logical NOT
 >^[-]<^[ _[-]-^+ ]_+>_<                 logical NOT

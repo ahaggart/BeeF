@@ -23,7 +23,7 @@ BVM* create_bvm(CELL_IDX initial_size){
 
 void dump_bvm(BVM* g){
   printf("Dumping Virtual Machine...\n");
-  printf("Data Head Position: %u\n",g->data_head);
+  printf(FMT_INDENT "Data Head Position: %u\n",g->data_head);
   bvms_dump(g->stack);
   printf("Cells:\n");
   int i;

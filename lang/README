@@ -11,7 +11,7 @@ Preamble:
 * sets up memory for functional block execution
     * makes room for control cell (if necessary) by shifting starting cells
     * "bootloader": configures control cell to execute program entry point
-        * pushes a 255 onto stack (for program exit)
+        * pushes a 0 onto stack (for program exit)
 
 ===============================================================================
 Header Block:

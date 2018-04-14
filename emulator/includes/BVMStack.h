@@ -5,6 +5,8 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "Common.h"
+
 #define BVMS_PTR_T unsigned int
 #define BVMS_DATA_T    char
 #define BVMS_DATA_PTR_T BVMS_DATA_T*

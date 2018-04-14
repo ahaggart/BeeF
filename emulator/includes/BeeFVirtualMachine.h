@@ -11,6 +11,7 @@
 #include <stdio.h>
 
 #include "BVMStack.h"
+#include "Common.h"
 
 #define BVM_REQ_BRANCH      -1
 #define BVM_SUCCESS       0
