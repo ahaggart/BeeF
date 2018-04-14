@@ -34,8 +34,9 @@ Functional Block Prototype:
         _[-]^           overwrite stacked one to zero
     ]                 
     _                   pull stacked value (one if cc was zero, zero ow)
+    >_<                 restore adjacent cell
     [                   skip block 2: skipped if cc was not zero
-        >_              restore adjacent cell
+        >
 * FUNCTION CODE GOES HERE *
         <[-]            zero cc (exit skip block 2)
     ]

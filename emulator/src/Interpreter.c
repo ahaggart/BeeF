@@ -46,12 +46,14 @@ int main(int argc, char** argv){
       break;
     }
     if((dref=info->d_cache[vm->pc * 2]) != PPD_REF_INVALID){
-      info->debug_data[dref]->execute(info->d_cache[vm->pc*2+1],info->debug_data[dref]->data);
+      if(info->debug_data[dref]->execute(info->d_cache[vm->pc*2+1],info->debug_data[dref]->data,vm)){
+        break;
+      }
     }
     step_counter++;
   }
 
-  const char* fmt = "Stopping Virtual Machine...\nCompleted %u steps in %fs\n";
+  const char* fmt = "* * * * *\nStopping Virtual Machine...\nCompleted %u steps in %fs\n";
   printf(fmt,step_counter,(float)(clock() - start)/CLOCKS_PER_SEC);
   dump_bvm(vm);
 

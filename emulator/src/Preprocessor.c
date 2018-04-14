@@ -1,16 +1,4 @@
 #include "Preprocessor.h"
-#include "BeeFVirtualMachine.h"
-
-PPD_RETURN_T ppd_console_out(SRC_LEN_T line,PPD_DATA_PTR_T data){
-    printf("Line %ld: %s",line,data);
-    return 0;
-}
-
-PPD_DATA_PTR_T ppd_make_console_out(char* dir){
-    size_t len = (strlen(dir)+1)*sizeof(char); //include newline
-    void* msg = malloc(len);
-    return strcpy(msg,dir);
-}
 
 PP_DEBUG_T* pp_make_debug_data(BF_INSN_T* dir){
     //parse the directive
@@ -25,11 +13,15 @@ PP_DEBUG_T* pp_make_debug_data(BF_INSN_T* dir){
 
     //type-specific parsing
     switch(dest->type){
+        case PP_DIR_EXIT:
+            ppd_make_exit(dest,dir+idx+1);
+            break;
+        case PP_DIR_PRINT_DATA_HEAD:
+            ppd_make_print_data_head(dest);
+            break;
         case PP_DIR_CONSOLE_OUT: //print to console 
         default: //default to printqing directive if we dont recognize it
-            dest->data = ppd_make_console_out(dir+idx+1);
-            // printf("%p: %s",dest,dest->data);
-            dest->execute = &ppd_console_out;
+            ppd_make_console_out(dest,dir+idx+1);
             break;
     }
 
@@ -98,7 +90,7 @@ void pp_dump_info(PP_INFO_T* info){
     printf(FMT_INDENT "Directives found: %ld\n",info->d_count);
     SRC_LEN_T i = 0;
     while(i<info->d_count){
-        printf("%ld: %p\n",i,info->debug_data[i]);
+        printf(FMT_INDENT FMT_INDENT "%ld: %p\n",i,info->debug_data[i]);
         i++;
     }
     printf(FMT_INDENT "Raw Instruction Data: ");
