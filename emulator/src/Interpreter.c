@@ -22,15 +22,15 @@ int main(int argc, char** argv){
     print_usage();
     return 1;
   }
-  BVM* vm = create_bvm(10);
+  BVM* vm = create_bvm(12); //big enough for the hello world program
   FILE* insns = fopen(argv[1],"r");
   FILE* prog = insns;
   PP_INFO_T* info = ppreprocessor(prog);
   pp_dump_info(info);
 
   printf("Starting Virtual Machine...\n* * * * *\n");
-  int running = 1;
   unsigned int step_counter = 0;
+  SRC_LEN_T dref;
   int status = 0;
   char insn;
   time_t start = clock();
@@ -44,6 +44,9 @@ int main(int argc, char** argv){
     }
     if(vm->pc >= info->i_count){
       break;
+    }
+    if((dref=info->d_cache[vm->pc * 2]) != PPD_REF_INVALID){
+      info->debug_data[dref]->execute(info->d_cache[vm->pc*2+1],info->debug_data[dref]->data);
     }
     step_counter++;
   }

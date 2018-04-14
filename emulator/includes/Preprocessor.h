@@ -26,12 +26,14 @@
 #define PPD_REF_INVALID -1
 #define PP_NO_BRANCH    -1
 
-#define PP_MK_DEBUG_BUF(sz) (PP_DEBUG_T*)malloc(sz*sizeof(PP_DEBUG_T))
+#define PPD_RETURN_T    int
+
+#define PP_MK_DEBUG_BUF(sz) (PP_DEBUG_T**)malloc(sz*sizeof(PP_DEBUG_T*))
 
 typedef struct {
     PPD_TYPE_T type;
-    CELL trigger;
     PPD_DATA_PTR_T data;
+    PPD_RETURN_T(*execute)(SRC_LEN_T,PPD_DATA_PTR_T);
 } Debug_Data;
 
 typedef struct {
@@ -40,8 +42,10 @@ typedef struct {
 
     BF_INSN_PTR_T i_cache;
     SRC_LEN_T* br_cache;
-    SRC_LEN_T* d_cache;
-    PP_DEBUG_T* debug_data;
+    SRC_LEN_T* d_cache; //double-wide, stores debug info ref and line number
+    PP_DEBUG_T** debug_data;
+
+    SRC_LEN_T line_count;
 } Preprocessor_Info;
 
 PP_INFO_T* ppreprocessor(FILE* src);
