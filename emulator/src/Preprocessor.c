@@ -12,16 +12,20 @@ PP_DEBUG_T* pp_make_debug_data(BF_INSN_T* dir){
     dest->type = atoi(dir+1);
 
     //type-specific parsing
+    dir += idx+1;
     switch(dest->type){
+        // case PP_DIR_FULL_STACK_LOCK:
+        //     ppd_make_full_stack_lock(dest,dir);
+        //     break;
         case PP_DIR_EXIT:
-            ppd_make_exit(dest,dir+idx+1);
+            ppd_make_exit(dest,dir);
             break;
         case PP_DIR_PRINT_DATA_HEAD:
             ppd_make_print_data_head(dest);
             break;
         case PP_DIR_CONSOLE_OUT: //print to console 
         default: //default to printqing directive if we dont recognize it
-            ppd_make_console_out(dest,dir+idx+1);
+            ppd_make_console_out(dest,dir);
             break;
     }
 

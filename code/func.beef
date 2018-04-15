@@ -1,11 +1,9 @@
-#0#  Running "test.beef"
+#0#  Running "func.beef"
 #-1# Hard exit condition
 #0# Functional Block 1
 #0# Functional Block 2
 #0# Functional Block 3
 #0# Functional Block 4
-#2# Lock Test
-
 ^+                           #0# Bootstrapping: push 0 (exit) to stack
                                         and set up control cell to enter at
                                         FID 1

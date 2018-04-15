@@ -1,6 +1,93 @@
 ===============================================================================
 Assembly Language Spec for BeeF machine code
 ===============================================================================
+Features:
+* namespaces
+    * The function block architecture used by BUTCHER allows for function
+        "namespaces" of up to 255 functions. Functions occupying a
+        namespace may call any other function by name within the namespace.
+    * Namespaces can be nested. Nested namespaces occupy one name in the parent
+        namespace. Functions in a child namespace can be accessed by functions
+        in the parent namespace by stacking the functions child-namespace ID
+        under the namespace's parent-namespace ID
+* modules
+    * Import code from other .cow files
+        * Pick functions from one namespace and add them the the root namespace
+        * Pick functions from one namespace and add them as a nested namespace
+    * preamble and postable
+        * Modules which specify a preamble and postamble can be run as
+            standalone programs.
+        * Preambles prep processor memory by allocating a control cell and
+            loading it with the desired "entry-point" function ID
+        * Postambles clean up processor memory before the program exits
+        * Preamble and Postable routines only run for the root module
+* functions and recursion
+* debugging
+    * automatic cell and stack locking
+        * generates error messages at runtime when code violates important 
+            conditions
+
+===============================================================================
+Syntax:
+* syntax is enforced with named curly-brace closures
+    * certain names a reserved keywords, and mark the closure as performing a
+        a special functionality
+module{
+    preamble{
+        call main
+    }
+    namespace{
+        main{
+            <+++>---^_
+            call next finish
+        }
+        next imports library{
+            finish{
+                exit
+            }
+        }
+        final{
+            exit
+        }
+    }
+    postamble{
+
+    }
+}
+* keywords:
+    * module:
+        * Defines a closure as a module. Module closures must contain a 
+            namespace closure, and may optionally contain preamble and postamble
+            closures, which make the module closure runnable. Modules may also
+            have a depends closure, which lists files containing modules to
+            import from
+    * preamble:
+        * Defines a closure as a module preamble. Preamble closures are run when
+            the parent module is run, and are expected to prepare memory then
+            call a function in the module namespace.
+    * postamble:
+        * Defines a closure as a module postamble. Modules running as the root
+            executable will run their postamble on exit. Postambles are
+            expected to clean up memory from execution.
+    * depends:
+        * Defines a closure as a dependency closure. Dependency closures list
+            files containing modules to import from
+    * namespace:
+        * Defines a closure as a namespace. Namespaces may contain up to 255
+            closures, which must have a namespace-unique name
+    * call:
+        * Marks another function within the namespace for execution
+        * Calls can stack, with the most recent call being executed first.
+    * imports: example IMPORTS library
+        * Binds a namespace from another module to a name in the current
+            current namespace. Functions in a bound namespace can be accessed by
+            calling the bound name followed by the function name
+        * names bound to a namespace can not be called without specifying abuse
+            function contained by the bound namespace
+
+* notes:
+    * 
+===============================================================================
 LANGUAGE ARCHITECTURE NOTES:
 * makes use of one "control cell" at position 0
 
@@ -65,7 +152,7 @@ Function Call Prototype:
 ===============================================================================
 Footer Block:
 * unpacks function call ID from stack
-    * function call ID of 255 will exit control loop and execute postamble
+    * function call ID of 0 will exit control loop and execute postamble
         * functions which fail to push new call IDs will "pop" to lower
             execution context (context exit)
         * lowest execution context pushed by preamble, exits program
