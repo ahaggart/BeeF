@@ -89,6 +89,20 @@ module{
     * if:
         * Defines a closure as a conditional block. Text within the closure will
             be executed if the value at the data head is nonzero
+    * else:
+        * Defines a closure as a conditional block. Must directly follow an if
+            closure. Text within the closure will be executed if the preceding
+            if closure is not executed
+    * bindings:
+        * Bindings are direct text substitutions, and are associated at the
+            module level. Bindings which appear in function code will be 
+            resolved to the symbols they are bound to.
+        * Bindings may contain function calls, but this practice is discouraged,
+            as COW function calls are not immediately invoked, and may cause 
+            confusion if they are packed into bound keywords
+    * binds: 
+        * Import bindings from another module. Function calls within the binding
+            are resolved to the proper scope.
 
 * notes:
     * 
