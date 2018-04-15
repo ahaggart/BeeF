@@ -11,21 +11,29 @@ import pprint as pp
 def print_usage():
     print("usage: butcher path/to/cow/file")
 
+# closure tags
 NAME_TAG = '_NAME_'
 PATH_TAG = '_PATH_'
 TEXT_TAG = '_TEXT_'
 
 CAPTURE_TAG = '_CAPTURE_'
 
-# function-only tags
-CALLS_TAG = '_CALLS_'
+# text-only tags
+
 
 # namespace-only tags
 BINDS_TAG = '_BINDS_'
-IMPORTS_TAG = '_IMPORTS'
+IMPORTS_TAG = '_IMPORTS_'
 
 # special tags
 MODULE_TAG = '_MODULE_'
+TREE_TAG = '_TREE_'
+LEAF_TAG = '_LEAF_'
+
+ALL_TAGS = {
+    NAME_TAG,PATH_TAG,TEXT_TAG, CAPTURE_TAG,BINDS_TAG,
+    IMPORTS_TAG,MODULE_TAG,LEAF_TAG,TREE_TAG
+}
 
 #keywords
 PREAMBLE_KEYWORD = 'preamble'
@@ -33,15 +41,22 @@ POSTAMBLE_KEYWORD = 'postamble'
 BINDINGS_KEYWORD = 'bindings'
 IMPORT_KEYWORD = 'depends'
 
-TEXT_KEYWORDS = {'if','else'}
+CALLING_KEYWORD = 'call'
+IF_KEYWORD = 'if'
+ELSE_KEYWORD = 'else'
+
+TEXT_KEYWORDS = {
+    IF_KEYWORD,
+    ELSE_KEYWORD,
+    CALLING_KEYWORD,
+}
 
 POST_BINDING_KEYWORDS = {}
 
-CALLING_CAPTURE = 'call'
 IMPORT_CAPTURE = 'imports'
 BINDING_CAPTURE = 'binds'
 PRE_BINDING_KEYWORDS = {
-    CALLING_CAPTURE:CALLS_TAG,
+    # CALLING_CAPTURE:CALLS_TAG,
     IMPORT_CAPTURE:IMPORTS_TAG,
     BINDING_CAPTURE:BINDS_TAG
 }
@@ -57,6 +72,24 @@ IMPORT_TYPE = 'import'
 TEXT_KEYWORD_TYPE = 'text_keyword'
 BINDING_TYPE = 'binding'
 BOUND_TYPE = 'bound'
+
+def insert_function(root,leaf):
+    unique = False
+    print("\n\n\ngot here")
+    path = leaf[PATH_TAG]
+    for node in path:
+        if node not in root: # insert the rest of the path
+            root[node] = {}
+            unique = True
+        root = root[node]
+    if not unique:
+        print("Error: Namespace collision in {}.".format(path))
+        exit(1)
+    root[LEAF_TAG] = leaf
+
+FUNCTION_FINDER = {
+    TREE_TAG:lambda path:insert_function(FUNCTION_FINDER,path),
+}
 
 # type resolver helper functions
 def resolve_root_child(name,parent):
@@ -105,51 +138,48 @@ SORTING_HAT = {
 
 def process_token(name,closure):
     name = str.join("",name).strip()
-    # TODO: embed captured text in structure
-    if name in TEXT_KEYWORDS:
-        closure[TEXT_TAG].append(name)
-    elif CAPTURE_TAG in closure:
-        if closure[CAPTURE_TAG] == IMPORT_CAPTURE:
-            closure[IMPORTS_TAG].append(name)
-        elif closure[CAPTURE_TAG] == BINDING_CAPTURE:
-            closure[BINDS_TAG].append(name)
-        else:
-            closure[CALLS_TAG][len(closure[CALLS_TAG])-1].append(name) # when does binding end
-    elif name in POST_BINDING_KEYWORDS:  # affects previous tokens
-        pass
-    elif name in PRE_BINDING_KEYWORDS: # affects following tokens
-        closure[CAPTURE_TAG] = name
-        if name == CALLING_CAPTURE:
-            if CALLS_TAG not in closure:
-                closure[CALLS_TAG] = []
-            closure[CALLS_TAG].append([])
-            closure[TEXT_TAG].append(name)
-        elif name == BINDING_CAPTURE:
-            closure[BINDS_TAG] = [] 
-        elif name == IMPORT_CAPTURE:
-            closure[IMPORTS_TAG] = []
-    else:
-        closure[TEXT_TAG].append(name)
+    closure[TEXT_TAG].append(name)
 
 def get_closure_type(name,parent):
     return SORTING_HAT[parent[TYPE_TAG]](name,parent)
-    
-def make_closure(name,parent):
+
+def consume_modifiers(closure,text):
+    capture_mode = 'none'
+    for token in text:
+        if token in PRE_BINDING_KEYWORDS:
+            capture_mode = PRE_BINDING_KEYWORDS[token]
+            closure[capture_mode] = []
+        elif capture_mode in closure:
+            closure[capture_mode].append(token)
+        else:
+            print("Error: Erroneous text in function signature: {}."
+                    .format(closure[PATH_TAG]))
+    while text: #clear the list
+        text.pop()
+
+
+def make_closure(parent):
     closure = {}
+    if parent[TYPE_TAG] == NAMESPACE_TYPE:
+        name = parent[TEXT_TAG].pop(0)
+        closure[PATH_TAG] = parent[PATH_TAG] + [name]
+        consume_modifiers(closure,parent[TEXT_TAG])
+    else: # other types do not have modifiers
+        name = parent[TEXT_TAG].pop()
+        closure[PATH_TAG] = parent[PATH_TAG] + [name]
+        
     closure[NAME_TAG] = name
     closure[TEXT_TAG] = []
     closure[TYPE_TAG] = get_closure_type(name,parent)
-    closure[PATH_TAG] = parent[PATH_TAG] + [name]
-    if closure[TYPE_TAG] == FUNCTION_TYPE:
-        closure[CALLS_TAG] = []
     if name in TEXT_KEYWORDS:
         parent[TEXT_TAG].append(closure)
-        closure[CALLS_TAG] = parent[CALLS_TAG]
     elif name in parent:
         print("Error: Namespace collision in {}.".format(parent[PATH_TAG]))
         exit(1)
     else:
         parent[name] = closure
+        if closure[TYPE_TAG] == FUNCTION_TYPE:
+            FUNCTION_FINDER[TREE_TAG](closure)
     return closure
 
 class Stack(list):
@@ -174,8 +204,7 @@ def parse_closures(source):
             break
         if char == '{':
             process_token(name,curr)
-            name = curr[TEXT_TAG].pop()
-            tmp = make_closure(name,curr)
+            tmp = make_closure(curr)
             stack.push(curr)
             curr = tmp
             name = []
@@ -207,16 +236,18 @@ def parse_file(file):
         print(dependency)
         # parse_file(dependency)
 
-    # resolve text tokens into code blobs
-        # resolve all bound tokens in namespace
-        # resolve bound function calls into absolute
-
-    # resolve inline closures into control structures
+    # resolve imported function paths
+        # transplant function tree branches onto root tree
 
     # resolve namespace names into IDs -- do some tree reduction magic?
 
     # resolve function calls and nesting
         # use PATH_TAG to find target table addresses
+
+    # resolve text tokens into code blobs
+        # resolve all bound tokens in namespace
+        # resolve bound function calls into absolute
+        # resolve inline closures into control structures
 
     # resolve function calls into stack operations
 
@@ -231,6 +262,7 @@ def main():
     # parse the base module
     base_module = parse_file(sys.argv[1])
     pp.pprint(base_module)
+    pp.pprint(FUNCTION_FINDER)
      
 
 

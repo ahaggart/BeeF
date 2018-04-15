@@ -78,6 +78,10 @@ module{
         * Defines a closure as a namespace. Namespaces may contain up to 255
             closures, which must have a namespace-unique name
     * call:
+        * Defines a closure as a function call, which contains a path fragment
+            to the desired function. The compiler will attempt to resolve
+            incomplete paths, but will error if an ambiguous function call ID is
+            supplied in the closure.
         * Marks another function within the namespace for execution
         * Calls can stack, with the most recent call being executed first.
     * imports: example IMPORTS library

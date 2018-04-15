@@ -1,18 +1,22 @@
 test_cow{
     depends{
-
+        library.cow 
+        other_module.cow
     }
     preamble{
 
     }
     namespace{
-        my_function imports library{
+        my_function imports library binds other_module{
             ADD MVR
             MVL SUB
             if{
                 XOR AND
-                call my_function
+                call{ my_function }
             }
+        }
+        my_other_function{
+            call{ my_function }
         }
     }
     bindings{
