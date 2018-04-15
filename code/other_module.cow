@@ -3,6 +3,8 @@ other_module{
 
     }
     bindings{
-        
+        XOR{
+            some exclusive or text
+        }
     }
 }

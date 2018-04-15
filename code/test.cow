@@ -1,22 +1,25 @@
 test_cow{
     depends{
-        library.cow 
-        other_module.cow
+        code/library.cow 
+        code/other_module.cow
     }
     preamble{
 
     }
     namespace{
-        my_function imports library binds other_module{
+        nested_namespace imports library binds other_module{
+            my_function{
+
+            }
+        }
+        my_other_function{
             ADD MVR
             MVL SUB
             if{
                 XOR AND
-                call{ my_function }
             }
-        }
-        my_other_function{
-            call{ my_function }
+            call{ nested_namespace library_func}
+            call{ nested_namespace my_function }
         }
     }
     bindings{

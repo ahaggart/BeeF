@@ -1,6 +1,8 @@
 library{
     namespace{
-
+        library_func{
+            
+        }
     }
     bindings{
         
