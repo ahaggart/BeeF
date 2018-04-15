@@ -114,7 +114,7 @@ def process_token(name,closure):
         elif closure[CAPTURE_TAG] == BINDING_CAPTURE:
             closure[BINDS_TAG].append(name)
         else:
-            closure[CALLS_TAG][0].append(name) # when does binding end
+            closure[CALLS_TAG][len(closure[CALLS_TAG])-1].append(name) # when does binding end
     elif name in POST_BINDING_KEYWORDS:  # affects previous tokens
         pass
     elif name in PRE_BINDING_KEYWORDS: # affects following tokens
@@ -122,7 +122,8 @@ def process_token(name,closure):
         if name == CALLING_CAPTURE:
             if CALLS_TAG not in closure:
                 closure[CALLS_TAG] = []
-            closure[CALLS_TAG].insert(0,[])
+            closure[CALLS_TAG].append([])
+            closure[TEXT_TAG].append(name)
         elif name == BINDING_CAPTURE:
             closure[BINDS_TAG] = [] 
         elif name == IMPORT_CAPTURE:
@@ -139,8 +140,11 @@ def make_closure(name,parent):
     closure[TEXT_TAG] = []
     closure[TYPE_TAG] = get_closure_type(name,parent)
     closure[PATH_TAG] = parent[PATH_TAG] + [name]
+    if closure[TYPE_TAG] == FUNCTION_TYPE:
+        closure[CALLS_TAG] = []
     if name in TEXT_KEYWORDS:
         parent[TEXT_TAG].append(closure)
+        closure[CALLS_TAG] = parent[CALLS_TAG]
     elif name in parent:
         print("Error: Namespace collision in {}.".format(parent[PATH_TAG]))
         exit(1)
@@ -203,6 +207,24 @@ def parse_file(file):
         print(dependency)
         # parse_file(dependency)
 
+    # resolve text tokens into code blobs
+        # resolve all bound tokens in namespace
+        # resolve bound function calls into absolute
+
+    # resolve inline closures into control structures
+
+    # resolve namespace names into IDs -- do some tree reduction magic?
+
+    # resolve function calls and nesting
+        # use PATH_TAG to find target table addresses
+
+    # resolve function calls into stack operations
+
+    # assemble function call table
+
+    # resolve function closures into countdown blocks
+
+    # resolve *amble closures into code blobs
     return module
 
 def main():
