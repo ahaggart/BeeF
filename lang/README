@@ -32,6 +32,8 @@ Syntax:
 * syntax is enforced with named curly-brace closures
     * certain names a reserved keywords, and mark the closure as performing a
         a special functionality
+    * keywords are only reserved if they would be valid, anywhere else they are
+        available for use (but this is discouraged)
 module{
     preamble{
         call main
@@ -84,6 +86,9 @@ module{
             calling the bound name followed by the function name
         * names bound to a namespace can not be called without specifying abuse
             function contained by the bound namespace
+    * if:
+        * Defines a closure as a conditional block. Text within the closure will
+            be executed if the value at the data head is nonzero
 
 * notes:
     * 

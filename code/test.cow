@@ -1,0 +1,21 @@
+module{
+    depends{
+        import.cow
+        library.cow
+    }
+    preamble{
+
+    }
+    namespace{
+        function{
+            ADD MVR
+            MVL SUB
+            if{
+                XOR AND
+            }
+        }
+    }
+    postamble{
+
+    }
+}
