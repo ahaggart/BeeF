@@ -4,10 +4,10 @@ test_cow{
         code/other_module.cow
     }
     preamble{
-
+        call{primary entry_function}
     }
-    namespace{
-        nested_namespace imports library binds other_module{
+    primary{
+        nested_namespace imports library other_module binds other_module{
             my_function{
                 ADD # commented text
                 call { my_function }
@@ -22,14 +22,15 @@ test_cow{
             call{ nested_namespace library_func}
             call{ nested_namespace my_function }
         }
+        entry_function{
+            call{my_other_function}
+        }
     }
     bindings{
         xor{
-            call {my_other_function}
         }
         not{
-            call  {nested_namespace library_func}
-            call{ nested_namespace my_function }
+
 
         }
     }
