@@ -265,15 +265,14 @@ def consume_modifiers(closure,text):
     while text: #clear the list
         text.pop()
 
-def module_add_export(module,export,export_type):
-    name = export[NAME_TAG]
-    subtree = Tree(name,export)
+def module_add_export(module,export_tree,export_type):
+    name = export_tree.data[NAME_TAG]
     if name in  module[EXPORTS_TAG][export_type]:
-        compiler_error("Duplicate binding",export[PATH_TAG])
-    module[EXPORTS_TAG][export_type][name] = subtree
+        compiler_error("Duplicate binding",export_tree.data[PATH_TAG])
+    module[EXPORTS_TAG][export_type][name] = export_tree
 
-def export_token(parent,export,export_type):
-    parent[ADD_EXPORT_TAG][export_type](export)
+def export_token(parent,export_tree,export_type):
+    parent[ADD_EXPORT_TAG][export_type](export_tree)
 
 def make_binding_exporter(parent):
     return (lambda binding: export_token(parent,binding,BINDING_EXPORT))
@@ -297,6 +296,11 @@ def make_closure(parent):
     closure[TEXT_TAG] = []
     closure[TYPE_TAG] = get_closure_type(closure,parent)
     
+    # rooted function call structuring
+    if closure[TYPE_TAG] == BOUND_TYPE or closure[TYPE_TAG] == FUNCTION_TYPE:
+        closure[CALLS_TAG] = []
+        closure[TREE_TAG] = Tree(name,closure)
+
     # rooted export structuring
     if closure[TYPE_TAG] == TEXT_KEYWORD_TYPE:
         closure[PATH_TAG].pop()
@@ -317,9 +321,9 @@ def make_closure(parent):
         closure[ADD_EXPORT_TAG] = {
             FUNCTION_EXPORT: (lambda function: 0),
         }
-        parent[ADD_EXPORT_TAG][FUNCTION_EXPORT](closure)
+        parent[ADD_EXPORT_TAG][FUNCTION_EXPORT](closure[TREE_TAG])
     elif closure[TYPE_TAG] == BOUND_TYPE:
-        parent[ADD_EXPORT_TAG][BINDING_EXPORT](closure)
+        parent[ADD_EXPORT_TAG][BINDING_EXPORT](closure[TREE_TAG])
     elif closure[TYPE_TAG] == MODULE_TYPE:
         closure[EXPORTS_TAG] = {
             BINDING_EXPORT:{},
@@ -329,10 +333,6 @@ def make_closure(parent):
             BINDING_EXPORT:lambda b:module_add_export(closure,b,BINDING_EXPORT),
             FUNCTION_EXPORT:lambda f:module_add_export(closure,f,FUNCTION_EXPORT),
         }
-
-    # rooted function call structuring
-    if closure[TYPE_TAG] == BOUND_TYPE or closure[TYPE_TAG] == FUNCTION_TYPE:
-        closure[CALLS_TAG] = []
 
     # text keyword closures remain in the text section
     if name in TEXT_KEYWORDS:
@@ -426,38 +426,45 @@ def main():
 
 def module_find_function(module,path):
     curr = module
-    unfinished = []
+    unfinished = None
     for node in path:
-        if not unfinished:
-            if node == module[NAME_TAG]:
-                continue
-            if node in curr:
-                curr = curr[node]
-            else:
-                unfinished.append(node)
+        if node == module[NAME_TAG]:
+            continue
+        if node in curr:
+            curr = curr[node]
         else:
-            unfinished.append(node)
+            unfinished = node
+            break
     if unfinished: # start looking in imported modules
         # unfinished calls are due to namespace imports
+        function_name = unfinished
         if curr[TYPE_TAG] != NAMESPACE_TYPE: 
             compiler_error("Malformed function call",path)
         if IMPORTS_TAG not in curr:
-            return False,False
+            compiler_error("Unable to find function for call",full_path)
+        module_imports = module[DEPENDS_KEYWORD][IMPORTS_TAG]
         for external in curr[IMPORTS_TAG]: # imports are in precedence order
-            module_imports = module[DEPENDS_KEYWORD][IMPORTS_TAG]
             if not external in module_imports:
-                compiler_error("Imported module not listed as dependency",curr[PATH_TAG])
+                compiler_error("Imported module not listed as dependency",[external])
 
             # search in the imported module
-            imported_function,containing_module = module_find_function(
-                module_imports[external],
-                [external] + [NAMESPACE_KEYWORD] + unfinished)
-            if imported_function: # found it
-                return imported_function,containing_module
-        compiler_error("Unable to find function for call",path)
-    return curr,module
+            exported_functions = module_imports[external][EXPORTS_TAG][FUNCTION_EXPORT]
+            if function_name not in exported_functions:
+                continue
 
-def graft_caller_dependencies(module,root,ignore=set()):
+            # return the dependency tree for the exported function
+            return exported_functions[function_name]
+            # imported_function,containing_module = module_find_function(
+            #     module_imports[external],
+            #     [external] + [NAMESPACE_KEYWORD] + unfinished)
+            # if imported_function: # found it
+            #     return imported_function,containing_module
+        compiler_error("Unable to find function for call",path)
+
+    # this is the function closure that matches the path
+    return curr[TREE_TAG]
+
+def graft_caller_dependencies(module,root,shallow=False,ignore=set()):
     closure = root.data
     for call in closure[CALLS_TAG]:
         full_path = build_function_call_path(call,closure[TYPE_TAG])
@@ -466,11 +473,9 @@ def graft_caller_dependencies(module,root,ignore=set()):
             return
         ignore.add(full_path_str)
         # print(call)
-        target_function,containing_module = module_find_function(module,full_path)
-        if not target_function:
-            compiler_error("Unable to find function for call",full_path)
-        dependency = Tree(target_function[NAME_TAG],target_function)
-        graft_caller_dependencies(containing_module,dependency,ignore)
+        target_dependencies = module_find_function(module,full_path)
+        if not shallow:
+            graft_caller_dependencies(containing_module,dependency,shallow,ignore)
         root.graft(dependency)
 
 def graft_imported_modules(module):
