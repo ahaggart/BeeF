@@ -9,7 +9,8 @@ test_cow{
     namespace{
         nested_namespace imports library binds other_module{
             my_function{
-
+                ADD # commented text
+                call { my_function }
             }
         }
         my_other_function{
@@ -24,9 +25,11 @@ test_cow{
     }
     bindings{
         xor{
-
+            call {my_other_function}
         }
         not{
+            call  {nested_namespace library_func}
+            call{ nested_namespace my_function }
 
         }
     }
