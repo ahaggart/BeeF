@@ -197,7 +197,7 @@ class Namespace():
             closure_name = namespace[closure][NAME_TAG]
             closure_type = namespace[closure][TYPE_TAG]
             if closure_type == FUNCTION_TYPE:
-                self.nodes[closure_name] = DependencyNode(namespace[closure])
+                self.nodes[closure_name] = DependencyNode(namespace[closure],self)
             elif closure_type == NAMESPACE_TYPE:
                 self.sinks[closure_name] = Namespace(namespace[closure])
 
@@ -207,13 +207,20 @@ class Namespace():
             self.sinks[sink].resolve_imports(module_imports)
         for module in self.imports:
             if module not in self.sinks:
+                if module not in module_imports:
+                    compiler_error("Could not find module",[module])
                 self.sinks[module] = module_imports[module]
+
+    def link_dependencies(self):
+        self.link_internal()
+        self.link_nested()
 
     # resolve internal dependencies    
     def link_internal(self):
         for sink in self.sinks:
             self.sinks[sink].link_internal()
         for node in self.nodes:
+            self.nodes[node].reset_net_dependents()
             self.nodes[node].initial_dep_recurse()
         for node in self.nodes:
             self.nodes[node].deep_dep_recurse(self.nodes)
@@ -230,48 +237,118 @@ class DependencyLayer():
         self.name      = namespace.name
         self.namespace = namespace
         self.sublayers = {}
+        self.resolved  = False
         self.linked    = False
         self.compiled  = False
+
+        self.id = -1
+
+        # link the namespace dependencies
+        self.namespace.link_dependencies()
         pass
 
     # given a resolved Namespace and a set of tokens required, compile a
     # dependency layer
     def resolve(self,entry_points):
+        if not entry_points: # we dont need this layer
+            return
         # merge internal token sets of entry points
         internal_token_layer = set()
         for dependency in entry_points:
             if len(dependency) != 1: # only base namespace is visible, no nesting
-                compiler_error("Invalid preamble function call",dependency)
-            internal_token_layer.update(self.namespace.nodes[dependency[0]].dependencies)
+                compiler_error("Invalid entry point function call",dependency)
+            dependency = dependency[0]
+            if dependency not in self.namespace.nodes:
+                compiler_error("Unable to find entry point",[dependency])
+            internal_token_layer.add(dependency)
+            internal_token_layer.update(self.namespace.nodes[dependency].dependencies)
 
         # for each imported namespace, merge dependency token sets of 
         # tokens in merged internal token set
-        # self.namespace.link_nested()
+        self.layer_deps = {}
+        print("{} token layer: {}".format(self.name,internal_token_layer))
         for sink in self.namespace.sinks:
             self.sublayers[sink] = DependencyLayer(self.namespace.sinks[sink])
+            sink_deps = set()
+            for token in internal_token_layer:
+                # print("{} nested deps: {}".format(token,self.namespace.nodes[token].nested_dependencies))
+                if sink in self.namespace.nodes[token].nested_dependencies:
+                    sink_deps.update(self.namespace.nodes[token].nested_dependencies[sink])
+            self.layer_deps[sink] = sink_deps
+            # print("Compiling dependencies on {}: {}".format(sink,sink_deps))
+            
+        # pp.pprint(self.layer_deps)
 
         # for each imported namespace, use its finalized dependency token set
         # to compile it into a dependency layer, add it as a child of this layer
+        removal_candidates = []
+        for layer in self.sublayers:
+            if not self.layer_deps[layer]:
+                removal_candidates.append(layer)
+                continue
+            layer_entry_points = [[token] for token in self.layer_deps[layer]]
+            print("Entry points to {} -> {}".format(layer,layer_entry_points))
+            self.sublayers[layer].resolve(layer_entry_points)
 
-            # self.sublayers[sink].resolve()
-        pass
+        # clean up unused sublayers
+        for layer in removal_candidates:
+            del self.sublayers[layer]
+        
+        self.resolved = True
+
+        self.resolved_token_layer = list(internal_token_layer)
+        
+        return
     
     def link(self):
-        # recursively link() all sublayers
+        if not self.resolved:
+            compiler_error("Attempted to link unresolved layer",[self.name])
 
         # organize this dependency layer into an ordered list, using some
-        # deterministic optimization critereon
+        # deterministic optimization critereon -> net incoming/outgoing dpes
             # imported code at the bottom, since it has no dependencies on 
             # importing code
             # nested namespaces at the bottom too, for the same reason
+        resolved_node_layer = [self.namespace.nodes[node] for node in self.resolved_token_layer]
+        resolved_node_layer.sort(DependencyNode.sort)
+        fid = 1
+        for node in resolved_node_layer:
+            # compute function call IDs from list order
+            node.fid = fid
+            fid = fid + 1
+            print("{} ID: {}".format(node.name,node.fid))
 
-        # compute function call IDs from ordered list and sublayer maps
+        # link local namespace function calls
+        for node in resolved_node_layer:
+            node.link_local(self)
 
-        # expand function calls into FCID stack operations
+        # use dependency tokens to grab refs to DependencyNode objects
+        # recursively link() all sublayers
+        layer_list = []
+        layer_id = fid
+        for layer in self.sublayers:
+            self.sublayers[layer].link()
+            self.sublayers[layer].id = layer_id # set after linking, so that local-scope is always -1
+            for node in resolved_node_layer:
+                node.link(self.sublayers[layer])
+            layer_list.append(self.sublayers[layer])
+            layer_id = layer_id + 1
+
+        self.resolved_namespace_layer = resolved_node_layer + layer_list
+
+        for node in resolved_node_layer:
+            print("{} links: {}".format(node.name,node.links))
+
+        self.linked = True
         pass
 
     def build(self):
-        # recursively build sublayers
+        if not self.linked:
+            compiler_error("Cannot build unlinked layer",[self.name])
+        
+        # recursively build subunits
+        for node in self.resolved_namespace_layer:
+            node.build()
 
         # expand function text bindings into assembly
 
@@ -286,17 +363,31 @@ class DependencyLayer():
 
 
 class DependencyNode():
-    def __init__(self,function):
+    def __init__(self,function,container):
         # extract core information from function closure
         self.name  = function[NAME_TAG]
-        self.text  = function[TEXT_TAG]
-        self.calls = function[CALLS_TAG]
+        self.text  = function[TEXT_TAG][:]
+        self.calls = function[CALLS_TAG][:]
+        self.net_dependent = 0
+        self.fid = -1
+        self.container = container
+        self.links = [(-1,-1)]*len(self.calls)
+
+    def reset_net_dependents(self):
+        self.net_dependent = 0
+
+    def add_dependent(self):
+        self.net_dependent = self.net_dependent + 1
+
+    def remove_dependent(self):
+        self.net_dependent = self.net_dependent - 1
 
     def initial_dep_recurse(self):
         self.dependencies = set()
         for i in range(len(self.calls)-1,-1,-1):
             if len(self.calls[i]) == 1: # in-scope function call
-                target = self.calls.pop(i)[0]
+                target = self.calls[i][0]
+                self.remove_dependent()
                 self.dependencies.add(target)
 
     def deep_dep_recurse(self,nodes):
@@ -306,26 +397,109 @@ class DependencyNode():
             self.do_dep_recurse(nodes)
             old_size = new_size
             new_size = len(self.dependencies)
-        pp.pprint(self.dependencies)
+        # pp.pprint(self.dependencies)
 
 
     def do_dep_recurse(self,nodes):
         for node in self.dependencies.copy():
-            self.dependencies.update(nodes[node].dependencies)
+            new_deps =  nodes[node].dependencies - self.dependencies
+            self.dependencies.update(new_deps)
+            for dep in new_deps:
+                nodes[dep].add_dependent()
 
     def initial_nested_recurse(self):
         self.nested_dependencies = {}
+        # print("{} nested dependencies: ".format(self.name))
         for i in range(len(self.calls)-1,-1,-1):
             if len(self.calls[i]) == 2: # nested-scope function call
-                target = self.calls.pop(i)
+                # print(self.calls[i])
+                target = self.calls[i]
                 if not target[0] in self.nested_dependencies:
                     self.nested_dependencies[target[0]] = set()
                 self.nested_dependencies[target[0]].add(target[1])
-        pp.pprint(self.nested_dependencies)
+        # pp.pprint(self.nested_dependencies)
+        return 
 
-class DependencyLink():
-    def __init__(self,name):
-        pass
+    # grab refs to nodes in this layer
+    def link(self,layer):
+        if layer.name == self.container.name:
+            self.link_local(layer)
+            return
+
+        for i in range(0,len(self.calls)):
+            call = self.calls[i]
+            if call[0] == layer.name:
+                self.links[i] = (layer.id,layer.namespace.nodes[call[1]].fid)
+        return
+
+    def link_local(self,layer):
+        for i in range(0,len(self.calls)):
+            if len(self.calls[i]) == 1:
+                call = self.calls[i][0]
+                self.links[i] = (layer.id,layer.namespace.nodes[call].fid)
+        return
+    
+    def sort(self,other):
+        if self.net_dependent > other.net_dependent:
+            return 1
+        elif other.net_dependent > self.net_dependent:
+            return -1
+        return 0
+
+    def build(self):
+        # keep things divided by tokens, for now
+        self.raw_text = ["<_>"] # pop the null cid from the stack
+        call_counter = 0
+        old_cid = 0
+        for token in self.text:
+            call_counter,old_cid = self.recursive_build(self.raw_text,token,call_counter,old_cid)
+        print(self.name+": "+str.join("",self.raw_text))
+        return
+
+    def recursive_build(self,build_list,token,call_counter,old_cid):
+        if type(token) is str:
+            self.raw_text.append(token) 
+        else: # inline keyword
+            if token[NAME_TAG] == CALLING_KEYWORD:
+                link = self.links[call_counter]
+                link_text,old_cid = self.expand_link(link,old_cid)
+                build_list.append(link_text)
+                call_counter = call_counter + 1
+            else:
+                for tk in token[TEXT_TAG]:
+                    call_counter,old_cid = self.recursive_build(build_list,tk,call_counter,old_cid)
+
+        return call_counter,old_cid
+
+    def expand_link(self,link,old_cid):
+        # assume we are adjacent to control cell
+        function_call = ["<"] # move into control cell
+        if link[0] == -1: # local scope
+            cid = link[1] # get the function call id directly
+            function_call.append(adjust_cell_value(old_cid,cid))
+            function_call.append("^")
+        else:             # nested scope
+            cid = link[0] # get the scope call id
+            fid = link[1]
+            # push a value to index into the nested scope
+            function_call.append(adjust_cell_value(old_cid,fid))
+            function_call.append("^")
+
+            # push a value to index into the function
+            # id_diff = fid - cid
+            # adjc = "+" if id_diff < 0 else "-"
+            # function_call.append((adjc*abs(id_diff)) + "^")
+            function_call.append(adjust_cell_value(cid,fid))
+            function_call.append("^")
+
+            cid = fid # so we can return the value we just pushed
+
+        function_call.append(">") # move back to starting cell
+        return  str.join("",function_call),cid
+
+def adjust_cell_value(curr_value,target_value):
+    return "x"
+
 
 def indented_print(name,indent):
     print("{}{}".format(
@@ -547,8 +721,6 @@ def parse_file(file):
     base_namespace = Namespace(module,closure_type=MODULE_TYPE)
     if DEPENDS_KEYWORD in module:
         base_namespace.resolve_imports(module[DEPENDS_KEYWORD][IMPORTS_TAG])
-    # base_namespace.link_internal()
-
     module[EXPORTS_TAG] = base_namespace
 
     return module
@@ -558,11 +730,11 @@ def main():
     base_module = parse_file(sys.argv[1])
     # base_module[EXPORTS_TAG][FUNCTION_EXPORT].print_contents()
     pp.pprint(base_module)
-    base_module[EXPORTS_TAG].link_internal()
-    base_module[EXPORTS_TAG].link_nested()
     base_layer = DependencyLayer(base_module[EXPORTS_TAG])
 
     base_layer.resolve(base_module[PREAMBLE_KEYWORD][CALLS_TAG])
+    base_layer.link()
+    base_layer.build()
 
 
     # collect dependencies from dependency tree

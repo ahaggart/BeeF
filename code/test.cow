@@ -9,7 +9,7 @@ test_cow{
     namespace{
         nested_namespace imports library other_module{
             my_function{
-                ADD # commented text
+                # commented text
                 call { my_function }
                 call {nested_function_2}
             }
@@ -22,10 +22,8 @@ test_cow{
             }
         }
         my_other_function{
-            ADD MVR
-            MVL SUB
             if{
-                XOR AND
+                
             }
             call{ nested_namespace my_function }
         }
@@ -42,6 +40,7 @@ test_cow{
         }
         function5{
             call{entry_function}
+            call{nested_namespace nested_function_1}
         }
     }
     bindings{
