@@ -1,7 +1,16 @@
 library{
     namespace{
         library_func{
+            call{libf1}
+        }
+        libf1{
 
+        }
+        libf2{
+            call{libf3}
+        }
+        libf3{
+            call{libf2}
         }
     }
     bindings{

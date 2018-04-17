@@ -1,4 +1,6 @@
 #!/usr/bin/env python2.7
+from __future__ import print_function
+
 """
 Alexander Haggart, 4/14/18
 
@@ -59,6 +61,7 @@ def print_usage():
 NAME_TAG        = '_NAME_'
 PATH_TAG        = '_PATH_'
 TEXT_TAG        = '_TEXT_'
+TYPE_TAG = '_TYPE_'
 
 # namespace and binding tags
 CAPTURE_TAG     = '_CAPTURE_'
@@ -84,7 +87,7 @@ BINDING_EXPORT  = '_BINDING_'
 FINALIZE_TAG = '_FINALIZE_'
 
 ALL_TAGS = {
-    NAME_TAG,PATH_TAG,TEXT_TAG, CAPTURE_TAG,BINDS_TAG,
+    NAME_TAG,PATH_TAG,TEXT_TAG, CAPTURE_TAG,BINDS_TAG,TYPE_TAG,
     IMPORTS_TAG,MODULE_TAG,LEAF_TAG,TREE_TAG,BUILDER_TAG,
     CALLS_TAG,ADD_CALL_TAG,EXPORTS_TAG,ADD_EXPORT_TAG,
     FINALIZE_TAG
@@ -116,8 +119,6 @@ PRE_BINDING_KEYWORDS = {
     IMPORT_CAPTURE:IMPORTS_TAG,
     BINDING_CAPTURE:BINDS_TAG
 }
-
-TYPE_TAG = '_TYPE_'
 
 # closure types -- specify closure purpose, stored as a TYPE_TAG
 ROOT_TYPE           = 'root'
@@ -161,17 +162,36 @@ COMMENT_DELIM = '#'
 # }
 
 class Namespace():
-    def __init__(self,namespace):
-        # pass in the root module namespace
+    def __init__(self,namespace,closure_type=NAMESPACE_TYPE):
+        # pass in the root module
+        self.name = namespace[NAME_TAG]
         self.nodes = {}     # functions in this namespace
         self.sinks = {}     # nested namespaces visible in this scope
         self.imports = []   # imported namespaces
         self.binds = []     # imported bindings
+        if closure_type == NAMESPACE_TYPE:
+            self.ingest_namespace(namespace)
+        else:
+            self.ingest_module(namespace)
+
+    def ingest_module(self,module):
+        for closure in module:
+            if closure == BINDINGS_KEYWORD: # extract from imported modules
+                self.binds = [module[closure][binding] for binding in module[closure] if binding not in ALL_TAGS]
+            elif closure in ALL_TAGS: # skip any other tags
+                continue
+            elif closure == NAMESPACE_KEYWORD:
+                self.ingest_namespace(module[closure])
+                return
+
+    def ingest_namespace(self,namespace):
         for closure in namespace:
             if closure == IMPORTS_TAG: # extract from imported modules
                 self.imports = namespace[closure]
+                continue
             elif closure == BINDS_TAG: # extract from imported modules
                 self.binds   = namespace[closure]
+                continue
             elif closure in ALL_TAGS: # skip any other tags
                 continue
             closure_name = namespace[closure][NAME_TAG]
@@ -183,38 +203,57 @@ class Namespace():
 
     # carry out the actual namespace importing    
     def resolve_imports(self,module_imports):
+        for sink in self.sinks:
+            self.sinks[sink].resolve_imports(module_imports)
         for module in self.imports:
             if module not in self.sinks:
                 self.sinks[module] = module_imports[module]
 
     # resolve internal dependencies    
     def link_internal(self):
+        for sink in self.sinks:
+            self.sinks[sink].link_internal()
         for node in self.nodes:
-            node.initial_dep_recurse()
+            self.nodes[node].initial_dep_recurse()
         for node in self.nodes:
-            node.deep_dep_recurse()
+            self.nodes[node].deep_dep_recurse(self.nodes)
 
     # link with nested namespaces
     def link_nested(self):
-        pass
-
+        for sink in self.sinks:
+            self.sinks[sink].link_nested()
+        for node in self.nodes:
+            self.nodes[node].initial_nested_recurse()
+    
 class DependencyLayer():
-    def __init__(self,name):
-        self.name      = name
+    def __init__(self,namespace):
+        self.name      = namespace.name
+        self.namespace = namespace
+        self.sublayers = {}
         self.linked    = False
         self.compiled  = False
         pass
 
     # given a resolved Namespace and a set of tokens required, compile a
     # dependency layer
-    def resolve(self,namespace,entry_points):
+    def resolve(self,entry_points):
         # merge internal token sets of entry points
+        internal_token_layer = set()
+        for dependency in entry_points:
+            if len(dependency) != 1: # only base namespace is visible, no nesting
+                compiler_error("Invalid preamble function call",dependency)
+            internal_token_layer.update(self.namespace.nodes[dependency[0]].dependencies)
 
         # for each imported namespace, merge dependency token sets of 
         # tokens in merged internal token set
+        # self.namespace.link_nested()
+        for sink in self.namespace.sinks:
+            self.sublayers[sink] = DependencyLayer(self.namespace.sinks[sink])
 
         # for each imported namespace, use its finalized dependency token set
         # to compile it into a dependency layer, add it as a child of this layer
+
+            # self.sublayers[sink].resolve()
         pass
     
     def link(self):
@@ -255,9 +294,9 @@ class DependencyNode():
 
     def initial_dep_recurse(self):
         self.dependencies = set()
-        for i in range(len(self.calls)-1,0,-1):
-            if len(self.calls[i][TEXT_TAG]) == 1: # in-scope function call
-                target = self.calls.pop(i)
+        for i in range(len(self.calls)-1,-1,-1):
+            if len(self.calls[i]) == 1: # in-scope function call
+                target = self.calls.pop(i)[0]
                 self.dependencies.add(target)
 
     def deep_dep_recurse(self,nodes):
@@ -267,190 +306,32 @@ class DependencyNode():
             self.do_dep_recurse(nodes)
             old_size = new_size
             new_size = len(self.dependencies)
+        pp.pprint(self.dependencies)
 
 
     def do_dep_recurse(self,nodes):
         for node in self.dependencies.copy():
             self.dependencies.update(nodes[node].dependencies)
 
-                
+    def initial_nested_recurse(self):
+        self.nested_dependencies = {}
+        for i in range(len(self.calls)-1,-1,-1):
+            if len(self.calls[i]) == 2: # nested-scope function call
+                target = self.calls.pop(i)
+                if not target[0] in self.nested_dependencies:
+                    self.nested_dependencies[target[0]] = set()
+                self.nested_dependencies[target[0]].add(target[1])
+        pp.pprint(self.nested_dependencies)
 
 class DependencyLink():
     def __init__(self,name):
         pass
-
-class Tree(): # for organizing dependencies
-    def __init__(self,name,data):
-        self.name = name
-        self.data = data
-        self.children = {}
-    def graft(self,branch):
-        # prevent cyclic grafts
-        branch = branch.prune(self.name)
-        self.children[branch.name] = branch
-    def prune(self,name):
-        deep_copy = Tree(self.name,self.data)
-        for child in self.children:
-            if self.children[child].name != name:
-                deep_copy.graft(self.children[child].prune(name))
-        return deep_copy
-    def display(self,indent=0):
-        print("{}{}".format(
-            str.join('',['  ' for i in range(0,indent)]),
-            self.name
-        ))
-        for child in self.children:
-            self.children[child].display(indent+1)
-
-def upgrade_layer_entry(self,name):
-    del self.contents[name]
-    layer = DependencyLayer(name,self)
-    return layer
 
 def indented_print(name,indent):
     print("{}{}".format(
         str.join('',['  ' for i in range(0,indent)]),
         name
     ))
-
-class DependencyLayer():
-    def __init__(self,name,parent=None):
-        self.contents = {}
-        self.name = name
-        self.imports = []
-        if parent:
-            self.trace = parent.trace + [name]
-            parent.insert(self)
-        else:
-            self.trace = [name]
-    
-    # find an item in this layer's contents
-    def find(self,item):
-        if item in self.contents:
-            return self.contents[item]
-        self.print_contents()
-        compiler_error("Could not resolve dependency",[item])
-
-    def insert(self,item):
-        if item.name in self.contents and self.contents[item.name]:
-            compiler_error("Namespace collision",item.trace)
-        self.contents[item.name] = item
-        return (lambda: upgrade_layer_entry(self,item.name))
-    
-
-    # compile dependencies for a set of this layer's contents
-    def collect(self,items):
-        print("Collecting dependencies from: {}".format(self.trace))
-        local_scope = {self.name:set()}
-        traversed = set()
-
-        for node in self.contents:
-            if not self.contents[node].is_function():
-                local_scope[node] = set()
-
-        for node in items:
-            if node not in self.contents: # check imported libs
-                for lib in self.imports:
-                    if node in self.content[lib][NAMESPACE_KEYWORD]:
-                        continue 
-                compiler_error("Unable to resolve dependency",[node])
-            if self.contents[node].is_function():
-                self.contents[node].add_deps(local_scope)
-                traversed.add(node)
-        
-        new_deps = local_scope[self.name] - traversed
-        while new_deps:
-            for node in new_deps:
-                if self.contents[node].is_function():
-                    self.contents[node].add_deps(local_scope)
-                    traversed.add(node)
-            new_deps = local_scope[self.name] - traversed
-
-        print("Dependencies found at this scope:")
-        pp.pprint(local_scope)
-
-        for namespace in local_scope:
-            if namespace != self.name:
-                local_scope[namespace] = self.contents[namespace].collect(local_scope[namespace])
-            
-        return local_scope
-
-
-    # traverse this layer and assign future contents
-    def complete(self,external):
-        for item in self.contents:
-            if not self.contents[item] and item in external:
-                self.contents[item] = external[item]
-            else:
-                self.contents[item].complete(external)
-
-    def add_future_contents(self,name):
-        if name in self.contents:
-            compiler_error("Namespace collision",self.trace+[item])
-        self.contents[name] = None
-        self.imports.insert(0,name)
-
-    def print_contents(self,indent=0):
-        indented_print(self.name,indent)
-        for item in self.contents:
-            if self.contents[item]:
-                self.contents[item].print_contents(indent+1)
-            else: # unfinished future items
-                indented_print(item,indent+1)
-
-    def is_function(self):
-        return False
-
-class LazyDependencyNode():
-    def __init__(self,name,container,trace):
-        self.siblings = {}
-        self.container = container 
-        self.dependencies = {self.container.name:set()}
-        self.trace = trace
-        self.name = name
-        self.upgrade_hook = self.container.insert(self) # trees con be updated into containers
-
-    # collect this node's dependencies
-    def collect(self,scope):
-        if items[0]:
-            compiler_error("Indexing into non-namespace",self.trace+items)
-        # add this node to the current scope
-        return [self.siblings[sibling][:] for sibling in self.siblings]
-
-    def add_deps(self,local_scope):
-        for dependency in self.dependencies:
-            if dependency not in local_scope:
-                compiler_error("Unable to locate dependency",self.trace+[dependency])
-            local_scope[dependency].update(self.dependencies[dependency])
-        local_scope[self.container.name].update({self.name})
-
-    def link(self,sibling):
-        if not sibling:
-            compiler_error("Empty function call path",self.trace)
-        if len(sibling) == 1:
-            if sibling[0] == self.name:
-                return
-            self.dependencies[self.container.name].add(sibling[0])
-        else:
-            if sibling[0] not in self.dependencies:
-                self.dependencies[sibling[0]] = set()
-            self.dependencies[sibling[0]].add(sibling[1])
-        print("Linking: {} -> {}".format(self.trace,sibling))
-
-    def complete(self,external):
-        pass
-
-    def upgrade_to_layer(self):
-        return self.upgrade_hook()
-
-    def print_contents(self,indent=0):
-        indented_print(self.name,indent)
-        for sibling in self.siblings:
-            indented_print(str.join(" ",self.siblings[sibling]),indent+1)
-
-    def is_function(self):
-        return True
-
 
 class Stack(list): # for being pedantic
     def push(self,x): #ocd
@@ -534,7 +415,7 @@ SORTING_HAT = {
 
 def upgrade_function_to_namespace(closure):
     closure[TYPE_TAG] = NAMESPACE_TYPE
-    closure[TREE_TAG] = closure[TREE_TAG].upgrade_to_layer()
+    # closure[TREE_TAG] = closure[TREE_TAG].upgrade_to_layer()
 
 def strip_module_name(name):
     return name.split('/')[-1].split(".")[0]
@@ -542,13 +423,12 @@ def strip_module_name(name):
 def process_token(name,closure):
     name = str.join("",name).strip()
     if closure[TYPE_TAG] == IMPORT_TYPE:
-        exported_trees = parse_file(name)[EXPORTS_TAG]
+        exported_namespace = parse_file(name)[EXPORTS_TAG]
         external_module_name = strip_module_name(name)
         module_imports = closure[IMPORTS_TAG]
         # print(closure[PATH_TAG])
         # print(module_imports)
-        module_imports[FUNCTION_EXPORT][external_module_name] = exported_trees[FUNCTION_EXPORT]
-        module_imports[BINDING_EXPORT] [external_module_name] = exported_trees[BINDING_EXPORT]
+        module_imports[external_module_name] = exported_namespace
         return
     closure[TEXT_TAG].append(name)
 
@@ -567,8 +447,8 @@ def consume_modifiers(closure,text):
                 upgrade_function_to_namespace(closure)
         elif capture_mode in closure:
             closure[capture_mode].insert(0,token) # prefer modules imported "later"
-            if capture_mode == IMPORTS_TAG:
-                closure[TREE_TAG].add_future_contents(token)
+            # if capture_mode == IMPORTS_TAG:
+            #     closure[TREE_TAG].add_future_contents(token)
         else:
             compiler_error(
                 "Erroneous text in function signature",
@@ -576,8 +456,8 @@ def consume_modifiers(closure,text):
     while text: #clear the list
         text.pop()
 
-def link_parent_closure(parent,child):
-    parent[TREE_TAG].link(child[TEXT_TAG])
+# def link_parent_closure(parent,child):
+#     parent[TREE_TAG].link(child[TEXT_TAG])
 
 def make_closure(parent):
     closure = {}
@@ -586,10 +466,6 @@ def make_closure(parent):
     if parent[TYPE_TAG] == NAMESPACE_TYPE:
         name = parent[TEXT_TAG].pop(0)
         closure[PATH_TAG] = parent[PATH_TAG] + [name]
-        closure[TREE_TAG] = LazyDependencyNode(
-                                name,
-                                parent[TREE_TAG],
-                                closure[PATH_TAG])
         consume_modifiers(closure,parent[TEXT_TAG])
     else: # other types do not have modifiers
         name = parent[TEXT_TAG].pop()
@@ -598,35 +474,24 @@ def make_closure(parent):
     closure[NAME_TAG] = name
     closure[TEXT_TAG] = []
     closure[TYPE_TAG] = get_closure_type(closure,parent)
-
-    if closure[TYPE_TAG] == NAMESPACE_TYPE and parent[TYPE_TAG] == MODULE_TYPE:
-        closure[TREE_TAG] = DependencyLayer(name,parent[EXPORTS_TAG][FUNCTION_EXPORT])
-    elif closure[TYPE_TAG] == PREAMBLE_TYPE: # this is temprorary
-        closure[TREE_TAG] = LazyDependencyNode(name,parent[EXPORTS_TAG][FUNCTION_EXPORT],closure[PATH_TAG])
-
     closure[FINALIZE_TAG] = (lambda: 0) # do nothing
     
     # type-specific tags
-    if closure[TYPE_TAG] == BOUND_TYPE or closure[TYPE_TAG] == FUNCTION_TYPE:
+    if closure[TYPE_TAG] == BOUND_TYPE or closure[TYPE_TAG] == FUNCTION_TYPE or closure[TYPE_TAG] == PREAMBLE_TYPE:
         closure[CALLS_TAG] = []
     elif closure[TYPE_TAG] == IMPORT_TYPE:
-        closure[IMPORTS_TAG] = {
-            FUNCTION_EXPORT:{},
-            BINDING_EXPORT:{},
-        }
+        closure[IMPORTS_TAG] = {}
     elif closure[TYPE_TAG] == MODULE_TYPE:
-        closure[EXPORTS_TAG] = {
-            FUNCTION_EXPORT: DependencyLayer(name),
-            BINDING_EXPORT:  DependencyLayer(name),
-        }
+        closure[EXPORTS_TAG] = None
 
 
     # text keyword closures remain in the text section
     if name in TEXT_KEYWORDS:
         parent[TEXT_TAG].append(closure)
+        closure[CALLS_TAG] = parent[CALLS_TAG]
         if name == CALLING_KEYWORD:
-            # parent[CALLS_TAG].append(closure)
-            closure[FINALIZE_TAG] = lambda: link_parent_closure(parent,closure)
+            parent[CALLS_TAG].append(closure[TEXT_TAG])
+            # closure[FINALIZE_TAG] = (lambda: print(parent[CALLS_TAG]))
     elif name in parent:
         compiler_error("Namespace collision",parent[PATH_TAG])
     else:
@@ -679,40 +544,28 @@ def parse_file(file):
     with open(file) as source:
         module = parse_closures(source)[MODULE_TAG]
 
-    # resolve imports into dependency tree
+    base_namespace = Namespace(module,closure_type=MODULE_TYPE)
     if DEPENDS_KEYWORD in module:
-        function_imports = module[DEPENDS_KEYWORD][IMPORTS_TAG][FUNCTION_EXPORT]
-        module[EXPORTS_TAG][FUNCTION_EXPORT].complete(function_imports)
-        
+        base_namespace.resolve_imports(module[DEPENDS_KEYWORD][IMPORTS_TAG])
+    # base_namespace.link_internal()
 
-    # resolve bindings
-        # resolve function calls within bindings
-    # for binding in module[EXPORTS_TAG][BINDING_EXPORT]:
-    #     graft_caller_dependencies(module,module[EXPORTS_TAG][BINDING_EXPORT][binding])
-    #     module[EXPORTS_TAG][BINDING_EXPORT][binding].display()
-    # resolve imported function paths
-        # graft function tree branches onto root tree
-    # graft_imported_modules(module)
-    # expand_function_paths(module)
-
-    # resolve function calls and nesting
-        # use PATH_TAG to find target table addresses
+    module[EXPORTS_TAG] = base_namespace
 
     return module
 
 def main():
     # parse the base module
     base_module = parse_file(sys.argv[1])
-    base_module[EXPORTS_TAG][FUNCTION_EXPORT].print_contents()
+    # base_module[EXPORTS_TAG][FUNCTION_EXPORT].print_contents()
     pp.pprint(base_module)
+    base_module[EXPORTS_TAG].link_internal()
+    base_module[EXPORTS_TAG].link_nested()
+    base_layer = DependencyLayer(base_module[EXPORTS_TAG])
+
+    base_layer.resolve(base_module[PREAMBLE_KEYWORD][CALLS_TAG])
+
 
     # collect dependencies from dependency tree
-    root_dependency = base_module[PREAMBLE_KEYWORD][TREE_TAG]
-    print(vars(root_dependency))
-    # base_module[NAMESPACE_KEYWORD][TREE_TAG].collect(root_dependency)
-    print("Base Module Dependency Tree:")
-    print(root_dependency.dependencies[base_module[NAME_TAG]])
-    print(base_module[NAMESPACE_KEYWORD][TREE_TAG].collect(root_dependency.dependencies[base_module[NAME_TAG]]))
 
     # traverse the tree and link it to the function objects
 
@@ -729,120 +582,7 @@ def main():
 
     # resolve function closures into countdown blocks
 
-    # resolve *amble closures into code blobs
-
-def module_find_function(module,path):
-    curr = module
-    unfinished = None
-    for node in path:
-        if node == module[NAME_TAG]:
-            continue
-        if node in curr:
-            curr = curr[node]
-        else:
-            unfinished = node
-            break
-    if unfinished: # start looking in imported modules
-        # unfinished calls are due to namespace imports
-        function_name = unfinished
-        if curr[TYPE_TAG] != NAMESPACE_TYPE: 
-            compiler_error("Malformed function call",path)
-        if IMPORTS_TAG not in curr:
-            compiler_error("Unable to find function for call",full_path)
-        module_imports = module[DEPENDS_KEYWORD][IMPORTS_TAG]
-        for external in curr[IMPORTS_TAG]: # imports are in precedence order
-            if not external in module_imports:
-                compiler_error("Imported module not listed as dependency",[external])
-
-            # search in the imported module
-            exported_functions = module_imports[external][EXPORTS_TAG][FUNCTION_EXPORT]
-            if function_name not in exported_functions:
-                continue
-
-            # return the dependency tree for the exported function
-            return exported_functions[function_name]
-            # imported_function,containing_module = module_find_function(
-            #     module_imports[external],
-            #     [external] + [NAMESPACE_KEYWORD] + unfinished)
-            # if imported_function: # found it
-            #     return imported_function,containing_module
-        compiler_error("Unable to find function for call",path)
-
-    # this is the function closure that matches the path
-    return curr[TREE_TAG]
-
-def graft_caller_dependencies(module,root,shallow=False,ignore=set()):
-    closure = root.data
-    for call in closure[CALLS_TAG]:
-        full_path = build_function_call_path(call,closure[TYPE_TAG])
-        full_path_str = str.join("/",full_path)
-        if full_path_str in ignore:
-            return
-        ignore.add(full_path_str)
-        # print(call)
-        target_dependencies = module_find_function(module,full_path)
-        if not shallow:
-            graft_caller_dependencies(containing_module,dependency,shallow,ignore)
-        root.graft(dependency)
-
-def graft_imported_modules(module):
-    # for call in module[CALLS_TAG]:
-    #     path = graft_path(call)
-    #     deepest,remaining = attempt_path_traverse(module,path)
-    #     if not remaining: # successfully found target function
-    #         # do some linking stuff
-    #         return 
-    #     # look in the import section of the deepest context we reached
-    #     if deepest[TYPE_TAG] != NAMESPACE_TYPE:
-    #         compiler_error("Malformed function call path",path)
-    #     if IMPORTS_TAG not in deepest:
-    #         err_no_target_for_path(path)
-    #     # start looking in imported modules
-    #     for external in deepest[IMPORTS_TAG]:
-    #         if external not in module[DEPENDS_KEYWORD][IMPORTS_TAG]:
-    #             err_no_target_for_path(path)
-    #         # TODO: processed modules should expose functions with EXPORTS_TAG
-    #         # new_namespace = module[DEPENDS_KEYWORD][IMPORTS_TAG][external][EXPORTS_TAG]
-    pass
-
-def err_no_target_for_path(path):
-    compiler_error("Unable to locate target for call",path)
-
-def build_function_call_path(call_closure,calling_type):
-    prefix = call_closure[PATH_TAG][0:-1]
-    # print("before: {}".format(prefix))
-    if calling_type == BOUND_TYPE:
-        prefix = [prefix[0]] + [NAMESPACE_KEYWORD]
-    path = prefix + call_closure[TEXT_TAG]
-    # print("after: {}".format(path))
-    return path
-
-def attempt_path_traverse(module,path):
-    curr = module
-    unfinished = []
-    for node in path:
-        if not unfinished:
-            if node == module[NAME_TAG]:
-                continue
-            if node in curr:
-                curr = curr[node]
-            else:
-                unfinished.append(node)
-        else:
-            unfinished.append(node)
-
-    return curr,unfinished
-
-
-def expand_dependencies():
-    pass
-
-# traverse module structure and expand call closure text into relative function
-# paths
-def expand_function_paths(module):
-    pass
-     
-
+    # resolve *amble closures into code blobs  
 
 if __name__ == '__main__':
     main()

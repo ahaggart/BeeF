@@ -7,10 +7,18 @@ test_cow{
         call{entry_function}
     }
     namespace{
-        nested_namespace imports library other_module binds other_module{
+        nested_namespace imports library other_module{
             my_function{
                 ADD # commented text
                 call { my_function }
+                call {nested_function_2}
+            }
+            nested_function_1{
+                call{ library library_func }
+                call{ library libf2}
+            }
+            nested_function_2{
+
             }
         }
         my_other_function{
@@ -19,11 +27,21 @@ test_cow{
             if{
                 XOR AND
             }
-            call{ nested_namespace library_func }
             call{ nested_namespace my_function }
         }
         entry_function{
             call{my_other_function}
+            call{function3}
+        }
+        function3{
+            call{function4}
+        }
+        function4{
+            call{function4}
+            call{function5}
+        }
+        function5{
+            call{entry_function}
         }
     }
     bindings{
