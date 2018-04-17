@@ -133,6 +133,152 @@ BOUND_TYPE          = 'bound'
 
 COMMENT_DELIM = '#'
 
+#TODO: use disjoint sets for dependency handling
+# function calls create a directional dependency from the caller to the callee
+# each namespace maintains a dictionary of accessible named closures
+# each function maintains a set of names it is dependant upon
+# calls to other functions in the same scope will merge callee set into caller set
+# nested dependencies should be resolved recursively
+# end goal: each namespace layer should be represented as a single subset of 
+#   named closures in the namespace
+#   
+
+# Resolving Dependencies:
+#   1. Generate inter-namespace function dependency tree
+
+# module[EXPORTS_TAG] = {
+#   FUNCTION_EXPORT: {
+#       NAME_TAG:namespace
+#       function_1: {<dependencies>}
+#       function_2: {<dependencies>}
+#       nested_namespace: {
+#           NAME_TAG: nested_namespace
+#       }
+#   }
+#   BINDING_EXPORT:  {
+# 
+#   }
+# }
+
+class Namespace():
+    def __init__(self,namespace):
+        # pass in the root module namespace
+        self.nodes = {}     # functions in this namespace
+        self.sinks = {}     # nested namespaces visible in this scope
+        self.imports = []   # imported namespaces
+        self.binds = []     # imported bindings
+        for closure in namespace:
+            if closure == IMPORTS_TAG: # extract from imported modules
+                self.imports = namespace[closure]
+            elif closure == BINDS_TAG: # extract from imported modules
+                self.binds   = namespace[closure]
+            elif closure in ALL_TAGS: # skip any other tags
+                continue
+            closure_name = namespace[closure][NAME_TAG]
+            closure_type = namespace[closure][TYPE_TAG]
+            if closure_type == FUNCTION_TYPE:
+                self.nodes[closure_name] = DependencyNode(namespace[closure])
+            elif closure_type == NAMESPACE_TYPE:
+                self.sinks[closure_name] = Namespace(namespace[closure])
+
+    # carry out the actual namespace importing    
+    def resolve_imports(self,module_imports):
+        for module in self.imports:
+            if module not in self.sinks:
+                self.sinks[module] = module_imports[module]
+
+    # resolve internal dependencies    
+    def link_internal(self):
+        for node in self.nodes:
+            node.initial_dep_recurse()
+        for node in self.nodes:
+            node.deep_dep_recurse()
+
+    # link with nested namespaces
+    def link_nested(self):
+        pass
+
+class DependencyLayer():
+    def __init__(self,name):
+        self.name      = name
+        self.linked    = False
+        self.compiled  = False
+        pass
+
+    # given a resolved Namespace and a set of tokens required, compile a
+    # dependency layer
+    def resolve(self,namespace,entry_points):
+        # merge internal token sets of entry points
+
+        # for each imported namespace, merge dependency token sets of 
+        # tokens in merged internal token set
+
+        # for each imported namespace, use its finalized dependency token set
+        # to compile it into a dependency layer, add it as a child of this layer
+        pass
+    
+    def link(self):
+        # recursively link() all sublayers
+
+        # organize this dependency layer into an ordered list, using some
+        # deterministic optimization critereon
+            # imported code at the bottom, since it has no dependencies on 
+            # importing code
+            # nested namespaces at the bottom too, for the same reason
+
+        # compute function call IDs from ordered list and sublayer maps
+
+        # expand function calls into FCID stack operations
+        pass
+
+    def build(self):
+        # recursively build sublayers
+
+        # expand function text bindings into assembly
+
+        # insert virtual machine flags?
+
+        # wrap function text in functional counting blocks
+
+        # concatenate functional blocks and sublayers into namespace ID table
+
+        # wrap namespace ID table in execution loop header and footer
+        pass
+
+
+class DependencyNode():
+    def __init__(self,function):
+        # extract core information from function closure
+        self.name  = function[NAME_TAG]
+        self.text  = function[TEXT_TAG]
+        self.calls = function[CALLS_TAG]
+
+    def initial_dep_recurse(self):
+        self.dependencies = set()
+        for i in range(len(self.calls)-1,0,-1):
+            if len(self.calls[i][TEXT_TAG]) == 1: # in-scope function call
+                target = self.calls.pop(i)
+                self.dependencies.add(target)
+
+    def deep_dep_recurse(self,nodes):
+        old_size = 0
+        new_size = len(self.dependencies)
+        while old_size < new_size:
+            self.do_dep_recurse(nodes)
+            old_size = new_size
+            new_size = len(self.dependencies)
+
+
+    def do_dep_recurse(self,nodes):
+        for node in self.dependencies.copy():
+            self.dependencies.update(nodes[node].dependencies)
+
+                
+
+class DependencyLink():
+    def __init__(self,name):
+        pass
+
 class Tree(): # for organizing dependencies
     def __init__(self,name,data):
         self.name = name
@@ -171,6 +317,7 @@ class DependencyLayer():
     def __init__(self,name,parent=None):
         self.contents = {}
         self.name = name
+        self.imports = []
         if parent:
             self.trace = parent.trace + [name]
             parent.insert(self)
@@ -181,6 +328,7 @@ class DependencyLayer():
     def find(self,item):
         if item in self.contents:
             return self.contents[item]
+        self.print_contents()
         compiler_error("Could not resolve dependency",[item])
 
     def insert(self,item):
@@ -192,17 +340,41 @@ class DependencyLayer():
 
     # compile dependencies for a set of this layer's contents
     def collect(self,items):
-        # this layer's scope
-        collection = {}
-        print("trace: {}".format(self.trace))
-        for item in items:
-            item = item[:]
-            print("item: {}".format(item))
-            name = item.pop(0)
-            path = item
-            print("path: {}".format(path))
-            collection[name] = self.find(name).collect([path])
-        return collection
+        print("Collecting dependencies from: {}".format(self.trace))
+        local_scope = {self.name:set()}
+        traversed = set()
+
+        for node in self.contents:
+            if not self.contents[node].is_function():
+                local_scope[node] = set()
+
+        for node in items:
+            if node not in self.contents: # check imported libs
+                for lib in self.imports:
+                    if node in self.content[lib][NAMESPACE_KEYWORD]:
+                        continue 
+                compiler_error("Unable to resolve dependency",[node])
+            if self.contents[node].is_function():
+                self.contents[node].add_deps(local_scope)
+                traversed.add(node)
+        
+        new_deps = local_scope[self.name] - traversed
+        while new_deps:
+            for node in new_deps:
+                if self.contents[node].is_function():
+                    self.contents[node].add_deps(local_scope)
+                    traversed.add(node)
+            new_deps = local_scope[self.name] - traversed
+
+        print("Dependencies found at this scope:")
+        pp.pprint(local_scope)
+
+        for namespace in local_scope:
+            if namespace != self.name:
+                local_scope[namespace] = self.contents[namespace].collect(local_scope[namespace])
+            
+        return local_scope
+
 
     # traverse this layer and assign future contents
     def complete(self,external):
@@ -216,6 +388,7 @@ class DependencyLayer():
         if name in self.contents:
             compiler_error("Namespace collision",self.trace+[item])
         self.contents[name] = None
+        self.imports.insert(0,name)
 
     def print_contents(self,indent=0):
         indented_print(self.name,indent)
@@ -225,27 +398,44 @@ class DependencyLayer():
             else: # unfinished future items
                 indented_print(item,indent+1)
 
+    def is_function(self):
+        return False
+
 class LazyDependencyNode():
     def __init__(self,name,container,trace):
         self.siblings = {}
         self.container = container 
-        self.dependencies = {}
+        self.dependencies = {self.container.name:set()}
         self.trace = trace
         self.name = name
         self.upgrade_hook = self.container.insert(self) # trees con be updated into containers
 
-    def collect(self,items=[[]]):
+    # collect this node's dependencies
+    def collect(self,scope):
         if items[0]:
             compiler_error("Indexing into non-namespace",self.trace+items)
-        if not self.dependencies:
-            self.dependencies[self.name] = LEAF_TAG
-            links = [self.siblings[sibling] for sibling in self.siblings]
-            self.dependencies.update(self.container.collect(links))
-        return self.dependencies
+        # add this node to the current scope
+        return [self.siblings[sibling][:] for sibling in self.siblings]
+
+    def add_deps(self,local_scope):
+        for dependency in self.dependencies:
+            if dependency not in local_scope:
+                compiler_error("Unable to locate dependency",self.trace+[dependency])
+            local_scope[dependency].update(self.dependencies[dependency])
+        local_scope[self.container.name].update({self.name})
 
     def link(self,sibling):
-        if sibling[0] != self.name:
-            self.siblings[sibling[0]] = sibling
+        if not sibling:
+            compiler_error("Empty function call path",self.trace)
+        if len(sibling) == 1:
+            if sibling[0] == self.name:
+                return
+            self.dependencies[self.container.name].add(sibling[0])
+        else:
+            if sibling[0] not in self.dependencies:
+                self.dependencies[sibling[0]] = set()
+            self.dependencies[sibling[0]].add(sibling[1])
+        print("Linking: {} -> {}".format(self.trace,sibling))
 
     def complete(self,external):
         pass
@@ -257,6 +447,9 @@ class LazyDependencyNode():
         indented_print(self.name,indent)
         for sibling in self.siblings:
             indented_print(str.join(" ",self.siblings[sibling]),indent+1)
+
+    def is_function(self):
+        return True
 
 
 class Stack(list): # for being pedantic
@@ -299,7 +492,9 @@ def resolve_module_child(name,parent):
         return IMPORT_TYPE
     elif name == BINDINGS_KEYWORD:
         return BINDING_TYPE
-    return NAMESPACE_TYPE
+    elif name == NAMESPACE_KEYWORD:
+        return NAMESPACE_TYPE
+    compiler_error("Unrecognized module member",[name])
 
 def resolve_binding_child(name,parent):
     return BOUND_TYPE
@@ -512,8 +707,14 @@ def main():
     pp.pprint(base_module)
 
     # collect dependencies from dependency tree
-    dependencies = base_module[PREAMBLE_KEYWORD][TREE_TAG].collect()
-    pp.pprint(dependencies)
+    root_dependency = base_module[PREAMBLE_KEYWORD][TREE_TAG]
+    print(vars(root_dependency))
+    # base_module[NAMESPACE_KEYWORD][TREE_TAG].collect(root_dependency)
+    print("Base Module Dependency Tree:")
+    print(root_dependency.dependencies[base_module[NAME_TAG]])
+    print(base_module[NAMESPACE_KEYWORD][TREE_TAG].collect(root_dependency.dependencies[base_module[NAME_TAG]]))
+
+    # traverse the tree and link it to the function objects
 
     # resolve namespace names into IDs -- do some tree reduction magic?
 

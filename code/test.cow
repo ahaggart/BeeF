@@ -4,9 +4,9 @@ test_cow{
         code/other_module.cow
     }
     preamble{
-        call{primary entry_function}
+        call{entry_function}
     }
-    primary{
+    namespace{
         nested_namespace imports library other_module binds other_module{
             my_function{
                 ADD # commented text
@@ -19,7 +19,7 @@ test_cow{
             if{
                 XOR AND
             }
-            call{ nested_namespace library_func}
+            call{ nested_namespace library_func }
             call{ nested_namespace my_function }
         }
         entry_function{

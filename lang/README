@@ -85,11 +85,7 @@ module{
         * Marks another function within the namespace for execution
         * Calls can stack, with the most recent call being executed first.
     * imports: example IMPORTS library
-        * Binds a namespace from another module to a name in the current
-            current namespace. Functions in a bound namespace can be accessed by
-            calling the bound name followed by the function name
-        * names bound to a namespace can not be called without specifying abuse
-            function contained by the bound namespace
+        * Merges a namespace from another module into a nested namespace
     * if:
         * Defines a closure as a conditional block. Text within the closure will
             be executed if the value at the data head is nonzero
@@ -185,3 +181,35 @@ Footer Block:
         * "creates" new execution context
         * control returns to caller function when context "exits"
 
+
+* namespace is a dictionary of named closures
+    * imported modules should be merged with the importing namespace
+        * call imported_namespace.update(next_namespace), which gives modules
+            imported "later" higher precedence in the case of name collisions
+    * merge process:
+        * namespace must resolve all dependencies from its own scope into a 
+            nested scope
+
+* function calls create a directional dependency from the caller to the callee
+    * each namespace maintains a dictionary of accessible named closures
+    * each function maintains a set of names it is dependent upon
+    * imported namespaces should be resolved completely before 
+        resolving importing namespaces
+    * resolved namespaces "export" a token for each function they contain, which
+        is associated with a set of tokens in the layer that it depends upon,
+        and a set of tokens depended on for each nested layer visible 
+        from the namespace
+    * dependency tree pruning starts at the root of the dependency tree, which 
+        is the base module's preamble text
+        * the base module's preamble may call one of more functions in the base 
+            namespace
+            * the token-dependency sets of these called functions are combined
+                to form a single token "layer" for the base namespace
+            * for each nested or imported namespace, a token-dependency set
+                is generated from the importing layer
+            * each nested namespace is then resolved into a layer, using the 
+                importer's token-dependency set
+    * calls to other functions in the same scope will merge callee set into caller set
+    * nested dependencies should be resolved recursively
+    * end goal: each namespace layer should be represented as a single subset of 
+        named closures in the namespace

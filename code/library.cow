@@ -1,5 +1,5 @@
 library{
-    bitwise{
+    namespace{
         library_func{
 
         }

@@ -1,5 +1,5 @@
 other_module{
-    empty{
+    namespace{
 
     }
     bindings{
