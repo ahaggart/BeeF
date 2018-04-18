@@ -53,6 +53,7 @@ parse:
 import sys
 import traceback
 import pprint as pp
+import re
 
 def print_usage():
     print("usage: butcher path_to_cow_file path_to_beef_file")
@@ -135,11 +136,15 @@ BOUND_TYPE          = 'bound'
 
 COMMENT_DELIM = '#'
 
+NON_ASSEMBLY_REGEX = re.compile('[^][^+><_\s-]+')
+
 COUNTING_BLOCK_HEADER = "^[_-^>^[-]+^<[_[-]^]_>_<[_>"
 COUNTING_BLOCK_FOOTER = "<[-]^]]_"
 
 builtin = {
-    BINDS_TAG:{}
+    BINDS_TAG:{
+
+    }
 }
 
 # function calls create a directional dependency from the caller to the callee
@@ -178,7 +183,7 @@ class Namespace():
         for closure in module:
             if closure == BINDINGS_KEYWORD:
                 self.bound_keywords.update(
-                    dict([(binding,module[closure][binding]) for binding in module[closure] if binding not in ALL_TAGS]))
+                    dict([(binding,module[closure][binding][TEXT_TAG]) for binding in module[closure] if binding not in ALL_TAGS]))
             if closure in ALL_TAGS: # skip tags
                 continue
             elif closure == NAMESPACE_KEYWORD:
@@ -242,6 +247,7 @@ class DependencyLayer():
         self.resolved  = False
         self.linked    = False
         self.compiled  = False
+        self.bound     = False
 
         self.id = -1
 
@@ -292,12 +298,22 @@ class DependencyLayer():
         for layer in removal_candidates:
             del self.sublayers[layer]
         
-        self.resolved = True
 
         self.resolved_token_layer = list(internal_token_layer)
-        
+
+        self.resolved = True        
         return
-    
+
+    def bind(self):
+        self.resolved_bindings = {}
+        for layer in self.sublayers:
+            self.sublayers[layer].bind()
+        for binding in self.namespace.binds:
+            self.resolved_bindings.update(self.sublayers[binding].resolved_bindings)
+        self.resolved_bindings.update(self.namespace.bound_keywords)
+        self.bound = True
+        return
+
     def link(self):
         if not self.resolved:
             compiler_error("Attempted to link unresolved layer",[self.name])
@@ -343,16 +359,19 @@ class DependencyLayer():
     def build(self,directives,external_bindings={}):
         if not self.linked:
             compiler_error("Cannot build unlinked layer",[self.name])
+        if not self.bound:
+            compiler_error("Attempted to build unbound layer",[self.name])
 
         # insert virtual machine flags
         namespace_entry_directive = "#0#namespace: {}\n".format(self.name)
         namespace_entry_ref = "#{}#".format(len(directives))
         directives.append(namespace_entry_directive)
 
+        # build a dictionary of token expansions
         local_bindings = {}
-        local_bindings.update(builtin[BINDS_TAG])
         local_bindings.update(external_bindings) # this has some weird ramifications
-        local_bindings.update(self.namespace.bound_keywords)
+        local_bindings.update(builtin[BINDS_TAG]) # protect builtin keywords
+        local_bindings.update(self.resolved_bindings) # own keywords have highest priority
 
         # recursively build subunits
         namespace_text = []
@@ -475,7 +494,7 @@ class DependencyNode():
 
     def recursive_build(self,build_list,token,call_counter,local_bindings):
         if type(token) is str:
-            build_list.append(token) 
+            build_list.append(self.expand_token(token,local_bindings)) 
         else: # inline keyword
             if token[NAME_TAG] == CALLING_KEYWORD:
                 link = self.links[call_counter]
@@ -514,10 +533,45 @@ class DependencyNode():
         function_call.append(">") # move back to starting cell
         return  str.join("",function_call)
 
+    # recursively unpack any token that is not pure assembly
+    # TODO: detect cyclic expansions
+    def expand_token(self,token,local_bindings):
+        if is_assembly(token):
+            return token
+        else:
+            if not token in local_bindings:
+                compiler_error("Unable to bind token",[self.name]+[token])
+            expansion = local_bindings[token]
+            return str.join("",[self.expand_token(tk,local_bindings) for tk in expansion])
+
 def adjust_cell_value(curr_value,target_value):
     adjust_dir = "+" if target_value > curr_value else "-"
     return ((adjust_dir)*abs(target_value-curr_value))
 
+def is_assembly(token):
+    if NON_ASSEMBLY_REGEX.search(token):
+        return False
+    return True
+
+
+
+# class Binding():
+#     def __init__(self,binding_closure):
+#         self.name = binding_closure[NAME_TAG]
+#         self.imports = binding_closure[IMPORTS_TAG]
+#         self.text = binding_closure[TEXT_TAG]
+#         self.scope = {}
+
+#     def resolve(self,module_imports):
+#         for lib in self.imports:
+#             if lib not in module_imports:
+#                 compiler_error("Could not find bound module",[lib])
+#             self.update(module_imports[lib][EXPORTS_TAG])
+#         return
+
+#     def update(self,external_namespace):
+#         external_scope = external_namespace.binding_scope
+#         return
 
 def indented_print(name,indent):
     print("{}{}".format(
@@ -751,6 +805,9 @@ def main():
 
     # traverse the tree and link it to the function objects
     base_layer.link()
+
+    # recursize binding import
+    base_layer.bind()
 
     # resolve text tokens into code blobs
         # resolve all bound tokens in namespace
