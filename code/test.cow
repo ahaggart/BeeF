@@ -7,15 +7,16 @@ test_cow{
         call{entry_function}
     }
     namespace{
-        nested_namespace{
+        nested_namespace imports library{
             my_function{
-                >>>+++++<<<
+                >>> +++++ <<<
             }
             nested_function_1{
-
+                call{my_function}
+                call{nested_function_2}
             }
             nested_function_2{
-
+                call{library libf1}
             }
         }
         my_other_function{
@@ -27,11 +28,11 @@ test_cow{
             call{function4}
         }
         function3{
-            >+++<
+            > +++ <
         }
         function4{
-            >>++++<<
-            call{nested_namespace my_function}
+            >> ++++ <<
+            call{nested_namespace nested_function_1}
         }
         function5{
 

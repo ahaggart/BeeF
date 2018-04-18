@@ -35,6 +35,7 @@ typedef struct {
 void ppd_make_console_out(PP_DEBUG_T* dest,char* dir);
 void ppd_make_print_data_head(PP_DEBUG_T* dest);
 void ppd_make_exit(PP_DEBUG_T* dest,char* dir);
+void ppd_make_dump_stack(PP_DEBUG_T* dest,char* dir);
 void ppd_make_full_stack_lock(PP_DEBUG_T* dest,char* dir);
 
 #endif

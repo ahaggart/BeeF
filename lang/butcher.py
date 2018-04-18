@@ -138,7 +138,6 @@ COMMENT_DELIM = '#'
 COUNTING_BLOCK_HEADER = "^[_-^>^[-]+^<[_[-]^]_>_<[_>"
 COUNTING_BLOCK_FOOTER = "<[-]^]]_"
 
-#TODO: use disjoint sets for dependency handling
 # function calls create a directional dependency from the caller to the callee
 # each namespace maintains a dictionary of accessible named closures
 # each function maintains a set of names it is dependant upon
@@ -146,10 +145,15 @@ COUNTING_BLOCK_FOOTER = "<[-]^]]_"
 # nested dependencies should be resolved recursively
 # end goal: each namespace layer should be represented as a single subset of 
 #   named closures in the namespace
-#   
 
 # Resolving Dependencies:
 #   1. Generate inter-namespace function dependency tree
+#   2. Generate dependencies on nested layers, per node
+#   3. Compile all depended nodes for a given set of dependencies on the layer
+#       a. Pass depended list to nested layers as dependency set
+#   4. Sort depended nodes by <dependencies> - <depending>
+#       a. assign nodes a function id (fid) based on ordering
+#   5. resolve dependency links into (namespace,fid) pairs
 
 # module[EXPORTS_TAG] = {
 #   FUNCTION_EXPORT: {
@@ -275,14 +279,10 @@ class DependencyLayer():
             self.sublayers[sink] = DependencyLayer(self.namespace.sinks[sink])
             sink_deps = set()
             for token in internal_token_layer:
-                # print("{} nested deps: {}".format(token,self.namespace.nodes[token].nested_dependencies))
                 if sink in self.namespace.nodes[token].nested_dependencies:
                     sink_deps.update(self.namespace.nodes[token].nested_dependencies[sink])
             self.layer_deps[sink] = sink_deps
-            # print("Compiling dependencies on {}: {}".format(sink,sink_deps))
             
-        # pp.pprint(self.layer_deps)
-
         # for each imported namespace, use its finalized dependency token set
         # to compile it into a dependency layer, add it as a child of this layer
         removal_candidates = []
@@ -309,7 +309,7 @@ class DependencyLayer():
             compiler_error("Attempted to link unresolved layer",[self.name])
 
         # organize this dependency layer into an ordered list, using some
-        # deterministic optimization critereon -> net incoming/outgoing dpes
+        # deterministic optimization critereon -> net incoming/outgoing deps
             # imported code at the bottom, since it has no dependencies on 
             # importing code
             # nested namespaces at the bottom too, for the same reason
@@ -346,27 +346,33 @@ class DependencyLayer():
         self.linked = True
         pass
 
-    def build(self):
+    def build(self,directives):
         if not self.linked:
             compiler_error("Cannot build unlinked layer",[self.name])
         
+        namespace_entry_directive = "#0#namespace: {}\n".format(self.name)
+        namespace_entry_ref = "#{}#".format(len(directives))
+        directives.append(namespace_entry_directive)
+
         # recursively build subunits
-        namespace_text = ["[\n"]
+        namespace_text = ["<_["+namespace_entry_ref+"\n"]
         for node in self.resolved_namespace_layer:
-            namespace_text.append(node.build())
-        namespace_text.append("\n_]")
+            # wrap function text in functional counting blocks
+            namespace_text.append(COUNTING_BLOCK_HEADER+"\n")
+            namespace_text.append(node.build(directives))
+            namespace_text.append(COUNTING_BLOCK_FOOTER+"\n")
+
+        namespace_text.append("_]>\n")
         self.function_call_table = str.join("",namespace_text)
-        # print(self.name+":\n"+self.function_call_table)
 
         # expand function text bindings into assembly
 
         # insert virtual machine flags?
 
-        # wrap function text in functional counting blocks
-
         # concatenate functional blocks and sublayers into namespace ID table
 
         # wrap namespace ID table in execution loop header and footer
+        self.compiled = True
         return self.function_call_table
 
 
@@ -397,6 +403,7 @@ class DependencyNode():
                 target = self.calls[i][0]
                 self.remove_dependent()
                 self.dependencies.add(target)
+        return
 
     def deep_dep_recurse(self,nodes):
         old_size = 0
@@ -405,8 +412,7 @@ class DependencyNode():
             self.do_dep_recurse(nodes)
             old_size = new_size
             new_size = len(self.dependencies)
-        # pp.pprint(self.dependencies)
-
+        return
 
     def do_dep_recurse(self,nodes):
         for node in self.dependencies.copy():
@@ -417,7 +423,6 @@ class DependencyNode():
 
     def initial_nested_recurse(self):
         self.nested_dependencies = {}
-        # print("{} nested dependencies: ".format(self.name))
         for i in range(len(self.calls)-1,-1,-1):
             if len(self.calls[i]) == 2: # nested-scope function call
                 # print(self.calls[i])
@@ -425,7 +430,6 @@ class DependencyNode():
                 if not target[0] in self.nested_dependencies:
                     self.nested_dependencies[target[0]] = set()
                 self.nested_dependencies[target[0]].add(target[1])
-        # pp.pprint(self.nested_dependencies)
         return 
 
     # grab refs to nodes in this layer
@@ -454,13 +458,18 @@ class DependencyNode():
             return -1
         return 0
 
-    def build(self):
+    def build(self,directives):
+        #TODO: move the function-specific building elsewhere
+        function_entry_directive = "#0#function: {}\n".format(self.name)
+        function_entry_ref = "#{}#".format(len(directives))
+        directives.append(function_entry_directive)
+
         # keep things divided by tokens, for now
-        self.raw_text = [COUNTING_BLOCK_HEADER+"\n\t"] 
+        self.raw_text = ["\t"+function_entry_ref] 
         call_counter = 0
         call_counter = self.resolve_tokens(self.raw_text,call_counter)
         # TODO: optimize calls to cids accessible in the same cycle
-        self.raw_text.append("\n"+COUNTING_BLOCK_FOOTER)
+        self.raw_text.append("\n")
         return str.join("",self.raw_text)
 
     def resolve_tokens(self,build_list,call_counter):
@@ -476,17 +485,16 @@ class DependencyNode():
                 link_text = self.expand_link(link)
                 build_list.append(link_text)
                 call_counter = call_counter + 1
-            else:
+            else: #TODO: finish this section, add support for more inline keywords
                 token[BUILDER_TAG].prefix()
                 for tk in token[TEXT_TAG]:
                     call_counter = self.recursive_build(build_list,tk,call_counter)
                 token[BUILDER_TAG].suffix()
-
         return call_counter
 
     def expand_link(self,link):
         # assume we are adjacent to control cell
-        function_call = ["<[-]"] # move into control cell
+        function_call = ["<[-]"] # move into control cell, zero it
         if link[0] == -1: # local scope
             cid = link[1] # get the function call id directly
             function_call.append(adjust_cell_value(0,cid))
@@ -494,14 +502,17 @@ class DependencyNode():
         else:             # nested scope
             cid = link[0] # get the scope call id
             fid = link[1]
+
+            # push a zero to force the nested namespace to exit when done
+            function_call.append("^")
+
+            # push the fid of the func in the namespace
+            function_call.append(adjust_cell_value(0,fid))
+            function_call.append("^")
+
             # push a value to index into the nested scope
-            function_call.append(adjust_cell_value(0,cid))
+            function_call.append(adjust_cell_value(fid,cid))
             function_call.append("^")
-
-            function_call.append(adjust_cell_value(cid,fid))
-            function_call.append("^")
-
-            # cid = fid # so we can return the value we just pushed
 
         function_call.append(">") # move back to starting cell
         return  str.join("",function_call)
@@ -753,19 +764,22 @@ def main():
         # resolve all bound tokens in namespace
         # resolve bound function calls into absolute
         # resolve inline closures into control structures
-    code = base_layer.build()
+    directives = []
+    code = base_layer.build(directives)
 
     # resolve *amble closures into code blobs  
     preamble = DependencyNode(base_module[PREAMBLE_KEYWORD],None)
     preamble.link_local(base_layer)
     preamble_code = ["[-]^>"]
     preamble.resolve_tokens(preamble_code,0)
-    preamble_code.append("<_\n")
+    # preamble_code.append("<_>\n")
     preamble_code = str.join("",preamble_code)
 
     # print(preamble_code)
 
     with open(sys.argv[2],"w") as outfile:
+        for directive in directives:
+            outfile.write(directive)
         outfile.write(preamble_code)
         outfile.write(code)
 
