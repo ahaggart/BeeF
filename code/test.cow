@@ -31,7 +31,7 @@ test_cow{
         }
         function4{
             >>++++<<
-            # call{nested_namespace my_function}
+            call{nested_namespace my_function}
         }
         function5{
 

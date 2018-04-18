@@ -458,15 +458,18 @@ class DependencyNode():
         # keep things divided by tokens, for now
         self.raw_text = [COUNTING_BLOCK_HEADER+"\n\t"] 
         call_counter = 0
-        for token in self.text:
-            call_counter = self.recursive_build(self.raw_text,token,call_counter)
+        call_counter = self.resolve_tokens(self.raw_text,call_counter)
         # TODO: optimize calls to cids accessible in the same cycle
         self.raw_text.append("\n"+COUNTING_BLOCK_FOOTER)
         return str.join("",self.raw_text)
 
+    def resolve_tokens(self,build_list,call_counter):
+        for token in self.text:
+            call_counter = self.recursive_build(build_list,token,call_counter)
+
     def recursive_build(self,build_list,token,call_counter):
         if type(token) is str:
-            self.raw_text.append(token) 
+            build_list.append(token) 
         else: # inline keyword
             if token[NAME_TAG] == CALLING_KEYWORD:
                 link = self.links[call_counter]
@@ -737,37 +740,34 @@ def main():
         print_usage()
     # parse the base module
     base_module = parse_file(sys.argv[1])
-    # base_module[EXPORTS_TAG][FUNCTION_EXPORT].print_contents()
     pp.pprint(base_module)
     base_layer = DependencyLayer(base_module[EXPORTS_TAG])
 
-    base_layer.resolve(base_module[PREAMBLE_KEYWORD][CALLS_TAG])
-    base_layer.link()
-    code = base_layer.build()
-
-    with open(sys.argv[2],"w") as outfile:
-        outfile.write("+")
-        outfile.write(code)
-
-
     # collect dependencies from dependency tree
+    base_layer.resolve(base_module[PREAMBLE_KEYWORD][CALLS_TAG])
 
     # traverse the tree and link it to the function objects
-
-    # resolve namespace names into IDs -- do some tree reduction magic?
+    base_layer.link()
 
     # resolve text tokens into code blobs
         # resolve all bound tokens in namespace
         # resolve bound function calls into absolute
         # resolve inline closures into control structures
-
-    # resolve function calls into stack operations
-
-    # assemble function call table
-
-    # resolve function closures into countdown blocks
+    code = base_layer.build()
 
     # resolve *amble closures into code blobs  
+    preamble = DependencyNode(base_module[PREAMBLE_KEYWORD],None)
+    preamble.link_local(base_layer)
+    preamble_code = ["[-]^>"]
+    preamble.resolve_tokens(preamble_code,0)
+    preamble_code.append("<_\n")
+    preamble_code = str.join("",preamble_code)
+
+    # print(preamble_code)
+
+    with open(sys.argv[2],"w") as outfile:
+        outfile.write(preamble_code)
+        outfile.write(code)
 
 if __name__ == '__main__':
     main()

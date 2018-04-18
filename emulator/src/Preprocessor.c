@@ -149,6 +149,7 @@ PP_INFO_T* ppreprocessor(FILE* src){
     BF_INSN_T insn;
     SRC_LEN_T i_count = 0;
     SRC_LEN_T branch_to;
+    SRC_LEN_T* branch_to_ptr;
     while((insn = fgetc(src))!=EOF){
         if(is_instruction(insn)){
             readbuffer[i_count] = insn;
@@ -156,8 +157,7 @@ PP_INFO_T* ppreprocessor(FILE* src){
             if(insn == '['){ //macro it?
                 bvms_push(br_stack,(BVMS_DATA_PTR_T)&i_count);
             } else if(insn == ']'){
-                //TODO: fix this check so it actually works
-                if(!(branch_to = *(unsigned int*)bvms_pop(br_stack))){
+                if(!(branch_to_ptr = (SRC_LEN_T*)bvms_pop(br_stack))){
                     printf("Error: Unmatched conditional branches %ld.\n",i_count);
                     printf("Preprocessor Abort, Dumping\n");
                     readbuffer[i_count+1] = 0;
@@ -165,6 +165,7 @@ PP_INFO_T* ppreprocessor(FILE* src){
                     exit(1);
                     break;
                 }
+                branch_to = *branch_to_ptr;
                 brbuffer[branch_to] = i_count+1;
                 brbuffer[i_count] = branch_to+1;
             } else{
