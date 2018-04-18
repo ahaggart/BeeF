@@ -55,7 +55,8 @@ import traceback
 import pprint as pp
 
 def print_usage():
-    print("usage: butcher path/to/cow/file")
+    print("usage: butcher path_to_cow_file path_to_beef_file")
+    exit(1)
 
 # common tags
 NAME_TAG        = '_NAME_'
@@ -133,6 +134,9 @@ BINDING_TYPE        = 'binding'
 BOUND_TYPE          = 'bound'
 
 COMMENT_DELIM = '#'
+
+COUNTING_BLOCK_HEADER = "^[_-^>^[-]+^<[_[-]^]_>_<[_>"
+COUNTING_BLOCK_FOOTER = "<[-]^]]_"
 
 #TODO: use disjoint sets for dependency handling
 # function calls create a directional dependency from the caller to the callee
@@ -347,8 +351,12 @@ class DependencyLayer():
             compiler_error("Cannot build unlinked layer",[self.name])
         
         # recursively build subunits
+        namespace_text = ["[\n"]
         for node in self.resolved_namespace_layer:
-            node.build()
+            namespace_text.append(node.build())
+        namespace_text.append("\n_]")
+        self.function_call_table = str.join("",namespace_text)
+        # print(self.name+":\n"+self.function_call_table)
 
         # expand function text bindings into assembly
 
@@ -359,7 +367,7 @@ class DependencyLayer():
         # concatenate functional blocks and sublayers into namespace ID table
 
         # wrap namespace ID table in execution loop header and footer
-        pass
+        return self.function_call_table
 
 
 class DependencyNode():
@@ -448,57 +456,56 @@ class DependencyNode():
 
     def build(self):
         # keep things divided by tokens, for now
-        self.raw_text = ["<_>"] # pop the null cid from the stack
+        self.raw_text = [COUNTING_BLOCK_HEADER+"\n\t"] 
         call_counter = 0
-        old_cid = 0
         for token in self.text:
-            call_counter,old_cid = self.recursive_build(self.raw_text,token,call_counter,old_cid)
-        print(self.name+": "+str.join("",self.raw_text))
-        return
+            call_counter = self.recursive_build(self.raw_text,token,call_counter)
+        # TODO: optimize calls to cids accessible in the same cycle
+        self.raw_text.append("\n"+COUNTING_BLOCK_FOOTER)
+        return str.join("",self.raw_text)
 
-    def recursive_build(self,build_list,token,call_counter,old_cid):
+    def recursive_build(self,build_list,token,call_counter):
         if type(token) is str:
             self.raw_text.append(token) 
         else: # inline keyword
             if token[NAME_TAG] == CALLING_KEYWORD:
                 link = self.links[call_counter]
-                link_text,old_cid = self.expand_link(link,old_cid)
+                link_text = self.expand_link(link)
                 build_list.append(link_text)
                 call_counter = call_counter + 1
             else:
+                token[BUILDER_TAG].prefix()
                 for tk in token[TEXT_TAG]:
-                    call_counter,old_cid = self.recursive_build(build_list,tk,call_counter,old_cid)
+                    call_counter = self.recursive_build(build_list,tk,call_counter)
+                token[BUILDER_TAG].suffix()
 
-        return call_counter,old_cid
+        return call_counter
 
-    def expand_link(self,link,old_cid):
+    def expand_link(self,link):
         # assume we are adjacent to control cell
-        function_call = ["<"] # move into control cell
+        function_call = ["<[-]"] # move into control cell
         if link[0] == -1: # local scope
             cid = link[1] # get the function call id directly
-            function_call.append(adjust_cell_value(old_cid,cid))
+            function_call.append(adjust_cell_value(0,cid))
             function_call.append("^")
         else:             # nested scope
             cid = link[0] # get the scope call id
             fid = link[1]
             # push a value to index into the nested scope
-            function_call.append(adjust_cell_value(old_cid,fid))
+            function_call.append(adjust_cell_value(0,cid))
             function_call.append("^")
 
-            # push a value to index into the function
-            # id_diff = fid - cid
-            # adjc = "+" if id_diff < 0 else "-"
-            # function_call.append((adjc*abs(id_diff)) + "^")
             function_call.append(adjust_cell_value(cid,fid))
             function_call.append("^")
 
-            cid = fid # so we can return the value we just pushed
+            # cid = fid # so we can return the value we just pushed
 
         function_call.append(">") # move back to starting cell
-        return  str.join("",function_call),cid
+        return  str.join("",function_call)
 
 def adjust_cell_value(curr_value,target_value):
-    return "x"
+    adjust_dir = "+" if target_value > curr_value else "-"
+    return ((adjust_dir)*abs(target_value-curr_value))
 
 
 def indented_print(name,indent):
@@ -715,7 +722,7 @@ def parse_closures(source):
 
 def parse_file(file):
     # parse the file into nexted closure format
-    with open(file) as source:
+    with open(file,"r") as source:
         module = parse_closures(source)[MODULE_TAG]
 
     base_namespace = Namespace(module,closure_type=MODULE_TYPE)
@@ -726,6 +733,8 @@ def parse_file(file):
     return module
 
 def main():
+    if len(sys.argv) < 3:
+        print_usage()
     # parse the base module
     base_module = parse_file(sys.argv[1])
     # base_module[EXPORTS_TAG][FUNCTION_EXPORT].print_contents()
@@ -734,7 +743,11 @@ def main():
 
     base_layer.resolve(base_module[PREAMBLE_KEYWORD][CALLS_TAG])
     base_layer.link()
-    base_layer.build()
+    code = base_layer.build()
+
+    with open(sys.argv[2],"w") as outfile:
+        outfile.write("+")
+        outfile.write(code)
 
 
     # collect dependencies from dependency tree

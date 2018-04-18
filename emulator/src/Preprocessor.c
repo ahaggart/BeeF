@@ -156,9 +156,13 @@ PP_INFO_T* ppreprocessor(FILE* src){
             if(insn == '['){ //macro it?
                 bvms_push(br_stack,(BVMS_DATA_PTR_T)&i_count);
             } else if(insn == ']'){
+                //TODO: fix this check so it actually works
                 if(!(branch_to = *(unsigned int*)bvms_pop(br_stack))){
                     printf("Error: Unmatched conditional branches %ld.\n",i_count);
-                    printf("Preprocessor Abort\n");
+                    printf("Preprocessor Abort, Dumping\n");
+                    readbuffer[i_count+1] = 0;
+                    printf("%s\n",readbuffer);
+                    exit(1);
                     break;
                 }
                 brbuffer[branch_to] = i_count+1;
