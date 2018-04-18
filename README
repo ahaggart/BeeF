@@ -4,25 +4,18 @@ BeeF Processor Design Notes
 ISA: width: 3 bits (8 instructions)
 --> see: https://en.wikipedia.org/wiki/Brainfuck
 
-000[^]: PSH - push current cell to stack 
-001[+]: INC - increment data 
-010[-]: DEC - decrement data
-011[>]: MVR - move data head right
-100[<]: MVL - move data head left
-101[[]: CBF - if data is 0, skip to matching "]"
-110[]]: CBB - if data is not 0, skip to matchin "["
-111[_]: POP - pop item from stack, overwriting current cell
+000[ ^ ]: PSH - push current cell to stack 
+001[ + ]: INC - increment data 
+010[ - ]: DEC - decrement data
+011[ > ]: MVR - move data head right
+100[ < ]: MVL - move data head left
+101[ [ ]: CBF - if data is 0, skip to matching "]"
+110[ ] ]: CBB - if data is not 0, skip to matchin "["
+111[ _ ]: POP - pop item from stack, overwriting current cell
 ================================================================================
 Assembling:
 - BeeF is a minimal ISA, so the assembler must do extra work to provide
   some basic functionality
-- bitwise OPs are going to be verbose, because we will need to manually shift
-- the concept of "scratch space" allows for computations to be much more
-  concise, since we dont need to shift the data head to free space constantly
-- assembler/programmers must respect "scratch space" when using complex ops
-- it is much more efficient to add smaller numbers to larger numbers
-- pre-constructing constants allows for much less time to be spent manually
-  producing constants in-place
 
 *** Basic Building Blocks ***
 ADD: current cell and next cell
@@ -39,25 +32,18 @@ ZER: zero the current cell
   restore the register value on completion
 
 INV: invert the current cell
-    - atomic
-    - verified
     >^[-]<[->-<]>-^<_>_<
 
 SHR: right-shift cell value by doubling it
-    - verified
     >^[-]<[->++<]>^<_>_<
 
 NOT: logical not of the current cell
     - use the right adjacent cell as scratch space loop condition
-    - atomic
-    - verified
     >^[-]^<[ [-]->_+^- ] + >__
 
 
 
 IFT BLOCK 1 ELS BLOCK 2 END: if-then-else construct
-    - verified
-    - right-atomic
     - if the current cell is nonzero, then execute BLOCK 1
     - else execute BLOCK 2
     - uses one cell of scratch space, to the left
@@ -80,8 +66,6 @@ IFT BLOCK 1 ELS BLOCK 2 END: if-then-else construct
 
 
 SHL: left-shift cell value by halving it
-    - atomic
-    - verified
     1) use c-1 as scratch space         <^>
     2) use c+1 as construction site     >^[-]<
     3) loop:                            [
@@ -97,28 +81,6 @@ SHL: left-shift cell value by halving it
     4) clean up                         >^<_>_<<_>
     <^>>^[-]<[-^<_[>->+<<[-]]>]>^<_>_<<_>
 
-                                          
-
-XOR: bitwise xor current cell and next cell
-
-AND: bitwise and current cell and next cell
-
-ORR: bitwise or current cell and next cell
-
-
-
-================================================================================
-TERMS
-
-- atomic: program state does not appear to change
-  - ITE construct is not atomic because scratch space is in use while BLOCKS
-    are executing
-- right-atomic: invisible to routines which only make use of cells to the right 
-    of their starting cell 
-  - ITE is right-atomic, since the internal blocks execute while ITE scratch
-      space is live
-- block: an atomic routine (series of instructions which, when complete, does
-    has the same stack and data head configuration as before execution)
 
 
 

@@ -12,9 +12,12 @@ Features:
         under the namespace's parent-namespace ID
 * modules
     * Import code from other .cow files
-        * Pick functions from one namespace and add them the the root namespace
-        * Pick functions from one namespace and add them as a nested namespace
-    * preamble and postable
+        * load other modules and expose their top-level namespace
+        * nested namespaces may import the module and access its top-level
+            namespace as if it were nested
+        * functions and nested namespaces may bind keywords from imported
+            modules, which will use the imported definitions when unpacking
+    * preamble and postamble
         * Modules which specify a preamble and postamble can be run as
             standalone programs.
         * Preambles prep processor memory by allocating a control cell and
@@ -34,28 +37,66 @@ Syntax:
         a special functionality
     * keywords are only reserved if they would be valid, anywhere else they are
         available for use (but this is discouraged)
-module{
-    preamble{
-        call main
-    }
-    namespace{
-        main{
-            <+++>---^_
-            call next finish
-        }
-        next imports library{
-            finish{
-                exit
-            }
-        }
-        final{
-            exit
-        }
-    }
-    postamble{
 
-    }
-}
+CFG: ***************************************************************************
+
+start: module_closure
+
+terminals: 
+    "{","}",
+    module, preamble, depends, namespace, bindings, postamble,
+    binds, imports,
+    name,                                         
+    bound_keyword, raw_assembly
+
+variables: <implicit>
+
+rules:
+
+module_closure  ->  module{     preamble_closure 
+                                depends_closure
+                                namespace_closure 
+                                bindings_closure 
+                                postamble_closure   }
+
+preamble_closure -> preamble{   inline_text         }
+depends_closure  -> depends{    module_names        }
+namspace_closure -> namespace{  functional_blocks   }
+functional_blocks-> functional_blocks function_closure 
+                    | functional_blocks nested_namespace_closure
+                    | \Epsilon
+nested_namespace_closure ->  name import_chain binding_chain { functional_blocks }
+import_chain    ->  imports module_names name
+binding_chain   ->  binds module_names name
+module_names    ->  module_names name
+                    | \Epsilon
+
+function_closure->  name { inline_text }
+
+bindings_closure->  bindings{ binding_closures }
+binding_closures->  binding_closures binding_block
+                    | \Epsilon
+binding_block   ->  name import_chain { binding_text }
+
+postamble_closure-> postamble{  binding_text    }
+binding_text    ->  binding_text bound_keyword
+                    | binding_text raw_assembly
+                    | \Epsilon
+
+inline_text     ->  inline_text raw_assembly
+                    | inline_text bound_keyword
+                    | inline_text inline_closure
+                    | \Epsilon
+
+inline_closure  ->  keyword_closure
+                    | call_closure
+
+keyword_closure ->  type { inline_text }
+call_closure    ->  call { call_path }
+call_path       ->  name
+                    | name name
+END CFG: ***********************************************************************
+
 * keywords:
     * module:
         * Defines a closure as a module. Module closures must contain a 
@@ -78,14 +119,15 @@ module{
         * Defines a closure as a namespace. Namespaces may contain up to 255
             closures, which must have a namespace-unique name
     * call:
-        * Defines a closure as a function call, which contains a path fragment
+        * (Planned) Defines a closure as a function call, which contains a path fragment
             to the desired function. The compiler will attempt to resolve
             incomplete paths, but will error if an ambiguous function call ID is
             supplied in the closure.
         * Marks another function within the namespace for execution
         * Calls can stack, with the most recent call being executed first.
     * imports: example IMPORTS library
-        * Merges a namespace from another module into a nested namespace
+        * adds the top-level namespace of another module as a nested namespace
+            of the current namespace, with the module name as its ID
     * if:
         * Defines a closure as a conditional block. Text within the closure will
             be executed if the value at the data head is nonzero
@@ -97,12 +139,12 @@ module{
         * Bindings are direct text substitutions, and are associated at the
             module level. Bindings which appear in function code will be 
             resolved to the symbols they are bound to.
-        * Bindings may contain function calls, but this practice is discouraged,
-            as COW function calls are not immediately invoked, and may cause 
-            confusion if they are packed into bound keywords
+        * Bindings may contain other bindings
+        * bindings can import another module's bindings, which will be used when
+            resolving the binding's text
+        * Bindings may not contain function calls
     * binds: 
-        * Import bindings from another module. Function calls within the binding
-            are resolved to the proper scope.
+        * Import bindings from another module. 
 
 * notes:
     * 

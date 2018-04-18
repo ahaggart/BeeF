@@ -155,20 +155,6 @@ COUNTING_BLOCK_FOOTER = "<[-]^]]_"
 #       a. assign nodes a function id (fid) based on ordering
 #   5. resolve dependency links into (namespace,fid) pairs
 
-# module[EXPORTS_TAG] = {
-#   FUNCTION_EXPORT: {
-#       NAME_TAG:namespace
-#       function_1: {<dependencies>}
-#       function_2: {<dependencies>}
-#       nested_namespace: {
-#           NAME_TAG: nested_namespace
-#       }
-#   }
-#   BINDING_EXPORT:  {
-# 
-#   }
-# }
-
 class Namespace():
     def __init__(self,namespace,closure_type=NAMESPACE_TYPE):
         # pass in the root module
