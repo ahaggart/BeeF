@@ -9,7 +9,7 @@ test_cow{
     namespace{
         nested_namespace imports library{
             my_function{
-                >>> +++++ <<<
+                xor
             }
             nested_function_1{
                 call{my_function}
@@ -40,10 +40,9 @@ test_cow{
     }
     bindings{
         xor{
-
+            >>> +++++ <<<
         }
         not{
-
 
         }
     }

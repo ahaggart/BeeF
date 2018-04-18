@@ -138,6 +138,10 @@ COMMENT_DELIM = '#'
 COUNTING_BLOCK_HEADER = "^[_-^>^[-]+^<[_[-]^]_>_<[_>"
 COUNTING_BLOCK_FOOTER = "<[-]^]]_"
 
+builtin = {
+    BINDS_TAG:{}
+}
+
 # function calls create a directional dependency from the caller to the callee
 # each namespace maintains a dictionary of accessible named closures
 # each function maintains a set of names it is dependant upon
@@ -163,6 +167,8 @@ class Namespace():
         self.sinks = {}     # nested namespaces visible in this scope
         self.imports = []   # imported namespaces
         self.binds = []     # imported bindings
+        self.bound_keywords = {}
+        # self.bound_keywords.update(builtin[BINDS_TAG])
         if closure_type == NAMESPACE_TYPE:
             self.ingest_namespace(namespace)
         else:
@@ -170,13 +176,13 @@ class Namespace():
 
     def ingest_module(self,module):
         for closure in module:
-            if closure == BINDINGS_KEYWORD: # extract from imported modules
-                self.binds = [module[closure][binding] for binding in module[closure] if binding not in ALL_TAGS]
-            elif closure in ALL_TAGS: # skip any other tags
+            if closure == BINDINGS_KEYWORD:
+                self.bound_keywords.update(
+                    dict([(binding,module[closure][binding]) for binding in module[closure] if binding not in ALL_TAGS]))
+            if closure in ALL_TAGS: # skip tags
                 continue
             elif closure == NAMESPACE_KEYWORD:
                 self.ingest_namespace(module[closure])
-                return
 
     def ingest_namespace(self,namespace):
         for closure in namespace:
@@ -184,7 +190,7 @@ class Namespace():
                 self.imports = namespace[closure]
                 continue
             elif closure == BINDS_TAG: # extract from imported modules
-                self.binds   = namespace[closure]
+                self.binds = namespace[closure]
                 continue
             elif closure in ALL_TAGS: # skip any other tags
                 continue
@@ -199,7 +205,9 @@ class Namespace():
     def resolve_imports(self,module_imports):
         for sink in self.sinks:
             self.sinks[sink].resolve_imports(module_imports)
-        for module in self.imports:
+        to_import = set(self.imports)
+        to_import.update(set(self.binds))
+        for module in to_import:
             if module not in self.sinks:
                 if module not in module_imports:
                     compiler_error("Could not find module",[module])
@@ -332,32 +340,35 @@ class DependencyLayer():
         self.linked = True
         pass
 
-    def build(self,directives):
+    def build(self,directives,external_bindings={}):
         if not self.linked:
             compiler_error("Cannot build unlinked layer",[self.name])
-        
+
+        # insert virtual machine flags
         namespace_entry_directive = "#0#namespace: {}\n".format(self.name)
         namespace_entry_ref = "#{}#".format(len(directives))
         directives.append(namespace_entry_directive)
 
+        local_bindings = {}
+        local_bindings.update(builtin[BINDS_TAG])
+        local_bindings.update(external_bindings) # this has some weird ramifications
+        local_bindings.update(self.namespace.bound_keywords)
+
         # recursively build subunits
-        namespace_text = ["<_["+namespace_entry_ref+"\n"]
+        namespace_text = []
         for node in self.resolved_namespace_layer:
             # wrap function text in functional counting blocks
             namespace_text.append(COUNTING_BLOCK_HEADER+"\n")
-            namespace_text.append(node.build(directives))
+            namespace_text.append(node.build(directives,local_bindings))
             namespace_text.append(COUNTING_BLOCK_FOOTER+"\n")
 
+        # wrap namespace ID table in execution loop header and footer
+        namespace_text.insert(0,"<_["+namespace_entry_ref+"\n")
         namespace_text.append("_]>\n")
+        
+        # concatenate functional blocks and sublayers into namespace ID table
         self.function_call_table = str.join("",namespace_text)
 
-        # expand function text bindings into assembly
-
-        # insert virtual machine flags?
-
-        # concatenate functional blocks and sublayers into namespace ID table
-
-        # wrap namespace ID table in execution loop header and footer
         self.compiled = True
         return self.function_call_table
 
@@ -444,7 +455,7 @@ class DependencyNode():
             return -1
         return 0
 
-    def build(self,directives):
+    def build(self,directives,local_bindings):
         #TODO: move the function-specific building elsewhere
         function_entry_directive = "#0#function: {}\n".format(self.name)
         function_entry_ref = "#{}#".format(len(directives))
@@ -453,16 +464,16 @@ class DependencyNode():
         # keep things divided by tokens, for now
         self.raw_text = ["\t"+function_entry_ref] 
         call_counter = 0
-        call_counter = self.resolve_tokens(self.raw_text,call_counter)
+        call_counter = self.resolve_tokens(self.raw_text,call_counter,local_bindings)
         # TODO: optimize calls to cids accessible in the same cycle
         self.raw_text.append("\n")
         return str.join("",self.raw_text)
 
-    def resolve_tokens(self,build_list,call_counter):
+    def resolve_tokens(self,build_list,call_counter,local_bindings={}):
         for token in self.text:
-            call_counter = self.recursive_build(build_list,token,call_counter)
+            call_counter = self.recursive_build(build_list,token,call_counter,local_bindings)
 
-    def recursive_build(self,build_list,token,call_counter):
+    def recursive_build(self,build_list,token,call_counter,local_bindings):
         if type(token) is str:
             build_list.append(token) 
         else: # inline keyword
@@ -628,17 +639,12 @@ def consume_modifiers(closure,text):
                 upgrade_function_to_namespace(closure)
         elif capture_mode in closure:
             closure[capture_mode].insert(0,token) # prefer modules imported "later"
-            # if capture_mode == IMPORTS_TAG:
-            #     closure[TREE_TAG].add_future_contents(token)
         else:
             compiler_error(
                 "Erroneous text in function signature",
                 closure[PATH_TAG])
     while text: #clear the list
         text.pop()
-
-# def link_parent_closure(parent,child):
-#     parent[TREE_TAG].link(child[TEXT_TAG])
 
 def make_closure(parent):
     closure = {}
@@ -658,7 +664,7 @@ def make_closure(parent):
     closure[FINALIZE_TAG] = (lambda: 0) # do nothing
     
     # type-specific tags
-    if closure[TYPE_TAG] == BOUND_TYPE or closure[TYPE_TAG] == FUNCTION_TYPE or closure[TYPE_TAG] == PREAMBLE_TYPE:
+    if closure[TYPE_TAG] == FUNCTION_TYPE or closure[TYPE_TAG] == PREAMBLE_TYPE:
         closure[CALLS_TAG] = []
     elif closure[TYPE_TAG] == IMPORT_TYPE:
         closure[IMPORTS_TAG] = {}
@@ -707,7 +713,7 @@ def parse_closures(source):
                     process_token(name,curr)
                     name = []
                 if char == '}':
-                    curr[FINALIZE_TAG]()
+                    curr[FINALIZE_TAG]() # run a function to set up closure
                     curr = stack.pop()
                     if not stack:
                         break
@@ -717,8 +723,6 @@ def parse_closures(source):
             name += char
     
     return root
-
-# def import_namespace(tree,name):
 
 def parse_file(file):
     # parse the file into nexted closure format
@@ -733,8 +737,10 @@ def parse_file(file):
     return module
 
 def main():
+    # TODO: command-line options, etc
     if len(sys.argv) < 3:
         print_usage()
+
     # parse the base module
     base_module = parse_file(sys.argv[1])
     pp.pprint(base_module)

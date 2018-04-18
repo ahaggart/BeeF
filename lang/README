@@ -132,7 +132,7 @@ END CFG: ***********************************************************************
         * Defines a closure as a conditional block. Text within the closure will
             be executed if the value at the data head is nonzero
     * else:
-        * Defines a closure as a conditional block. Must directly follow an if
+        * Defines a closure as a conditional block. Must be nested within an if
             closure. Text within the closure will be executed if the preceding
             if closure is not executed
     * bindings:
