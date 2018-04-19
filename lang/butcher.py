@@ -91,7 +91,8 @@ BOUND_TYPE          = 'bound'
 
 COMMENT_DELIM = '#'
 
-NON_ASSEMBLY_REGEX = re.compile('[^][^+><_\s-]+')
+NON_ASSEMBLY_REGEX = re.compile('[^][^+><_\s#0-9-]+')
+ASSEMBLY_CHARS = {'>','<','+','-','[',']','^','_'}
 
 COUNTING_BLOCK_HEADER = "^[_-^>^[-]+^<[_[-]^]_>_<[_>"
 COUNTING_BLOCK_FOOTER = "<[-]^]]_"
@@ -104,6 +105,7 @@ builtin = {
 
         "ZERO":"[-]",
         "ADD":"[->+<]","SUB":"[->-<]",
+        "EXIT":"<#0#>", # TODO: add an exit closure?
 
     }
 }
@@ -445,8 +447,8 @@ class DependencyNode():
         call_counter = 0
         call_counter = self.resolve_tokens(self.raw_text,call_counter,local_bindings)
         # TODO: optimize calls to cids accessible in the same cycle
-        self.raw_text.append("\n")
-        return str.join("",self.raw_text)
+        # TODO: make compiled code easier to read?
+        return str.join("\n",self.raw_text)+"\n"
 
     def resolve_tokens(self,build_list,call_counter,local_bindings={}):
         for token in self.text:
@@ -491,6 +493,7 @@ class DependencyNode():
             function_call.append("^")
 
         function_call.append(">") # move back to starting cell
+        function_call.append("call")
         return  str.join("",function_call)
 
     # recursively unpack any token that is not pure assembly
@@ -689,6 +692,7 @@ def parse_closures(source):
                 process_token(name,curr)
             name = []
         else:
+            # if char.isspace() or char == '}' or char == COMMENT_DELIM or char in ASSEMBLY_CHARS:
             if char.isspace() or char == '}' or char == COMMENT_DELIM:
                 if name:
                     process_token(name,curr)
@@ -700,6 +704,8 @@ def parse_closures(source):
                         break
                 elif char == COMMENT_DELIM:
                     source.readline() # skip the rest of the line
+                # elif char in ASSEMBLY_CHARS:
+                #     process_token(char,curr)
                 continue
             name += char
     
@@ -740,7 +746,8 @@ def main():
         # resolve all bound tokens in namespace
         # resolve bound function calls into absolute
         # resolve inline closures into control structures
-    directives = []
+    directives = ["#-1#global exit condition\n"]
+    # directives = []
     code = base_layer.build(directives)
 
     # resolve *amble closures into code blobs  

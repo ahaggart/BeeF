@@ -1,0 +1,32 @@
+
+
+
+
+Apply function to specified number of adjacent cells
+* self-calling function that carries a loop condition along with it 
+* hides data underneath the call stack
+* cleanup function writes results back to cells
+
+loopTemplate{           # recursive "for" loop -> apply fn to adjacent cells
+    # we expect the loop counter to be in the cell we start in
+    > ATOMIC_OP PACK        # do some atomic evaluation, cram result onto stack
+    < rcopy                 # copy counter into cell we extracted
+    -^[                     # call the next block if counter is nonzero
+        _                   # unpack
+        call{loopTemplate}  # overwrites old counter
+        ^[-]                # (exit)
+    ]_                      # unpack counter into current cell
+    PUSH NOT [              # run this loop if the counter is zero
+        POP                 # pop the zero -> overwrite entry condition
+        call{loopCleaner}   # run the cleanup function
+        PUSH                # replace the zero
+    ] POP                   # restore the value we NOTed
+}
+
+loopCleaner{
+    rUNPACK(8)
+}
+
+binding rUNPACK { < UNPACK  }
+binding PACK    {   PUSH    }
+binding NOT     { > PUSH [-]+ PUSH < [_[-]^^]_[[-]+^-] POP > POP < }

@@ -171,6 +171,8 @@ PP_INFO_T* ppreprocessor(FILE* src){
             } else{
                 brbuffer[i_count] = PP_NO_BRANCH;
             }
+            //record the line number for every instruction
+            refbuffer[(i_count-1)*2+1] = info->line_count;
             i_count++;
         } else if(insn == PP_DELIM){
             if(i_count == 0){

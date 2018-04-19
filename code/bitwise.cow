@@ -1,37 +1,49 @@
 bitwise{
     preamble{
-        +(72) # ascii 'a'
-        call{unroll}
+        > +(72) < # ascii 'a'
+        call{entry}
     }
     namespace{
-        unroll{ # unroll a value
-            double_left(7)
-            <(7)
-
-            save(8)
-            <(8)
-
-            call{util eval_msb}
+        entry{
+            call{unroll}
         }
-        util{
-            eval_msb{
-                > PUSH > PUSH
-                ZERO < make_128 < # check condition
-
-                [   # loop until our value wraps
-                    +
-                    >+ PUSH NOT [>+<[-]] POP # set the scratch cell if 127 wraps
-                    <
-                ] # scratch cell is only set if (num > 127)
-
-                >> NOT PUSH << POP
-                >> POP < POP <
+        unroll{ # unroll value in cell 2
+            >+ doubleLeft(7)
+            <           <(7)
+            +(8) # recurse 8 times
+            call{unroll_exit}
+            call{recursive evalMSB}
+        }
+        unroll_exit{
+            EXIT
+        }
+        recursive{
+            evalMSB{ # start a recursive MSB evaluation
+                # we expect the loop counter to be in the cell we start in
+                > extractMSB PACK   # extract the MSB, cram onto stack
+                < rcopy             # unpack counter into cell we extracted
+                -^[                 # call the next block if counter is nonzero
+                    _               # unpack
+                    call{evalMSB}   # overwrites old counter
+                    ^[-]            # repack and zero (exit)
+                ]_                  # unpack counter into current cell
+                PUSH NOT [          # run this loop if the counter is zero
+                    POP
+                    call{cleanMSB}  # run the cleanup function
+                    PUSH
+                ] POP
+            }
+            cleanMSB{
+                rUNPACK(8)
             }
         }
     }
     bindings{
-        move_and_pop{
+        leftAndPop{
             > POP
+        }
+        rUNPACK{
+            < UNPACK
         }
         rcopy{ # copy a value to adjacent cell
             PUSH > POP
@@ -45,16 +57,16 @@ bitwise{
         rrestore{
             > POP <
         }
-        double_left{
-            rcopy shift_left
+        doubleLeft{
+            rcopy shiftLeft
         }
-        shift_left{ # left shift a value
+        shiftLeft{ # left shift a value
             rsave
             rcopy  <
             ADD    > lcopy
             rrestore
         }
-        make_128{
+        make128{
             ZERO
             rsave > ZERO <
             ++>+<[>+<++]
@@ -65,8 +77,30 @@ bitwise{
             > PUSH [-]+ PUSH <
             [_[-]^^] POP [[-]+^-] POP rrestore
         }
+        PACK{ # remap this to show intent of pushing value
+            PUSH
+        }
+        UNPACK{ # see "PACK"
+            POP
+        }
         save{
             PUSH >
+        }
+        restore{
+            < POP
+        }
+        extractMSB{
+            > PUSH > PUSH
+            ZERO < make128 < # check condition
+
+            [   # loop until our value wraps
+                +
+                >+ PUSH NOT [>+<[-]] POP # set the scratch cell if 127 wraps
+                <
+            ] # scratch cell is only set if (num > 127)
+
+            >> NOT PUSH << POP
+            >> POP < POP <            
         }
     }
     postamble{

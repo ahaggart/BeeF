@@ -13,10 +13,10 @@
 #include "BVMStack.h"
 #include "Common.h"
 
-#define BVM_REQ_BRANCH      -1
-#define BVM_SUCCESS       0
-#define BVM_ERR_AT_LEFTMOST  1
-#define BVM_ERR_EMPTY_STACK  2
+#define BVM_REQ_BRANCH       -1
+#define BVM_SUCCESS           0
+#define BVM_ERR_AT_LEFTMOST   1
+#define BVM_ERR_EMPTY_STACK   2
 
 #define CELL unsigned char
 #define CELL_IDX unsigned int
