@@ -1,21 +1,27 @@
 bitwise{
-    preamble{
-        > +(72) < # ascii 'a'
+    preamble{ # starts in cell 0 (unlike other functions)
+        > +(85) < # ascii 'a'
+        >(9) +(128) <(9)
         call{entry}
     }
     namespace{
         entry{
+            call{offset_unroll}
             call{unroll}
         }
         unroll{ # unroll value in cell 2
-            >+ doubleLeft(7)
-            <           <(7)
+            >+ doubleLeft(7) > 
+            <           <(7) <
             +(8) # recurse 8 times
-            call{unroll_exit}
             call{recursive evalMSB}
         }
-        unroll_exit{
-            EXIT
+        offset_unroll{
+            call{offset_bitwise xor}
+
+            >(7) PACK > 
+
+            call{clean offset_unroll}
+            call{unroll}
         }
         recursive{
             evalMSB{ # start a recursive MSB evaluation
@@ -35,6 +41,20 @@ bitwise{
             }
             cleanMSB{
                 rUNPACK(8)
+            }
+        }
+        offset_bitwise{
+            xor{
+                < PACK > >(8) PACK <(9) # in saved cell
+                UNPACK                       # copy offset into saved
+                SUB  > NOT NOT <             # result will be nonzero if xor=1
+                UNPACK                       # restore saved result
+                >
+            }
+        }
+        clean{
+            offset_unroll{
+                < UNPACK UNPACK <(7) < ZERO PACK >
             }
         }
     }
@@ -95,9 +115,9 @@ bitwise{
 
             [   # loop until our value wraps
                 +
-                >+ PUSH NOT [>+<[-]] POP # set the scratch cell if 127 wraps
+                >+ PUSH NOT [>+<[-]] POP # set the scratch cell if 128 wraps
                 <
-            ] # scratch cell is only set if (num > 127)
+            ] # scratch cell is only set if (num > 128)
 
             >> NOT PUSH << POP
             >> POP < POP <            
