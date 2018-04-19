@@ -4,6 +4,7 @@ library{
             call{libf1}
         }
         libf1{
+            xor
             >>>> ++++++ <<<<
         }
         libf2{

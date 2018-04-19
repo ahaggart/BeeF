@@ -30,6 +30,15 @@ Features:
         * generates error messages at runtime when code violates important 
             conditions
 
+* incomplete modules
+    * submodules inherit parent module bindings at low priority, which prevents
+        parent modules from clobbering child module bindings
+    * submodules which contain unbound tokens are "incomplete" and will not
+        compile, but may become compilable if a parent module binds the token
+    * modules can take advantage of incompleteness by allowing parent modules
+        to "inject" some code of their own into a submodule routine
+    * TODO: add language support for incomplete modules
+
 ===============================================================================
 Syntax:
 * syntax is enforced with named curly-brace closures

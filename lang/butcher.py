@@ -1,55 +1,11 @@
 #!/usr/bin/env python2.7
-from __future__ import print_function
-
 """
 Alexander Haggart, 4/14/18
 
 Assembler for COW assembly files
     - Assembles .beef machine code from .cow assembly files
-
-syntax:
-module_name{
-    preamble{
-
-    }
-    depends{
-
-    }
-    namespace{
-        function_name binds other_module{
-            bindings_and_raw_assembly
-            if{
-                
-            }
-            else{
-            
-            }
-            call{
-                path to function
-            }
-        }
-        nested_namespace_name imports other_module_1 binds other_module_2{
-            inner_function_name{
-
-            }
-        }
-    }
-    bindings{
-        bound_token binds other_module{
-
-        }
-    }
-    postamble{
-
-    }
-}
-
-parse:
-{
-    NAME_TAG:name
-    TYPE_TAG:module
-}
 """
+from __future__ import print_function
 import sys
 import traceback
 import pprint as pp
@@ -63,7 +19,7 @@ def print_usage():
 NAME_TAG        = '_NAME_'
 PATH_TAG        = '_PATH_'
 TEXT_TAG        = '_TEXT_'
-TYPE_TAG = '_TYPE_'
+TYPE_TAG        = '_TYPE_'
 
 # namespace and binding tags
 CAPTURE_TAG     = '_CAPTURE_'
@@ -117,7 +73,6 @@ POST_BINDING_KEYWORDS = {}
 IMPORT_CAPTURE = 'imports'
 BINDING_CAPTURE = 'binds'
 PRE_BINDING_KEYWORDS = {
-    # CALLING_CAPTURE:CALLS_TAG,
     IMPORT_CAPTURE:IMPORTS_TAG,
     BINDING_CAPTURE:BINDS_TAG
 }
@@ -173,7 +128,6 @@ class Namespace():
         self.imports = []   # imported namespaces
         self.binds = []     # imported bindings
         self.bound_keywords = {}
-        # self.bound_keywords.update(builtin[BINDS_TAG])
         if closure_type == NAMESPACE_TYPE:
             self.ingest_namespace(namespace)
         else:
@@ -274,7 +228,7 @@ class DependencyLayer():
         # for each imported namespace, merge dependency token sets of 
         # tokens in merged internal token set
         self.layer_deps = {}
-        print("{} token layer: {}".format(self.name,internal_token_layer))
+        # print("{} token layer: {}".format(self.name,internal_token_layer))
         for sink in self.namespace.sinks:
             self.sublayers[sink] = DependencyLayer(self.namespace.sinks[sink])
             sink_deps = set()
@@ -291,7 +245,7 @@ class DependencyLayer():
                 removal_candidates.append(layer)
                 continue
             layer_entry_points = [[token] for token in self.layer_deps[layer]]
-            print("Entry points to {} -> {}".format(layer,layer_entry_points))
+            # print("Entry points to {} -> {}".format(layer,layer_entry_points))
             self.sublayers[layer].resolve(layer_entry_points)
 
         # clean up unused sublayers
@@ -330,7 +284,7 @@ class DependencyLayer():
             # compute function call IDs from list order
             node.fid = fid
             fid = fid + 1
-            print("{} ID: {}".format(node.name,node.fid))
+            # print("{} ID: {}".format(node.name,node.fid))
 
         # link local namespace function calls
         for node in resolved_node_layer:
@@ -350,8 +304,8 @@ class DependencyLayer():
 
         self.resolved_namespace_layer = resolved_node_layer + layer_list
 
-        for node in resolved_node_layer:
-            print("{} links: {}".format(node.name,node.links))
+        # for node in resolved_node_layer:
+        #     print("{} links: {}".format(node.name,node.links))
 
         self.linked = True
         pass
@@ -552,26 +506,6 @@ def is_assembly(token):
     if NON_ASSEMBLY_REGEX.search(token):
         return False
     return True
-
-
-
-# class Binding():
-#     def __init__(self,binding_closure):
-#         self.name = binding_closure[NAME_TAG]
-#         self.imports = binding_closure[IMPORTS_TAG]
-#         self.text = binding_closure[TEXT_TAG]
-#         self.scope = {}
-
-#     def resolve(self,module_imports):
-#         for lib in self.imports:
-#             if lib not in module_imports:
-#                 compiler_error("Could not find bound module",[lib])
-#             self.update(module_imports[lib][EXPORTS_TAG])
-#         return
-
-#     def update(self,external_namespace):
-#         external_scope = external_namespace.binding_scope
-#         return
 
 def indented_print(name,indent):
     print("{}{}".format(
@@ -797,7 +731,7 @@ def main():
 
     # parse the base module
     base_module = parse_file(sys.argv[1])
-    pp.pprint(base_module)
+    # pp.pprint(base_module)
     base_layer = DependencyLayer(base_module[EXPORTS_TAG])
 
     # collect dependencies from dependency tree

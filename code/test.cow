@@ -9,7 +9,6 @@ test_cow{
     namespace{
         nested_namespace imports library binds library{
             my_function{
-                xor
                 libb
             }
             nested_function_1{
