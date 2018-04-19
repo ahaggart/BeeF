@@ -27,10 +27,10 @@ void dump_bvm(BVM* g){
   bvms_dump(g->stack);
   printf("Cells:\n");
   int i;
-  char val;
+  CELL val;
   for(i = 0; i < g->num_cells; i++){
     val = g->cells[i];
-    printf("%cc%d:\t%d\t0x%x\t%c\n",(i==g->data_head)?'>':' ',i,val,val,val);
+    printf("%cc%d:\t%u\t0x%x\t%c\n",(i==g->data_head)?'>':' ',i,val,val,val);
   }
 
 }
@@ -73,6 +73,7 @@ int bvm_mvl(BVM* g){
  */
 int bvm_inc(BVM* g){
   g->cells[g->data_head]++;
+  // g->cells[g->data_head] = ((int)g->cells[g->data_head] + 1)%256;
   return BVM_SUCCESS;
 }
 

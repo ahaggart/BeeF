@@ -15,6 +15,11 @@ def print_usage():
     print("usage: butcher path_to_cow_file path_to_beef_file")
     exit(1)
 
+def compiler_error(msg,path):
+    print("Error: " + msg + ": {}".format(str.join("/",path)))
+    traceback.print_stack()
+    exit(1)
+
 # common tags
 NAME_TAG        = '_NAME_'
 PATH_TAG        = '_PATH_'
@@ -22,32 +27,27 @@ TEXT_TAG        = '_TEXT_'
 TYPE_TAG        = '_TYPE_'
 
 # namespace and binding tags
-CAPTURE_TAG     = '_CAPTURE_'
 BINDS_TAG       = '_BINDS_'
-
-# namespace-only tags
 IMPORTS_TAG     = '_IMPORTS_'
 
 # special tags
 MODULE_TAG      = '_MODULE_'
-TREE_TAG        = '_TREE_'
-LEAF_TAG        = '_LEAF_'
 BUILDER_TAG     = '_BUILDER_'
-
 CALLS_TAG       = '_CALLS_'
-ADD_CALL_TAG    = '_ADD_CALL_'
-
 EXPORTS_TAG     = '_EXPORTS_'
-ADD_EXPORT_TAG  = '_ADD_EXPORT_'
-FUNCTION_EXPORT = '_FUNCTION_'
-BINDING_EXPORT  = '_BINDING_'
-
-FINALIZE_TAG = '_FINALIZE_'
+FINALIZE_TAG    = '_FINALIZE_'
 
 ALL_TAGS = {
-    NAME_TAG,PATH_TAG,TEXT_TAG, CAPTURE_TAG,BINDS_TAG,TYPE_TAG,
-    IMPORTS_TAG,MODULE_TAG,LEAF_TAG,TREE_TAG,BUILDER_TAG,
-    CALLS_TAG,ADD_CALL_TAG,EXPORTS_TAG,ADD_EXPORT_TAG,
+    NAME_TAG,
+    TYPE_TAG,
+    PATH_TAG,
+    TEXT_TAG,
+    BINDS_TAG,
+    IMPORTS_TAG,
+    MODULE_TAG,
+    BUILDER_TAG,
+    CALLS_TAG,
+    EXPORTS_TAG,
     FINALIZE_TAG
 }
 
@@ -98,6 +98,12 @@ COUNTING_BLOCK_FOOTER = "<[-]^]]_"
 
 builtin = {
     BINDS_TAG:{
+        "MVL":"<","MVR":">",
+        "INC":"+","DEC":"-",
+        "PUSH":"^","POP":"_",
+
+        "ZERO":"[-]",
+        "ADD":"[->+<]","SUB":"[->-<]",
 
     }
 }
@@ -519,27 +525,6 @@ class Stack(list): # for being pedantic
     def path(self):
         return [layer[NAME_TAG] for layer in self]
 
-def compiler_error(msg,path):
-    print("Error: " + msg + ": {}".format(str.join("/",path)))
-    traceback.print_stack()
-    exit(1)
-
-def insert_function_call(root,leaf):
-    unique = False
-    path = leaf[PATH_TAG]
-    for node in path:
-        if node not in root: # insert the rest of the path
-            root[node] = {}
-            unique = True
-        root = root[node]
-    if not unique:
-        compiler_error("Namespace collision",path)
-    root[LEAF_TAG] = leaf[TEXT_TAG]
-
-FUNCTION_FINDER = {
-    BUILDER_TAG:lambda path:insert_function_call(FUNCTION_FINDER,path),
-}
-
 # type resolver helper functions
 def resolve_root_child(name,parent):
     return MODULE_TYPE
@@ -613,7 +598,7 @@ def process_token(name,closure):
     closure[TEXT_TAG].append(name)
 
 def get_closure_type(closure,parent):
-    if TYPE_TAG not in closure:
+    if TYPE_TAG not in closure: # if a type is already set, dont mess with it
         return SORTING_HAT[parent[TYPE_TAG]](closure[NAME_TAG],parent)
     return closure[TYPE_TAG]
 
@@ -630,9 +615,9 @@ def consume_modifiers(closure,text):
         else:
             compiler_error(
                 "Erroneous text in function signature",
-                closure[PATH_TAG])
+                closure[NAME_TAG])
     while text: #clear the list
-        text.pop()
+        text.pop() # maybe we should be using python 3
 
 def make_closure(parent):
     closure = {}
@@ -640,15 +625,14 @@ def make_closure(parent):
         parent[MODULE_TAG] = closure
     if parent[TYPE_TAG] == NAMESPACE_TYPE:
         name = parent[TEXT_TAG].pop(0)
-        closure[PATH_TAG] = parent[PATH_TAG] + [name]
         consume_modifiers(closure,parent[TEXT_TAG])
     else: # other types do not have modifiers
         name = parent[TEXT_TAG].pop()
-        closure[PATH_TAG] = parent[PATH_TAG] + [name]
         
     closure[NAME_TAG] = name
     closure[TEXT_TAG] = []
     closure[TYPE_TAG] = get_closure_type(closure,parent)
+    closure[PATH_TAG] = parent[PATH_TAG] + [name]
     closure[FINALIZE_TAG] = (lambda: 0) # do nothing
     
     # type-specific tags
@@ -694,6 +678,15 @@ def parse_closures(source):
             tmp = make_closure(curr)
             stack.push(curr)
             curr = tmp
+            name = []
+        elif char == '(': #TODO: only allow this in text closures 
+            digit = source.read(1)
+            num = []
+            while digit != ')':
+                num.append(digit)
+                digit = source.read(1)
+            for i in range(0,int(str.join("",num))):
+                process_token(name,curr)
             name = []
         else:
             if char.isspace() or char == '}' or char == COMMENT_DELIM:
@@ -755,7 +748,6 @@ def main():
     preamble.link_local(base_layer)
     preamble_code = ["[-]^>"]
     preamble.resolve_tokens(preamble_code,0)
-    # preamble_code.append("<_>\n")
     preamble_code = str.join("",preamble_code)
 
     # print(preamble_code)

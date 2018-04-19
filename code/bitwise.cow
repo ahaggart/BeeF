@@ -1,0 +1,75 @@
+bitwise{
+    preamble{
+        +(72) # ascii 'a'
+        call{unroll}
+    }
+    namespace{
+        unroll{ # unroll a value
+            double_left(7)
+            <(7)
+
+            save(8)
+            <(8)
+
+            call{util eval_msb}
+        }
+        util{
+            eval_msb{
+                > PUSH > PUSH
+                ZERO < make_128 < # check condition
+
+                [   # loop until our value wraps
+                    +
+                    >+ PUSH NOT [>+<[-]] POP # set the scratch cell if 127 wraps
+                    <
+                ] # scratch cell is only set if (num > 127)
+
+                >> NOT PUSH << POP
+                >> POP < POP <
+            }
+        }
+    }
+    bindings{
+        move_and_pop{
+            > POP
+        }
+        rcopy{ # copy a value to adjacent cell
+            PUSH > POP
+        }
+        lcopy{
+            PUSH < POP
+        }
+        rsave{
+            > PUSH <
+        }
+        rrestore{
+            > POP <
+        }
+        double_left{
+            rcopy shift_left
+        }
+        shift_left{ # left shift a value
+            rsave
+            rcopy  <
+            ADD    > lcopy
+            rrestore
+        }
+        make_128{
+            ZERO
+            rsave > ZERO <
+            ++>+<[>+<++]
+            > lcopy
+            rrestore
+        }
+        NOT{
+            > PUSH [-]+ PUSH <
+            [_[-]^^] POP [[-]+^-] POP rrestore
+        }
+        save{
+            PUSH >
+        }
+    }
+    postamble{
+
+    }
+}

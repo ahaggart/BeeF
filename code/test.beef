@@ -1,36 +1,13 @@
-#0#  Running "test.beef"
-#-1# Hard exit condition
-#0# Functional Block 1
-#0# Functional Block 2
-#0# Functional Block 3
-#0# Functional Block 4
-#2# Lock Test
+testing if constructs
 
-^+                           #0# Bootstrapping: push 0 (exit) to stack
-                                        and set up control cell to enter at
-                                        FID 1
-[                               Primary Execution Loop
+if
+^[>  save the value to the stack
+    execute some code
+    ++
+<[-]] zero the control cell and exit
+_     restore the old value
 
-                                Loop Header Zone
-
-^[_-^>^[-]+^<[_[-]^]_>_<[>      Functional Block Header 1
-    <_++^[-]^>                     #2# push FID 2 to the stack
-<[-]]]_                         Functional Block Footer 1
-
-^[_-^>^[-]+^<[_[-]^]_>_<[>      Functional Block Header 2
-    <_+++^[-]^>                 #3# push FID 3 to the stack
-<[-]]]_                         Functional Block Footer 2
-
-^[_-^>^[-]+^<[_[-]^]_>_<[>      Functional Block Header 3
-    <_++++^[-]^>                #4# push FID 4 to the stack
-<[-]]]_                         Functional Block Footer 3
-
-^[_-^>^[-]+^<[_[-]^]_>_<[>      Functional Block Header 4
-                                #5#
-                                This block does not push another FID to the
-                                stack, so the program exits after this loop
-<[-]]]_                         Functional Block Footer 4
-
-_                               Loop Footer Zone
-
-]
+else
+^^
+[_[-]-^] skip block: skipping this block allows the next one to exec
+_
