@@ -104,7 +104,8 @@ builtin = {
         "PUSH":"^","POP":"_",
 
         "ZERO":"[-]",
-        "ADD":"[->+<]","SUB":"[->-<]",
+        "ADD":"[->+<]","SUB":"[>-<-]",
+        "NOT":">^ ZERO <+ SUB >^<_>_<",
         "EXIT":"<#0#>", # TODO: add an exit closure?
 
     }
@@ -755,6 +756,7 @@ def main():
     preamble.link_local(base_layer)
     preamble_code = ["[-]^>"]
     preamble.resolve_tokens(preamble_code,0)
+    preamble_code.append("\n")
     preamble_code = str.join("",preamble_code)
 
     # print(preamble_code)

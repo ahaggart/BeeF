@@ -1,126 +1,60 @@
 bitwise{
-    preamble{ # starts in cell 0 (unlike other functions)
-        > +(85) < # ascii 'a'
-        >(9) +(128) <(9)
-        call{entry}
+    preamble{ 
+         +(48)   # ascii 'a'
+        > +(15) <
+        call{xor}
     }
     namespace{
-        entry{
-            call{offset_unroll}
-            call{unroll}
+        expand{
+            [> >[>]++[-<]<-]
         }
-        unroll{ # unroll value in cell 2
-            >+ doubleLeft(7) > 
-            <           <(7) <
-            +(8) # recurse 8 times
-            call{recursive evalMSB}
+        expand2{ # triples at +6, uses 31 cells
+            < ZERO
+            # use a triple expander gadget to make navigating easier, end at +3
+            -[[>>> >>>[>>>]++[-<<<]<<<-]>]
+            <<
         }
-        offset_unroll{
-            call{offset_bitwise xor}
+        xor{ # args in +0 and +1
+            >  rsave(29) ZERO PUSH(28) < # save everything, then wipe
+            lrestore(28) <
+            
+            call{inner xor}
+            call{expand2}
 
-            >(7) PACK > 
-
-            call{clean offset_unroll}
-            call{unroll}
         }
-        recursive{
-            evalMSB{ # start a recursive MSB evaluation
-                # we expect the loop counter to be in the cell we start in
-                > extractMSB PACK   # extract the MSB, cram onto stack
-                < rcopy             # unpack counter into cell we extracted
-                -^[                 # call the next block if counter is nonzero
-                    _               # unpack
-                    call{evalMSB}   # overwrites old counter
-                    ^[-]            # repack and zero (exit)
-                ]_                  # unpack counter into current cell
-                PUSH NOT [          # run this loop if the counter is zero
-                    POP
-                    call{cleanMSB}  # run the cleanup function
-                    PUSH
-                ] POP
-            }
-            cleanMSB{
-                rUNPACK(8)
-            }
-        }
-        offset_bitwise{
+        inner{
             xor{
-                < PACK > >(8) PACK <(9) # in saved cell
-                UNPACK                       # copy offset into saved
-                SUB  > NOT NOT <             # result will be nonzero if xor=1
-                UNPACK                       # restore saved result
+                # now start evaluating logical XORs per-pair
+                >>> >>
+                # [<]> this doesnt seem to do anything
+                [
+                    [   
+                        > SUB > # subtract expanded pair
+                        [<<<<<<+>>>>>>[-]]> # zero a digit if diff=/=0
+                    ]
+                    + # kickstart the compressor loop
+                    [<[<<<++>>>-]<<] # start compressing bits
+                    >>
+                ]
+                <<< PUSH < POP # copy the result to cell 1
+                < POP # discard the null fid
+                
+                > >(29)
+                lrestore(29)
+                < PUSH  # put the null fid back
                 >
-            }
-        }
-        clean{
-            offset_unroll{
-                < UNPACK UNPACK <(7) < ZERO PACK >
             }
         }
     }
     bindings{
-        leftAndPop{
-            > POP
-        }
-        rUNPACK{
-            < UNPACK
-        }
-        rcopy{ # copy a value to adjacent cell
-            PUSH > POP
-        }
-        lcopy{
-            PUSH < POP
-        }
         rsave{
-            > PUSH <
-        }
-        rrestore{
-            > POP <
-        }
-        doubleLeft{
-            rcopy shiftLeft
-        }
-        shiftLeft{ # left shift a value
-            rsave
-            rcopy  <
-            ADD    > lcopy
-            rrestore
-        }
-        make128{
-            ZERO
-            rsave > ZERO <
-            ++>+<[>+<++]
-            > lcopy
-            rrestore
-        }
-        NOT{
-            > PUSH [-]+ PUSH <
-            [_[-]^^] POP [[-]+^-] POP rrestore
-        }
-        PACK{ # remap this to show intent of pushing value
-            PUSH
-        }
-        UNPACK{ # see "PACK"
-            POP
-        }
-        save{
             PUSH >
         }
-        restore{
-            < POP
+        rrestore{
+            POP >
         }
-        extractMSB{
-            > PUSH > PUSH
-            ZERO < make128 < # check condition
-
-            [   # loop until our value wraps
-                +
-                >+ PUSH NOT [>+<[-]] POP # set the scratch cell if 128 wraps
-                <
-            ] # scratch cell is only set if (num > 128)
-
-            >> NOT PUSH << POP
-            >> POP < POP <            
+        lrestore{
+            POP <
         }
     }
     postamble{
