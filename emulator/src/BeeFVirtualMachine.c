@@ -5,13 +5,17 @@
  */
 #include "BeeFVirtualMachine.h"
 
-BVM* create_bvm(CELL_IDX initial_size){
+BVM* create_bvm(CELL_IDX initial_size,CELL* starting_mem){
   BVM* g = (BVM*)malloc(sizeof(BVM));
 
   g->pc = 0;
 
   //set up the data cells
-  g->cells = (CELL*)calloc(initial_size,sizeof(CELL));
+  if(!starting_mem){
+    g->cells = (CELL*)calloc(initial_size,sizeof(CELL));
+  }else{
+    g->cells = starting_mem;
+  }
   g->num_cells = initial_size;
   g->data_head = 0;
 

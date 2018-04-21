@@ -35,7 +35,7 @@ typedef struct{
   CELL_IDX data_head; 
 } BeeFVirtualMachine;
 
-BVM* create_bvm(CELL_IDX initial_size);
+BVM* create_bvm(CELL_IDX initial_size, CELL* starting_mem);
 int process(BVM* g, char insn);
 void dump_bvm(BVM* g);
 int is_instruction(char insn);

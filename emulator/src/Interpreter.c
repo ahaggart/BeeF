@@ -17,6 +17,12 @@ void print_usage(){
   printf("usage: roast -[d] path_to_beef_assembly\n");
 }
 
+typedef struct{
+  char* code;
+  char* mem;
+  char debug;
+} arg_info;
+
 void process_user_input(char input,int* autorun,BVM* vm){
   switch(input){
     case '\n':
@@ -32,25 +38,101 @@ void process_user_input(char input,int* autorun,BVM* vm){
   }
 }
 
+void parse_args(int argc,char** argv,arg_info* dest){
+  int arg;
+  int iflag = 1;
+  char flag;
+  dest->debug = 0;
+  dest->code = 0;
+  dest->mem = 0;
+  for(arg = 1; arg < argc; arg++){
+    if(argv[arg][0] == '-'){
+      while((flag=argv[arg][iflag++])){
+        switch(flag){
+          case 'd':
+            dest->debug = 1;
+            break;
+          default:
+            break;
+        }
+      }
+      iflag = 0;
+    }
+    else if(!dest->code){
+      dest->code = argv[arg];
+    }else if(!dest->mem){
+      dest->mem = argv[arg];
+    }
+  }
+}
+
+int get_starting_mem(char* file,CELL** dest,int default_size){
+  if(!file){
+    *dest = 0;
+    return default_size;
+  }
+  FILE* memsrc = fopen(file,"r");
+  int i = 0;
+  int ccount = 0;
+  int readbuffer_size = 4;
+  char readbuffer[readbuffer_size];
+  int in_char;
+  int total_size = default_size;
+  CELL* mem = (CELL*)malloc(total_size*sizeof(CELL));
+  int mem_size = 0;
+  while((in_char = fgetc(memsrc))!=EOF){
+    readbuffer[i] = (char)in_char;
+    ccount++;
+    if(readbuffer[i] == '\n'){
+      continue;
+    }else if(readbuffer[i] == ','){
+      readbuffer[i] = 0;
+      if(mem_size == total_size){
+        CELL* tmp = (CELL*)malloc(total_size*2*sizeof(CELL));
+        memcpy(tmp,mem,mem_size*sizeof(CELL));
+        free(mem);
+        mem = tmp;
+        total_size *= 2;
+      }
+      mem[mem_size++] = (CELL)atoi(readbuffer);
+      i = 0;
+    } else{
+      i++;
+    }
+
+    if(i == readbuffer_size){
+      printf("Error: starting cell value at %d out of bounds.",ccount-1);
+      exit(1);
+    }
+  }
+  if(i != 0){ //TODO: this is duplicated from the loop body
+    readbuffer[i] = 0;
+    if(mem_size == total_size){
+      CELL* tmp = (CELL*)malloc(total_size*2*sizeof(CELL));
+      memcpy(tmp,mem,mem_size*sizeof(CELL));
+      free(mem);
+      mem = tmp;
+      total_size *= 2;
+    }
+    mem[mem_size++] = (CELL)atoi(readbuffer);
+  }
+  *dest = mem;
+  return mem_size;
+}
+
 int main(int argc, char** argv){
   if(argc < 2){
     print_usage();
     return 1;
   }
-  char* srcname = 0;
-  int autorun = 1;
-  int debugging = 0;
-  if(argc == 3 && argv[1][0] == '-'){ //flags
-    if(argv[1][1] == 'd'){ //TODO: better arg parsing lol
-      autorun = 0;
-      debugging = 1;
-    }
-    srcname = argv[2];
-  } else{
-    srcname = argv[1];
-  }
-  BVM* vm = create_bvm(12); //big enough for the hello world program
-  FILE* insns = fopen(srcname,"r");
+  arg_info args;
+  parse_args(argc,argv,&args);
+  int debugging = args.debug;
+  int autorun = !debugging;
+  CELL* cells;
+  int memsize = get_starting_mem(args.mem,&cells,12);
+  BVM* vm = create_bvm(memsize,cells); //big enough for the hello world program
+  FILE* insns = fopen(args.code,"r");
   FILE* prog = insns;
   PP_INFO_T* info = ppreprocessor(prog);
   fclose(insns);
