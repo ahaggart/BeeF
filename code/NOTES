@@ -1,5 +1,23 @@
+################################################################################
+NOTES ON CODING STYLE
+################################################################################
 
-
+* namespace hiding: functions written in COW must often modify the stack and 
+    otherwise alter normal program flow in order to achieve the desired result.
+    One side effect of this is functions which must be called in a specific
+    order, as they rely on non-standard stack behavior executed in related code.
+    These non-atomic functions should not be exposed in the base namespace.
+    Multi-part function executions should be hidden in nested namespaces and 
+    called upon by functions in the base namespace, which allows modules to 
+    make use of non-atomic behavior without exposing non-atomic components to
+    importing modules.
+    * An example of this behavior can be found below, in which a self-calling
+        function crams data onto the stack. Importing modules should not have to
+        wrangle this behavior directly. Instead, a caller function is exposed in 
+        the base namespace, which creates a workspace for the recursor. The 
+        function performing most of the work is hidden, along with its cleanup 
+        routine, in a nested namespace, preventing calling modules from directly
+        accessing sensitive functions.
 
 
 Apply function to specified number of adjacent cells
@@ -29,4 +47,3 @@ loopCleaner{
 
 binding rUNPACK { < UNPACK  }
 binding PACK    {   PUSH    }
-binding NOT     { > PUSH [-]+ PUSH < [_[-]^^]_[[-]+^-] POP > POP < }

@@ -1,6 +1,6 @@
-bitwise{
+bitwise{ # https://codegolf.stackexchange.com/questions/9178/bitwise-operators-in-brainfuck
     preamble{ 
-         +(48)   # ascii 'a'
+        +(48)
         > +(15) <
         call{xor}
     }
@@ -11,25 +11,77 @@ bitwise{
         expand2{ # triples at +6, uses 31 cells
             < ZERO
             # use a triple expander gadget to make navigating easier, end at +3
-            -[[>>> >>>[>>>]++[-<<<]<<<-]>]
-            <<
+            - expander3
+            > expander3
+            > expander3
+            <
         }
-        xor{ # args in +0 and +1
-            >  rsave(29) ZERO PUSH(28) < # save everything, then wipe
-            lrestore(28) <
-            
+        double_expand{ # uses 18 cells of workspace
+            # destructively clear out the workspace
+            < ZERO PUSH >>> wipe(18) <(18) POP <<
+              expander2
+            > expander2
+            <
+        }
+        xor{ # atomic, right-only, args in +0 and +1
+            > rsave(19) <(19) < # save the workspace used by double_expand
+
             call{inner xor}
+            call{double_expand}
+
+        }
+        or{ # args in +0 and +1
+            > rsave(19) # save the workspace used by double_expand
+            
+            call{inner or}
             call{expand2}
 
         }
+        rol{
+            < PUSH > > PUSH > PUSH > PUSH ZERO PUSH(3)
+            < POP < POP < < POP >
+            [>++[>>]<[>+>]<<-]
+            > PUSH < POP > > > POP < POP < POP < < POP >
+        }
         inner{
             xor{
+                >>>> # move to start of bit pairs
+                bit_xor(8)
+                <                       # end of last pair
+                <<                      # last pair result
+                compacter2(7)           # LSB does not need compacting
+                PUSH <<< POP            # place the result in +0
+                < POP                   # pop the null fid
+                > >(19) lrestore(19)    # restore saved cells
+                < PUSH >
+            }
+            compact_xor{ # uses expand2
                 # now start evaluating logical XORs per-pair
                 >>> >>
-                # [<]> this doesnt seem to do anything
+                #[<]> # this doesnt seem to do anything
                 [
                     [   
                         > SUB > # subtract expanded pair
+                        [<<<<<<+>>>>>>[-]]> # zero a digit if diff=/=0
+                    ]
+                    + # kickstart the compressor loop
+                    [<[<<<++>>>-]<<] # start compressing bits
+                    >>
+                ]
+                <<< PUSH < POP # copy the result to cell 1
+                < POP # discard the null fid
+                
+                > >(29)
+                lrestore(29)
+                < PUSH  # put the null fid back
+                >
+            }
+            compact_or{ #uses expand2
+                # now start evaluating logical ORs per-pair
+                >>> >>
+                [
+                    [   
+                        > ADD > # add expanded pair
                         [<<<<<<+>>>>>>[-]]> # zero a digit if diff=/=0
                     ]
                     + # kickstart the compressor loop
@@ -55,6 +107,21 @@ bitwise{
         }
         lrestore{
             POP <
+        }
+        wipe{
+            _^>
+        }
+        expander2{
+            [>> >>[>>]++[-<<]<<-]
+        }
+        expander3{
+            [>>> >>>[>>>]++[-<<<]<<<-]
+        }
+        compacter2{
+            [-<<++>>]<<
+        }
+        bit_xor{
+            [->-<]>[ << + >> ZERO ]>
         }
     }
     postamble{

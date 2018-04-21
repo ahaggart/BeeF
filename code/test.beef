@@ -1,13 +1,2 @@
-testing if constructs
-
-if
-^[>  save the value to the stack
-    execute some code
-    ++
-<[-]] zero the control cell and exit
-_     restore the old value
-
-else
-^^
-[_[-]-^] skip block: skipping this block allows the next one to exec
-_
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+[>> >>[>>]++[-<<]<<-]

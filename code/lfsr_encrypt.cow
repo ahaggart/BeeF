@@ -1,0 +1,31 @@
+lfsr_encrypt{
+    preamble{
+        
+        call{run_encryption}
+    }
+    depends{
+        code/bitwise.cow
+    }
+    namespace{
+        run_encryption{
+            call{place_message}
+        }
+        place_message{
+            +(32) # ascii space
+            PUSH(15)
+            rightAndPop(15)
+            <(15)
+        }
+        bitwise imports bitwise{
+
+        }
+    }
+    bindings{
+        rightAndPop{
+            > POP
+        }
+    }
+    postamble{
+
+    }
+}
