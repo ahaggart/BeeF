@@ -11,55 +11,87 @@ lfsr_encrypt{
     }
     namespace{
         run_encryption{
-            call{setup}
-        }
-        setup{  # encrypt the first four bits (edge case)
-            # seed and tap in +1, +2
-            >>> [-] +(32)               # ascii space
-            PUSH > wipe(10) POP <(10)   # set up the prefix
-            <<<
-            
-            call{encrypt2}
-            call{encrypt1}
-            call{lfsr advance}          # cycle the lfsr
-            
-        }
-        encrypt1{ # edge case encryption
-            > PUSH <<< POP >> PUSH > POP > PUSH << POP  # grab an ascii space
-            call{lfsr encrypt}
-        }
-        encrypt2{ # start at +2, on first encrypted symbol
-            << PUSH > POP > PUSH << POP >>      # place the encrypted character
-            > PUSH < POP                        # place seed for advancement
-            < PUSH >> POP <                     # place tap for advancement
-
-            call{encrypt3}
+            >
+            call{main}
             call{lfsr advance}
         }
-        encrypt3{
-            > PUSH                              # place tap in stack
-            < PUSH > POP > PUSH << POP          # position chars for encryption
+        main{  # encrypt remaining message
+            # seed and tap in +1, +2
+            #     -2     -1     +0     +1     +2
+            #  | ZERO |  CC  | NONE | SEED | TAP  |
+            <
+            > PUSH > PUSH >> POP < POP <
+            >>> [-] +(32)               # ascii space
+            PUSH > wipe(8) POP <(8)     # set up the prefix
+            <<<                         # in +1
+            < ZERO +(60) PUSH           # loop 10 times
+            >> PUSH                     # grab the tap in +2
+            < PUSH                      # grab seed in +1
+            >> PUSH << POP              # place next value in +1
+            > POP                       # seed in +2
+            <                           # rebase to +1
             
-            call{full_encrypt}
-            call{lfsr encrypt}
-        }
-        full_encrypt{
-            PUSH < POP                          # place encrypted character
-            >> PUSH < POP >> PUSH < POP         # prep a char for encryption
-            EXIT
-        }
-        place_message{
-            +(32) # ascii space
-            PUSH(15)
-            rightAndPop(15)
-            <(15)
+            call{ lfsr kickstart }                       
+            
         }
         lfsr imports bitwise binds bitwise{
-            start{
-                call{advance}
+            kickstart{
+                < POP >
+                call{encrypt_loop}
+                call{encrypt}
+            }
+            transition{ # incoming: seed in +0, tap in +1
+                #    -4     -3      -2     -1     +0     +1     +2
+                # | DONE | COUNT | ZERO |  CC  | SEED | TAP  | NEXT |
+                
+                > PUSH                  # grab the tap
+                > PUSH < POP            # move the next value into +1 position
+                < PUSH >> POP           # place the seed in +2 for encryption
+                <<< POP                 # tap in -1
+                << PUSH                 # push COUNT to stack
+                >> PUSH                 # push tap to stack
+                < PUSH >> POP           # zero SEED cell
+                >                       # position in +1 to shift frame
+
+                call{encrypt_loop}
+                call{encrypt}
+            }
+            encrypt_loop{ # value to encrypt at +0
+                # stack: ... COUNT TAP
+                #    -4     -3       -2     -1     +0     +1     +2
+                # | TARG | FREE1 | FREE2 |  CC  | DONE | SEED | ---- |
+                # advance lfsr
+                # encrypt byte
+                # how to maneuver everything with limited space
+
+                PUSH <(4) POP           # place encrypted byte in TARG
+                >(4) POP                # tap in DONE
+                <(3) POP PUSH           # counter in FREE1
+                >(1) POP                # counter in FREE2
+                [
+                    <->                 # decrement counter
+                    >>
+                    call{ transition }
+                    call{ advance }
+                    <<                  # clear dup counter in FREE2 to break
+                    ZERO
+                ]
+                # shuffle things around for lfsr advance
+                # target config:
+                # |  CC  | SEED | TAP  |
+                >>                      # move into DONE (tap is here)
+                PUSH < POP >> PUSH < POP < PUSH >> POP <
+                # ready for lfsr advancement
             }
             encrypt{ # value to encrypt in +0, seed in +1
+                #     v
+                # | VALUE | SEED  |
+
                 call{bitwise xor}
+
+                # result: encrypted in +0, seed in +1
+                # | DONE  | SEED  |
+                #     ^
             }
             advance{ # seed in +0, tap pattern in +1
                 PUSH                    # save the seed
@@ -67,6 +99,7 @@ lfsr_encrypt{
 
                 call{apply_tap}
                 call{bitwise double_expand}
+                # result: new seed in +0, tap in +1
             }
             apply_tap{
                 >>>> # move to start of bit pairs

@@ -272,7 +272,8 @@ class DependencyLayer():
         for layer in self.sublayers:
             self.sublayers[layer].bind()
         for binding in self.namespace.binds:
-            self.resolved_bindings.update(self.sublayers[binding].resolved_bindings)
+            if binding in self.sublayers:
+                self.resolved_bindings.update(self.sublayers[binding].resolved_bindings)
         self.resolved_bindings.update(self.namespace.bound_keywords)
         self.bound = True
         return

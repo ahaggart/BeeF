@@ -54,3 +54,16 @@ loopCleaner{
 
 binding rUNPACK { < UNPACK  }
 binding PACK    {   PUSH    }
+
+################################################################################
+NOTES ON TASKS
+################################################################################
+* recursive encryption loop:
+    * counter, seed, tap
+    * values on stack
+    * counter on stack
+1. counter in free space, decrement
+2. 
+                  v
+| -3 | -2 | -1 | +0 | +1 | +2 |
+ FREE FREE  CC  SEED NEXT

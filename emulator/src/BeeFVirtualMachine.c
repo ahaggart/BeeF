@@ -32,7 +32,8 @@ void dump_bvm(BVM* g){
   printf("Cells:\n");
   int i;
   CELL val;
-  for(i = 0; i < g->num_cells; i++){
+  // for(i = 0; i < g->num_cells; i++){
+  for(i = 0; i < g->data_head+10; i++){
     val = g->cells[i];
     printf("%cc%d:\t%u\t0x%x\t%c\n",(i==g->data_head)?'>':' ',i,val,val,val);
   }
