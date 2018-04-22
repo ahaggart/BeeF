@@ -11,7 +11,6 @@ lfsr_encrypt{
     }
     namespace{
         run_encryption{
-            call{lfsr advance}
             call{setup}
         }
         setup{  # encrypt the first four bits (edge case)
@@ -20,11 +19,34 @@ lfsr_encrypt{
             PUSH > wipe(10) POP <(10)   # set up the prefix
             <<<
             
+            call{encrypt2}
+            call{encrypt1}
             call{lfsr advance}          # cycle the lfsr
             
         }
-        cycle_lfsr{
+        encrypt1{ # edge case encryption
+            > PUSH <<< POP >> PUSH > POP > PUSH << POP  # grab an ascii space
+            call{lfsr encrypt}
+        }
+        encrypt2{ # start at +2, on first encrypted symbol
+            << PUSH > POP > PUSH << POP >>      # place the encrypted character
+            > PUSH < POP                        # place seed for advancement
+            < PUSH >> POP <                     # place tap for advancement
 
+            call{encrypt3}
+            call{lfsr advance}
+        }
+        encrypt3{
+            > PUSH                              # place tap in stack
+            < PUSH > POP > PUSH << POP          # position chars for encryption
+            
+            call{full_encrypt}
+            call{lfsr encrypt}
+        }
+        full_encrypt{
+            PUSH < POP                          # place encrypted character
+            >> PUSH < POP >> PUSH < POP         # prep a char for encryption
+            EXIT
         }
         place_message{
             +(32) # ascii space
@@ -35,6 +57,9 @@ lfsr_encrypt{
         lfsr imports bitwise binds bitwise{
             start{
                 call{advance}
+            }
+            encrypt{ # value to encrypt in +0, seed in +1
+                call{bitwise xor}
             }
             advance{ # seed in +0, tap pattern in +1
                 PUSH                    # save the seed
