@@ -1,6 +1,10 @@
 lfsr_encrypt{
     preamble{
-        call{run_encryption}
+        >(127) ^ > ^ <(127)             # fetch the seed and tap
+        > _ <  _                        # place the seed and tap
+        <
+        call{ run_encryption }
+                              
     }
     depends{
         code/bitwise.cow
@@ -8,6 +12,19 @@ lfsr_encrypt{
     namespace{
         run_encryption{
             call{lfsr advance}
+            call{setup}
+        }
+        setup{  # encrypt the first four bits (edge case)
+            # seed and tap in +1, +2
+            >>> [-] +(32)               # ascii space
+            PUSH > wipe(10) POP <(10)   # set up the prefix
+            <<<
+            
+            call{lfsr advance}          # cycle the lfsr
+            
+        }
+        cycle_lfsr{
+
         }
         place_message{
             +(32) # ascii space
@@ -16,6 +33,9 @@ lfsr_encrypt{
             <(15)
         }
         lfsr imports bitwise binds bitwise{
+            start{
+                call{advance}
+            }
             advance{ # seed in +0, tap pattern in +1
                 PUSH                    # save the seed
                 prep_expand
@@ -53,6 +73,9 @@ lfsr_encrypt{
             > PUSH <<<< POP         # place the result in +0
             >(19) lrestore(19)      # restore saved cells
             < PUSH >                
+        }
+        wipe{
+            _^>
         }
     }
     postamble{

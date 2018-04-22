@@ -3,6 +3,7 @@ NOTES COMPILER/EMULATOR
 ################################################################################
 * namespaces with nested namespaces of the same name produce errors
     * occurred when importing module bitwise into namespace bitwise
+# function bodies without dependencies in importing namespaces case KeyError
 
 ################################################################################
 NOTES ON CODING STYLE
