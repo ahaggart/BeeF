@@ -106,7 +106,7 @@ builtin = {
         "ZERO":"[-]",
         "ADD":"[->+<]","SUB":"[>-<-]",
         "NOT":">^ ZERO <+ SUB >^<_>_<",
-        "EXIT":"<#0#>", # TODO: add an exit closure?
+        "EXIT":">#0#<", # TODO: add an exit closure?
 
     }
 }
@@ -395,6 +395,8 @@ class DependencyNode():
 
     def do_dep_recurse(self,nodes):
         for node in self.dependencies.copy():
+            if node not in nodes:
+                compiler_error("Could not find dependency",[node])
             new_deps =  nodes[node].dependencies - self.dependencies
             self.dependencies.update(new_deps)
             for dep in new_deps:

@@ -1,8 +1,8 @@
 bitwise{ # https://codegolf.stackexchange.com/questions/9178/bitwise-operators-in-brainfuck
     preamble{ 
-        +(48)
-        > +(15) <
-        call{xor}
+        # +(49)
+        # > +(15) <
+        call{and}
     }
     namespace{
         expand{
@@ -24,18 +24,22 @@ bitwise{ # https://codegolf.stackexchange.com/questions/9178/bitwise-operators-i
             <
         }
         xor{ # atomic, right-only, args in +0 and +1
-            > rsave(19) <(19) < # save the workspace used by double_expand
+            prep_expand
 
             call{inner xor}
             call{double_expand}
-
         }
-        or{ # args in +0 and +1
-            > rsave(19) # save the workspace used by double_expand
-            
-            call{inner or}
-            call{expand2}
+        or{ # args in +0 and +1 
+            prep_expand
 
+            call{inner or}
+            call{double_expand}
+        }
+        and{ # args in +0 and +1
+            prep_expand
+
+            call{inner and}
+            call{double_expand}
         }
         rol{
             < PUSH > > PUSH > PUSH > PUSH ZERO PUSH(3)
@@ -47,13 +51,17 @@ bitwise{ # https://codegolf.stackexchange.com/questions/9178/bitwise-operators-i
             xor{
                 >>>> # move to start of bit pairs
                 bit_xor(8)
-                <                       # end of last pair
-                <<                      # last pair result
-                compacter2(7)           # LSB does not need compacting
-                PUSH <<< POP            # place the result in +0
-                < POP                   # pop the null fid
-                > >(19) lrestore(19)    # restore saved cells
-                < PUSH >
+                finish_expand
+            }
+            and{
+                >>>> # move to start of bit pairs
+                bit_and(8)
+                finish_expand
+            }
+            or{
+                >>>> # move to start of bit pairs
+                bit_or(8)
+                finish_expand
             }
             compact_xor{ # uses expand2
                 # now start evaluating logical XORs per-pair
@@ -111,6 +119,18 @@ bitwise{ # https://codegolf.stackexchange.com/questions/9178/bitwise-operators-i
         wipe{
             _^>
         }
+        prep_expand{
+            > rsave(19) <(19) < # save the workspace used by double_expand  
+        }
+        finish_expand{
+            <                       # end of last pair
+            <<                      # last pair result
+            compacter2(7)           # LSB does not need compacting
+            PUSH <<< POP            # place the result in +0
+            < POP                   # pop the null fid
+            > >(19) lrestore(19)    # restore saved cells
+            < PUSH >
+        }
         expander2{
             [>> >>[>>]++[-<<]<<-]
         }
@@ -120,8 +140,14 @@ bitwise{ # https://codegolf.stackexchange.com/questions/9178/bitwise-operators-i
         compacter2{
             [-<<++>>]<<
         }
-        bit_xor{
+        bit_xor{ # XOR two cells, place the result in -1
             [->-<]>[ << + >> ZERO ]>
+        }
+        bit_or{ # XOR two cells, place the result in -1
+            [->+<]>[ << + >> ZERO ]>
+        }
+        bit_and{ # AND two cells, place the result in -1
+            [>[ << + >>-]<-]>[-]>
         }
     }
     postamble{

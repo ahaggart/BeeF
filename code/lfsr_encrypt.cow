@@ -1,6 +1,5 @@
 lfsr_encrypt{
     preamble{
-        
         call{run_encryption}
     }
     depends{
@@ -8,7 +7,7 @@ lfsr_encrypt{
     }
     namespace{
         run_encryption{
-            call{place_message}
+            call{lfsr advance}
         }
         place_message{
             +(32) # ascii space
@@ -16,13 +15,42 @@ lfsr_encrypt{
             rightAndPop(15)
             <(15)
         }
-        bitwise imports bitwise{
+        lfsr imports bitwise binds bitwise{
+            advance{ # seed in +0, tap pattern in +1
+                PUSH                    # save the seed
+                prep_expand
 
+                call{apply_tap}
+                call{bitwise double_expand}
+            }
+            apply_tap{
+                >>>> # move to start of bit pairs
+                bit_and(8)
+                finish_advance
+                < POP >
+                PUSH < POP              # store the result in the control cell
+                > POP [-<++>]           # double original value into -1 (shleft)
+                < PUSH > POP            # copy cc value into +0
+            }
         }
     }
     bindings{
         rightAndPop{
             > POP
+        }
+        toggle_xor{
+            # start:    v
+            # | zero | AND | toggle |
+
+            [>[<<->>]<<+>-]<<
+        }
+        finish_advance{
+            <                       # end of last pair
+            <<                      # last pair result
+            toggle_xor(7)
+            PUSH <<< POP            # place the result in +0
+            >(19) lrestore(19)      # restore saved cells
+            < PUSH >                
         }
     }
     postamble{

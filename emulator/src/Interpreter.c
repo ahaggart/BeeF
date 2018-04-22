@@ -72,6 +72,10 @@ int get_starting_mem(char* file,CELL** dest,int default_size){
     return default_size;
   }
   FILE* memsrc = fopen(file,"r");
+  if(!memsrc){
+    printf("Error: Unable to load cell memory file: %s\n",file);
+    exit(1);
+  }
   int i = 0;
   int ccount = 0;
   int readbuffer_size = 4;
@@ -133,6 +137,10 @@ int main(int argc, char** argv){
   int memsize = get_starting_mem(args.mem,&cells,12);
   BVM* vm = create_bvm(memsize,cells); //big enough for the hello world program
   FILE* insns = fopen(args.code,"r");
+  if(!insns){
+    printf("Error: Unable to load code file: %s\n",args.code);
+    exit(1);
+  }
   FILE* prog = insns;
   PP_INFO_T* info = ppreprocessor(prog);
   fclose(insns);

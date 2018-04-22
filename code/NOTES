@@ -1,4 +1,10 @@
 ################################################################################
+NOTES COMPILER/EMULATOR
+################################################################################
+* namespaces with nested namespaces of the same name produce errors
+    * occurred when importing module bitwise into namespace bitwise
+
+################################################################################
 NOTES ON CODING STYLE
 ################################################################################
 
