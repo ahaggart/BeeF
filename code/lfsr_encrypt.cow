@@ -42,13 +42,15 @@ lfsr_encrypt{
             # start:    v
             # | zero | AND | toggle |
 
-            [>[<<->>]<<+>-]<<
+            # [>[<<->>]<-]>[<<+>>-]<<
+            [->-<]>[<<+>> ZERO ]<<<
         }
         finish_advance{
             <                       # end of last pair
             <<                      # last pair result
+            # EXIT
             toggle_xor(7)
-            PUSH <<< POP            # place the result in +0
+            > PUSH <<<< POP         # place the result in +0
             >(19) lrestore(19)      # restore saved cells
             < PUSH >                
         }
