@@ -19,12 +19,12 @@ lfsr_encrypt{
             call{lfsr advance}
             << ZERO +(58) >>        # main message is 58 chars
 
-            call{finish_setup}
+            call{enter_main}
 
             > PUSH < PUSH           # grab the seed and tap
 
-            >(70)                   # encrypt the first 6 chars in free space
-            << ZERO +(5) >>         # set up to encrypt 6 chars
+            >(70)                   # encrypt the first 5 chars in free space
+            << ZERO +(4) >>         # set up to encrypt 5 chars
 
             POP > POP << PUSH >     # place seed,tap,push zero
             
@@ -53,21 +53,23 @@ lfsr_encrypt{
         }
         finish{
             >(8)
-            rsave(6) <(6)       # grab the initial values
+            rsave(5) <(5)       # grab the initial values
             <(10)               # move back to end of encypted section
-            +(56)
-            call{final_clean}
+            +(56)               # set up counter for memshift loop
+            call{cleanup}
             call{memshift4}
         }
-        finish_setup{
+        enter_main{
             PUSH > PUSH                 # grab seed and tap
-            <(77) POP < POP
+            <(76) POP < POP
         }
-        final_clean{
+        cleanup{
             # shift the last three values
             << PUSH < PUSH < PUSH
             >(5) POP > POP > POP
-            EXIT
+            <<<
+            _<(4) _
+            >(66)
         }
         memshift4{
             # counter in +0
