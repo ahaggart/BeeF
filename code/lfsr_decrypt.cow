@@ -1,0 +1,90 @@
+lfsr_decrypt{
+    preamble{
+        call{start_decryption}
+    }
+    depends{
+        code/bitwise.cow
+        code/lfsr_encrypt.cow
+    }
+    namespace{
+        start_decryption{
+            >(63)
+            call{find_seed}
+        }
+        find_seed{
+            call{decrypt seed_finder}
+            call{setup_workspace}
+            call{setup_possible_taps}
+        }
+        setup_possible_taps{
+            <(3)                # free space
+            # [178, 180, 184, 198, 212, 225, 243, 250]
+            +(32) PUSH <(7) POP  # ascii space
+            +(146) PUSH < POP   # TODO: more compact constant building
+            +(2) PUSH < POP
+            +(4) PUSH < POP
+            +(14) PUSH < POP
+            +(14) PUSH < POP
+            +(13) PUSH < POP
+            +(18) PUSH < POP
+            +(7) 
+
+            >(7) >(10)               # return to +0
+        }
+        setup_workspace{
+            < ZERO PUSH < POP +
+            <(2)                # move the decryption start
+        }
+        decrypt imports bitwise lfsr_encrypt{
+            get_next{
+                ZERO            # zero the start cell, just in case
+                >>              # step over old value in +1
+                [>]             # find first zero cell
+                > PUSH          # push next value to stack
+                < PUSH + > POP  # nonzero the old end, zero the new one
+                <[<] POP
+            }
+            seed_finder{
+                call{main}
+                call{return_to_result}
+                call{store_initial_result}
+                call{bitwise xor}
+                call{get_next}
+            }
+            store_initial_result{
+                PUSH <<<< POP       # move result into -2
+            }
+            return_to_result{
+                < ZERO PUSH >>>>> POP
+            }
+            main{
+                call{check_taps}
+                call{store_result}
+                call{bitwise xor}
+                call{get_next}
+            }
+            store_result{
+                PUSH << POP <<
+            }
+            check_taps{
+                call{exit_fn}
+                call{lfsr_encrypt step_lfsr}
+                call{get_tap}
+            }
+            get_tap{
+                < ZERO    <           # skip over empty cells
+                [<]                     # move to last tap in sequence
+                > PUSH                  # grab last tap 
+                # < POP > POP < PUSH >>   # move tap out of frame
+                [>]                     # return to first zeroed
+                >> POP <                # place the tap we are checking
+            }
+            exit_fn{
+                EXIT
+            }
+        }
+    }
+    postamble{
+
+    }
+}

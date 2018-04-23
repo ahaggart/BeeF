@@ -83,6 +83,9 @@ lfsr_encrypt{
             <<<<
 
         }
+        step_lfsr{
+            call{lfsr advance}
+        }
         lfsr imports bitwise binds bitwise{
             kickstart{
                 < POP >
@@ -145,7 +148,7 @@ lfsr_encrypt{
             advance{ # seed in +0, tap pattern in +1
                 PUSH                    # save the seed
                 prep_expand
-
+                
                 call{apply_tap}
                 call{bitwise double_expand}
                 # result: new seed in +0, tap in +1
