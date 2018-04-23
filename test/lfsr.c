@@ -1,7 +1,6 @@
-#include <stdlib.h>
-#include <stdio.h>
+#include "lfsr.h"
 
-unsigned char advance(unsigned char seed, unsigned char tap){
+BYTE advance(BYTE seed, BYTE tap){
   int i;
   int toggle = 0;
   for(i = 0; i < 8; i++){
@@ -14,22 +13,4 @@ unsigned char advance(unsigned char seed, unsigned char tap){
     }
   }
   return seed << 1 | toggle;
-}
-
-int main(int argc,char** argv){
-  if(argc != 4){
-    printf("usage: lfsr seed tap steps\n");
-    return 1;
-  }
-  unsigned char seed =  (unsigned char)atoi(argv[1]);
-  unsigned char tap  =  (unsigned char)atoi(argv[2]);
-  int steps =           (unsigned char)atoi(argv[3]);
-
-  int i;
-  for(i = 0; i < steps; i++){
-    seed = advance(seed,tap);
-    printf("Next State: 0x%x ie %u\n",seed,seed);
-  }
-  return 0;
-
 }
