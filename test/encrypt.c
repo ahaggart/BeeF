@@ -5,7 +5,7 @@
 
 int main(int argc,char** argv){
   if(argc < 4){
-    printf("usage: lfsr_encrypt seed tap message\n");
+    printf("usage: lfsr_encrypt seed tap message [outfile]\n");
     return 1;
   }
   FILE* dest = 0;
