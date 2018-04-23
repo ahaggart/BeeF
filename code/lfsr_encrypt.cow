@@ -11,28 +11,75 @@ lfsr_encrypt{
     }
     namespace{
         run_encryption{
-            >
+            call{ finish }
+            ZERO PUSH
+            
+            > 
+            call{main}
+            call{lfsr advance}
+            << ZERO +(58) >>        # main message is 58 chars
+
+            call{finish_setup}
+
+            > PUSH < PUSH           # grab the seed and tap
+
+            >(70)                   # encrypt the first 6 chars in free space
+            << ZERO +(5) >>         # set up to encrypt 6 chars
+
+            POP > POP << PUSH >     # place seed,tap,push zero
+            
             call{main}
             call{lfsr advance}
         }
         main{  # encrypt remaining message
             # seed and tap in +1, +2
-            #     -2     -1     +0     +1     +2
-            #  | ZERO |  CC  | NONE | SEED | TAP  |
-            <
-            > PUSH > PUSH >> POP < POP <
-            >>> [-] +(32)               # ascii space
-            PUSH > wipe(8) POP <(8)     # set up the prefix
-            <<<                         # in +1
-            < ZERO +(60) PUSH           # loop 10 times
-            >> PUSH                     # grab the tap in +2
-            < PUSH                      # grab seed in +1
-            >> PUSH << POP              # place next value in +1
-            > POP                       # seed in +2
-            <                           # rebase to +1
-            
-            call{ lfsr kickstart }                       
-            
+            #    -3     -2     -1     +0     +1     +2
+            # | ITER | ZERO |  CC  | NONE | SEED | TAP  |
+            < 
+            > PUSH > PUSH >> POP < POP < # in +2
+            >>> [-] +(32)               # ascii space in +5
+            PUSH > wipe(8) POP          # set up the prefix
+            PUSH >(42)
+            wipe(7) <(57)    # set up the suffix
+            <<<                         # in +2
+            <<<<  PUSH                  # loop 58 times, in -2
+            >(3)                        # in +1
+            >> PUSH                     # grab the tap in +3
+            < PUSH                      # grab seed in +2
+            >> PUSH << POP              # place next value in +2
+            > POP                       # seed in +3
+            <                           # rebase to +2
+            call{ lfsr kickstart }             
+        }
+        finish{
+            >(8)
+            rsave(6) <(6)       # grab the initial values
+            <(10)               # move back to end of encypted section
+            +(56)
+            call{final_clean}
+            call{memshift4}
+        }
+        finish_setup{
+            PUSH > PUSH                 # grab seed and tap
+            <(77) POP < POP
+        }
+        final_clean{
+            # shift the last three values
+            << PUSH < PUSH < PUSH
+            >(5) POP > POP > POP
+            EXIT
+        }
+        memshift4{
+            # counter in +0
+            - PUSH > POP <
+            [ # if nonzero
+                call{ memshift4 }
+                ZERO
+            ]
+            > PUSH << POP               # move counter over
+            < PUSH >>>>> POP            # shift the next value
+            <<<<
+
         }
         lfsr imports bitwise binds bitwise{
             kickstart{
@@ -134,6 +181,9 @@ lfsr_encrypt{
         }
         wipe{
             _^>
+        }
+        rsave{
+            PUSH >
         }
     }
     postamble{

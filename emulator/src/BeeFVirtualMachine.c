@@ -25,15 +25,14 @@ BVM* create_bvm(CELL_IDX initial_size,CELL* starting_mem){
   return g;
 }
 
-void dump_bvm(BVM* g){
+void dump_bvm(BVM* g,int full){
   printf("Dumping Virtual Machine...\n");
   printf(FMT_INDENT "Data Head Position: %u\n",g->data_head);
   bvms_dump(g->stack);
   printf("Cells:\n");
   int i;
   CELL val;
-  // for(i = 0; i < g->num_cells; i++){
-  for(i = 0; i < g->data_head+10; i++){
+  for(i = 0; (i < g->num_cells) && (full || (i < g->data_head+10)); i++){
     val = g->cells[i];
     printf("%cc%d:\t%u\t0x%x\t%c\n",(i==g->data_head)?'>':' ',i,val,val,val);
   }

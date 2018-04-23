@@ -30,6 +30,7 @@ int main(int argc,char** argv){
     seed = advance(seed,tap);
     printf("Seed: 0x%x\tEncrypted: 0x%x\n",seed,seed^(unsigned char)c);
   }
+  printf("Done.... Encrypted %d chars\n",i);
   return 0;
 
 }

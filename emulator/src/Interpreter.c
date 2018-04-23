@@ -26,7 +26,7 @@ typedef struct{
 void process_user_input(char input,int* autorun,BVM* vm){
   switch(input){
     case '\n':
-      dump_bvm(vm);
+      dump_bvm(vm,0);
       break;
     case 'q':
       *autorun = 1;
@@ -191,7 +191,7 @@ int main(int argc, char** argv){
 
   const char* fmt = "* * * * *\nStopping Virtual Machine...\nCompleted %u steps in %fs\n";
   printf(fmt,step_counter,(float)(clock() - start)/CLOCKS_PER_SEC);
-  dump_bvm(vm);
+  dump_bvm(vm,1);
 
   return status;
 }

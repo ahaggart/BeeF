@@ -37,7 +37,7 @@ typedef struct{
 
 BVM* create_bvm(CELL_IDX initial_size, CELL* starting_mem);
 int process(BVM* g, char insn);
-void dump_bvm(BVM* g);
+void dump_bvm(BVM* g,int full);
 int is_instruction(char insn);
 
 
