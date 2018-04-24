@@ -208,20 +208,20 @@ lfsr_decrypt{
             < [[ PUSH > POP <<] PUSH > POP < ] >
         }
         byte_stack_push{
-            PUSH <(6) [<] << [<] < [<] POP  [>] > [>] >> [>] >(5)
+            PUSH <(6) [<] << [<] << [<<] + < POP >  [>>] >> [>] >> [>] >(5)
         }
-        byte_stack_pop{ # TODO: use stepper cells to prevent breaking on zero input
-            <(7) [<] << [<] < [<] >
-                PUSH < PUSH > POP
-            > [>] > [>] >> [>] >(6) POP
+        byte_stack_pop{
+            <(7) [<] << [<] << [<<] >
+                PUSH < PUSH > POP PUSH > POP
+            >> [>>] >> [>] >> [>] >(6) POP
         }
         replace_byte{
             PUSH >>> [>] POP < ZERO < [<] <<
         }
         byte_stack_pop_destroy{
-            <(7) [<] << [<] < [<] >
-                PUSH < PUSH > 
-            _^> [_^>] _^> [_^>] _^>(2) [_^>] _^>(6) POP POP
+            <(7) [<] << [<] << [<<] >
+                PUSH < PUSH > POP PUSH PUSH > POP
+            _^>_^> [_^>_^>] _^>_^> [_^>] _^>(2) [_^>] _^>(6) POP POP
         }
         fill_to_nonzero{
             +[ PUSH > [< POP - PUSH ] POP ] >
