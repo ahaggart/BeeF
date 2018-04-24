@@ -3,7 +3,9 @@ NOTES COMPILER/EMULATOR
 ################################################################################
 * namespaces with nested namespaces of the same name produce errors
     * occurred when importing module bitwise into namespace bitwise
-# function bodies without dependencies in importing namespaces case KeyError
+* function bodies without dependencies in importing namespaces case KeyError
+* invalid inline closure doesnt always work "cal{fn}" causes a KeyError in 
+    _NAME_ tag
 
 ################################################################################
 NOTES ON CODING STYLE

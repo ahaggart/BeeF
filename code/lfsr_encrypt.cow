@@ -86,9 +86,13 @@ lfsr_encrypt{
         step_lfsr{
             call{lfsr advance}
         }
+        encrypt_external{ # expose main encryption loop to importers
+            < POP >                 # pop off the namespace null
+            call{ lfsr kickstart } 
+        }
         lfsr imports bitwise binds bitwise{
             kickstart{
-                < POP >
+                < POP >             # pop the zero from entering namespace
                 call{encrypt_loop}
                 call{encrypt}
             }

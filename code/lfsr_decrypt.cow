@@ -19,7 +19,11 @@ lfsr_decrypt{
         setup_possible_taps{
             <(3)                # free space
             # [178, 180, 184, 198, 212, 225, 243, 250]
+
+            # create the base char we are expecting
             +(32) PUSH <(7) POP  # ascii space
+
+            # place all possible taps in memory
             +(146) PUSH < POP   # TODO: more compact constant building
             +(2) PUSH < POP
             +(4) PUSH < POP
@@ -27,22 +31,30 @@ lfsr_decrypt{
             +(14) PUSH < POP
             +(13) PUSH < POP
             +(18) PUSH < POP
-            +(7) 
+            +(7)
+
+            # @ -17
+            # prep a stack for storing processed bytes
+            # use 01...10 pattern as boundary
+            < ZERO PUSH < POP PUSH < POP PUSH + < POP
+            >>>>
 
             >(7) >(10)               # return to +0
         }
         setup_workspace{
-            < ZERO PUSH < POP +
+            < ZERO PUSH < POP
             <(2)                # move the decryption start
         }
-        decrypt imports bitwise lfsr_encrypt{
+        decrypt imports bitwise lfsr_encrypt binds lfsr_encrypt{
             get_next{
                 ZERO            # zero the start cell, just in case
-                >>              # step over old value in +1
-                [>]             # find first zero cell
+                >>>[>]          # step over old value in +1
                 > PUSH          # push next value to stack
                 < PUSH + > POP  # nonzero the old end, zero the new one
-                <[<] POP
+                <[<]<< POP      # place the value into position
+                
+                # place the value on the mem stack for later
+                byte_stack_push
             }
             seed_finder{
                 call{main}
@@ -52,7 +64,8 @@ lfsr_decrypt{
                 call{get_next}
             }
             store_initial_result{
-                PUSH <<<< POP       # move result into -2
+                byte_stack_push               # store this for later
+                PUSH PUSH << POP << POP       # move result into -2
             }
             return_to_result{
                 < ZERO PUSH >>>>> POP
@@ -64,24 +77,138 @@ lfsr_decrypt{
                 call{get_next}
             }
             store_result{
-                PUSH << POP <<
+                <<<<
             }
             check_taps{
-                call{exit_fn}
-                call{lfsr_encrypt step_lfsr}
-                call{get_tap}
+                # assume we have done one round, call for a transition
+                call{tap_check_transition}
+                << PUSH >>> POP
+                [                           # check if there are taps to get
+                    POP                     # throw away the function call
+                    <                       # reposition for safe call
+                    call{compare_result}
+                    call{lfsr_encrypt step_lfsr}
+                    call{get_tap}
+                    < ZERO PUSH >> POP
+                ] <
             }
             get_tap{
-                < ZERO    <           # skip over empty cells
+                < ZERO    <             # skip over empty cells
                 [<]                     # move to last tap in sequence
-                > PUSH                  # grab last tap 
-                # < POP > POP < PUSH >>   # move tap out of frame
-                [>]                     # return to first zeroed
+                > PUSH                  # grab last tap
+                < PUSH > POP            # mark tap as "taken"
+                >[>]                    # return to first zeroed
                 >> POP <                # place the tap we are checking
+            }
+            compare_result{
+                compare4
+                call{discard_tap}
+                [   # this is a known value, we can safely overwrite
+                    POP      # pop the old call ids, use our own
+                    call{keep_tap}
+                    ZERO
+                ]
+            }
+            discard_tap{ # tap failed to predict, use another
+                <<                  # taps begin at -2
+                [<]                 # find where we took the tap from
+                < shift_list        # shift the list to keep it together
+                # extend the margin
+                << PUSH > POP >
+                >[>]>[>]>           # exit point
+                >> PUSH << POP      # grab another copy of the seed to work with
+                call{check_taps} 
+                
+            }
+            keep_tap{ # found the tap the use
+                >> PUSH << POP      # grab another copy of the seed
+                > PUSH <            # grab the tap
+                <<                  # taps begin at -2
+                [<]                 # find where we took the tap from
+                <                   # offset the tap by one
+                POP
+                >>[>]>              # return to start
+                call{check_taps}
+            }
+            tap_check_transition{
+                call{ panic }       # this should not get called
+                <<<                 # check for additional taps
+                [                   # more taps, need another cycle
+                                    # assume this is the last one
+                    >>> POP call{ start_decryption_loop } <<<
+                    <[              # check for even more taps
+                        >>>
+                        POP         # discard the function calls, we arent ready
+                        > call{ main }
+                        < ZERO <        # reposition the list
+                        shift_list  >[>]
+                        PUSH >(5)       # fetch the current seed, set as "old"
+                        PUSH PUSH << POP << POP
+                        >>>> POP        # main expects us to start here
+                    ]
+                ]
+            }
+            start_decryption_loop{
+                # tap is in +1
+                > PUSH
+                >(7)
+                
+                call{ rebuild_message }
+            }
+            rebuild_message{
+                >>>             # check if there are still placeholders
+                [<<<
+                    byte_stack_pop
+                    replace_byte
+                >>>]
+                <<< byte_stack_pop_destroy  # clean everything up
+                PUSH >(3) POP < PUSH PUSH < POP < POP >> 
+                POP <                   # pop the tap into memory
+                call{finish_decrypt}
+                PUSH(2)                 # push some zeros to exit nested call
+                +(63) PUSH > PUSH       # push counter then tap
+                << PUSH PUSH > POP > POP    # clean up
+                > call{ decrypt_message }   # rebase to +1
+            }
+            decrypt_message{
+                call{lfsr_encrypt encrypt_external}
+            }
+            finish_decrypt{
+                EXIT
+            }
+            panic{ # bad news bears
+                EXIT
             }
             exit_fn{
                 EXIT
             }
+        }
+    }
+    bindings{
+        compare4{
+            >(4) PUSH <(4) [- >(4)  - <(4) ] +      # subtract op1 from op2
+            >(4) [ <(4)- >(4) ZERO ] POP <(4)       # nonzero means not equal
+
+            # 1 if equal, 0 otherwise
+        }
+        shift_list{ # starting at a zeroed entry, shift the rest of the list
+            < [[ PUSH > POP <<] PUSH > POP < ] >
+        }
+        byte_stack_push{
+            PUSH <(6) [<] << [<] < [<] POP  [>] > [>] >> [>] >(5)
+        }
+        byte_stack_pop{
+            <(7) [<] << [<] < [<] >
+                PUSH < PUSH > POP
+            > [>] > [>] >> [>] >(6) POP
+        }
+        replace_byte{
+            PUSH >>> [>] POP < ZERO < [<] <<
+        }
+        byte_stack_pop_destroy{
+            <(7) [<] << [<] < [<] >
+                PUSH < PUSH > 
+            _^> [_^>] _^> [_^>] _^>(2) [_^>] _^>(6) POP POP
         }
     }
     postamble{
