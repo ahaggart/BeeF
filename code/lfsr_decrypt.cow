@@ -174,7 +174,20 @@ lfsr_decrypt{
                 call{lfsr_encrypt encrypt_external}
             }
             finish_decrypt{
-                EXIT
+                <(125)      # return to c1
+                
+                fill_to_nonzero
+                call{grab16}
+                call{grab16}
+                call{grab16}
+                call{grab16}
+            }
+            grab16{
+                < ZERO + >          # fill in the gap potentially left by caller
+                ^>(16) < ZERO + PUSH -  # grab 16 cells, adjust zeroed endpoint
+                <[ POP PUSH <] POP      # write 1s until we hit a zero
+                >(15) _<(15) _ >(15) ZERO # write grabbed cells and endpoint
+                > [>] >                 # return to next set of data
             }
             panic{ # bad news bears
                 EXIT
@@ -197,7 +210,7 @@ lfsr_decrypt{
         byte_stack_push{
             PUSH <(6) [<] << [<] < [<] POP  [>] > [>] >> [>] >(5)
         }
-        byte_stack_pop{
+        byte_stack_pop{ # TODO: use stepper cells to prevent breaking on zero input
             <(7) [<] << [<] < [<] >
                 PUSH < PUSH > POP
             > [>] > [>] >> [>] >(6) POP
@@ -209,6 +222,9 @@ lfsr_decrypt{
             <(7) [<] << [<] < [<] >
                 PUSH < PUSH > 
             _^> [_^>] _^> [_^>] _^>(2) [_^>] _^>(6) POP POP
+        }
+        fill_to_nonzero{
+            +[ PUSH > [< POP - PUSH ] POP ] >
         }
     }
     postamble{
