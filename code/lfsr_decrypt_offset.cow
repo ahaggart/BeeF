@@ -1,0 +1,118 @@
+lfsr_decrypt_offset{
+    preamble{
+        call{start_decryption}
+    }
+    depends{
+        code/bitwise.cow
+        code/lfsr_encrypt.cow
+    }
+    namespace{
+        start_decryption{
+            >(63)
+            call{create_workspace}
+        }
+        create_workspace{
+            # data reference starts at -16 from message
+            <(16)           # set up all the possible tap patterns
+            # [178, 180, 184, 198, 212, 225, 243, 250]
+
+            # create the base char we are expecting
+            +(32) PUSH <(8) POP  # ascii space
+
+            # place all possible taps in memory
+            +(146) PUSH < POP   # TODO: more compact constant building
+            +(2) PUSH < POP
+            +(4) PUSH < POP
+            +(14) PUSH < POP
+            +(14) PUSH < POP
+            +(13) PUSH < POP
+            +(18) PUSH < POP
+            +(7)
+
+            >(7)
+
+            # build the first few chars of the message to work with
+            >(8) PUSH < POP +(45) # ascii 'M'
+            PUSH < POP +(37) >> PUSH PUSH <<< POP +(14) < POP
+            >>> PUSH <<<< POP +(10)
+
+            >(5)                                # back to ascii space
+
+            PUSH >> + >> POP                    # stage it for encryption
+
+            >>> >+(7) >>
+
+            call{ decrypt begin_attempt }
+        }
+        decrypt imports bitwise lfsr_encrypt binds bitwise{
+            begin_attempt{
+                < ZERO >                # zero the cc, just in case
+                PUSH << [<] <<<< POP    # stage for seed extraction
+
+                call{use_seed}
+                call{bitwise xor}
+            }
+
+            use_seed{
+                < ZERO >
+                <<< [<] << [<] > PUSH [>] >> [>] >> # fetch a tap
+                
+                PUSH >>>>> [>] >        
+                push_to_stack           # this value is assumed, push it through
+
+                < POP > POP <           # advance the lfsr 
+
+                call{ prep_encrypt }
+                call{ lfsr_encrypt step_lfsr }
+                
+            }
+
+            prep_encrypt{
+                < ZERO >
+                > PUSH < PUSH > POP             # grab the tap
+                << PUSH + > POP >>
+                
+                push_to_stack
+                
+                > PUSH << POP > PUSH > POP << PUSH > POP
+                
+                call{ verify_result_1 }
+                call{ bitwise xor }             # encryption step
+                
+            }
+
+            verify_result_1{ # check byte against message
+                go_to_template      PUSH
+                back_from_template  < POP
+                compare
+                # if equal, do another step
+                call{ verify_result_2 }
+                [
+                    call{ prep_encrypt }
+                    < ZERO + >
+                ]
+            }
+
+            exit_fn{
+                EXIT
+            }
+        }
+    }
+    bindings{
+        push_to_stack{
+            PUSH <<< [<] POP > ZERO > [>] >
+        }
+        go_to_template{
+            << [<] < [<] <(6)
+        }
+        back_from_template{
+            >(6) > [>] > [>] >
+        }
+        compare{
+            > PUSH <[->-<]+>[<-> ZERO ] POP <
+        }
+    }
+    postamble{
+        
+    }
+}

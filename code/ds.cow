@@ -1,0 +1,52 @@
+# Data Structues Module
+ds{
+    preamble{
+        +(16)
+        call{ create_slider }
+    }
+    namespace{
+        # create a slider with capacity matching the current size
+        create_slider{
+            # size in +0
+            # need 3 cells for inner divider, 2 cells padding per side
+            PUSH ZERO PUSH > POP >> POP
+            +(3)
+
+            # build a dense rail as the internal traversal structure
+            call{setup rail}
+
+        }
+        create_stack{
+
+        }
+        setup{
+            rail{ # traveller function that (destructively) lays a rail
+                # rail length in +0
+                call{ clean rail }
+                PUSH
+                [
+                    # advance the counter one cell, destroy prev fn call
+                    > POP << POP POP POP >>
+                    call{ rail }
+                    PUSH
+                    << PUSH + >> POP
+                ]
+                POP
+                -
+            }
+            clean{
+                rail{ 
+                    +               # length will wrap, zero it by adding one
+                    +               # construct the rail end padding
+                    << [<] < +      # traverse back to start
+                }
+            }
+        }
+    }
+    bindings{
+
+    }
+    postamble{
+
+    }
+}
