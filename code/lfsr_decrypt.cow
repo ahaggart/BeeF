@@ -47,6 +47,7 @@ lfsr_decrypt{
         }
         decrypt imports bitwise lfsr_encrypt binds lfsr_encrypt{
             get_next{
+                EXIT
                 ZERO            # zero the start cell, just in case
                 >>>[>]          # step over old value in +1
                 > PUSH          # push next value to stack
@@ -93,6 +94,7 @@ lfsr_decrypt{
                 ] <
             }
             get_tap{
+                EXIT
                 < ZERO    <             # skip over empty cells
                 [<]                     # move to last tap in sequence
                 > PUSH                  # grab last tap

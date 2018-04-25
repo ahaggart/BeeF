@@ -2,49 +2,205 @@
 ds{
     preamble{
         +(16)
-        call{ create_slider }
+        call{ test }
     }
     namespace{
+        test{
+            call{slider_traverse_down}
+            call{ slider_peek_high }
+            call{ slider_traverse_up }
+            PUSH
+            call{ slider_insert_low }
+            call{ slider_traverse_down }
+            + PUSH
+            > PUSH < 
+            call{ slider_insert_high }
+            + PUSH
+            call{ slider_insert_high }
+            call{ slider_traverse_up }
+            call{    create_slider   }
+        }
         # create a slider with capacity matching the current size
         create_slider{
             # size in +0
             # need 3 cells for inner divider, 2 cells padding per side
+            > ZERO PUSH <
+            +(2)
+            [->++<]
+            > PUSH < POP > POP <
+            +(12)
             PUSH ZERO PUSH > POP >> POP
-            +(3)
 
             # build a dense rail as the internal traversal structure
-            call{setup rail}
-
+            call{ slider init }
+            call{ rail create }
+        }
+        slider_insert_high{
+            # insert data to the high end of the slider
+            # expects to be called from the low end of slider region
+            POP
+            [   # retrieve the value if it is nonzero
+                PUSH > PUSH < POP   # zero the working cell
+            ]
+            > PUSH < POP +          # reset the rail head to 1
+            stack_traverse_down >   # traverse down to end of high stack
+            + < POP                 # place the data
+            < PUSH << POP           # shift the marker up
+            > stack_traverse_up
+        }
+        slider_insert_low{
+            # insert data to the high end of the slider
+            # expects to be called from the low end of slider region
+            POP
+            [   # retrieve the value if it is nonzero
+                PUSH > PUSH < POP   # zero the working cell
+            ]
+            > PUSH < POP +          # reset the rail head to 1
+            stack_traverse_up <     # traverse up to end of low stack
+            + > POP                 # place the data
+            > PUSH >> POP           # shift the marker up
+            < stack_traverse_down
+        }
+        slider_traverse_up{     # cross a slider structure carrying data
+            PUSH > PUSH < POP +
+            stack_traverse_up
+            rail_traverse_up            # find end of upper mem
+            stack_traverse_up
+            POP
+        }
+        slider_traverse_down{
+            PUSH > PUSH < POP +
+            stack_traverse_down
+            rail_traverse_down          # find end of upper mem
+            stack_traverse_down
+            POP
+        }
+        slider_pop_high{ # pop the top element of the high stack
+            # data is delivered to the rail head this function is called from
+            < ZERO >
+            stack_traverse_down     # traverse down to end of high stack
+            >> PUSH > -             # grab the data, remove its entry
+            <<<< + >> PUSH > POP +  # shift the marker up
+            stack_traverse_up       # return to rail head
+            POP    
+        }
+        slider_peek_high{ # pop the top element of the high stack
+            # data is delivered to the rail head this function is called from
+            < ZERO >
+            stack_traverse_down     # traverse down to end of high stack
+            >> PUSH                 # grab the data
+            stack_traverse_up       # return to rail head
+            POP    
+        }
+        slider_pop_low{
+            # data is delivered to the rail head this function is called from
+            < ZERO >
+            stack_traverse_up       # traverse up to end of low stack
+            << PUSH < -             # grab the data, remove its entry
+            >>>> + << PUSH < POP +  # shift the marker down
+            stack_traverse_down     # return to rail head
+            POP    
+        }
+        slider_peek_low{
+            # data is delivered to the rail head this function is called from
+            < ZERO >
+            stack_traverse_up       # traverse up to end of low stack
+            << PUSH                 # grab the data
+            stack_traverse_down     # return to rail head
+            POP    
+        }
+        slider_shift_high{
+            # shift an entry from the high stack to the low stack
+            < ZERO >
+            stack_traverse_down     # traverse down to end of high stack
+            >> PUSH > -             # grab the data, remove its entry
+            <<<< + >> PUSH > POP +  # shift the marker up
+            rail_traverse_down      # cross boundary to low end
+            POP < +                 # place the data, mark it
+            >>>> -                  # move the marker up
+            < rail_traverse_up
+            stack_traverse_up       # return to start
+        }
+        slider_shift_low{
+            < ZERO >
+            stack_traverse_up       # traverse up to end of low stack
+            << PUSH < -             # grab the data, remove its entry
+            >>>> + << PUSH < POP +  # shift the marker down
+            rail_traverse_up
+            POP > +
+            <<<< -
+            > rail_traverse_down
+            stack_traverse_down
         }
         create_stack{
 
         }
-        setup{
-            rail{ # traveller function that (destructively) lays a rail
+        slider{
+            init{
+                rail_traverse_up 
+                < ZERO ^<_ << - ^<_ PUSH << POP >     # create up slider barrier
+                rail_traverse_down 
+                > ZERO ^>_ >> - ^>_ PUSH >> POP <(7)  # create lower slider barrier
+            }
+        }
+        rail{
+            create{ # traveller function that (destructively) lays a rail
                 # rail length in +0
-                call{ clean rail }
+                call{ endpoint }
                 PUSH
                 [
                     # advance the counter one cell, destroy prev fn call
-                    > POP << POP POP POP >>
-                    call{ rail }
+                    > POP << discard_local_fn_call ZERO >>
+                    call{ create }
                     PUSH
                     << PUSH + >> POP
                 ]
                 POP
                 -
             }
-            clean{
-                rail{ 
-                    +               # length will wrap, zero it by adding one
-                    +               # construct the rail end padding
-                    << [<] < +      # traverse back to start
-                }
+            endpoint{
+                +               # length will wrap, zero it by adding one
+                +               # construct the rail end padding
+
+                call{ finish }
+                call{ traverse_down }       # traverse back to start
+            }
+            traverse_down{
+                < ZERO >                    # just in case
+                rail_traverse_down
+            }
+            traverse_up{
+                < ZERO >                    # just in case
+                rail_traverse_up
+            }
+            finish{
+                +                           # lay the startpoint marker
             }
         }
     }
     bindings{
-
+        discard_nested_fn_call{
+            POP POP POP
+        }
+        discard_local_fn_call{
+            POP
+        }
+        rail_traverse_down{
+            << [<] <
+        }
+        rail_traverse_up{
+            >> [>] >
+        }
+        stack_traverse_up{
+            >>>                         # start of lower end
+            [>>]                        # find end of lower mem
+            >                           # in margin area
+        }
+        stack_traverse_down{
+            <<<                         # start of lower end
+            [<<]                        # find end of lower mem
+            <                           # in margin area
+        }
     }
     postamble{
 

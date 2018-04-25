@@ -30,6 +30,11 @@ NOTES ON CODING STYLE
         data rail should be used, which makes use of alternating 1's with data.
         Data rails can be traversed with [>>], and can store arbitrary 
         data. 
+        * transferring data by rail can be done by stack internally, but should
+            be loaded in other ways externally to prevent interference with
+            nested call IDs on the stack.
+        * exposed functions that transfer data by rail should push data from
+            memory, using any scheme suitable for the rail size used
     * functions: recursive functions can make use of rails since they are a
         known value, allowing them to safely and atomically traverse rails. This
         can be used to operate on railed data without needing to account for
