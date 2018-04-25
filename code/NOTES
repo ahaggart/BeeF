@@ -6,6 +6,9 @@ NOTES COMPILER/EMULATOR
 * function bodies without dependencies in importing namespaces case KeyError
 * invalid inline closure detection doesnt always work "cal{fn}" causes a 
     KeyError in the _NAME_ tag
+* using a non-imported module doesn't cause a compile error, results in a
+    broken function call (-1 remains set as call fid)
+* empty function calls cause an index out of bounds error
 
 ################################################################################
 NOTES ON CODING STYLE

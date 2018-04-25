@@ -4,53 +4,174 @@ lfsr_decrypt_offset{
     }
     depends{
         code/bitwise.cow
+        code/ds.cow
         code/lfsr_encrypt.cow
     }
     namespace{
         start_decryption{
-            >(63)
-            call{create_workspace}
+            >>
+            call{decrypt begin_attempt}
+            call{init workspace}
         }
-        create_workspace{
-            # data reference starts at -16 from message
-            <(16)           # set up all the possible tap patterns
-            # [178, 180, 184, 198, 212, 225, 243, 250]
+        init imports ds{
+            workspace{
+                # data reference starts at -16 from message
+                # [178, 180, 184, 198, 212, 225, 243, 250]
 
-            # create the base char we are expecting
-            +(32) PUSH <(8) POP  # ascii space
+                # create the base char we are expecting
+                +(32)   # ascii space
+                PUSH
 
-            # place all possible taps in memory
-            +(146) PUSH < POP   # TODO: more compact constant building
-            +(2) PUSH < POP
-            +(4) PUSH < POP
-            +(14) PUSH < POP
-            +(14) PUSH < POP
-            +(13) PUSH < POP
-            +(18) PUSH < POP
-            +(7)
+                call{ message }
+                call{ ds slider_traverse_up }
 
-            >(7)
+                # call this fn 8 times to position data
+                < ZERO +(8)
+                [ call{ ds slider_shift_low } -]
+                >
 
-            # build the first few chars of the message to work with
-            >(8) PUSH < POP +(45) # ascii 'M'
-            PUSH < POP +(37) >> PUSH PUSH <<< POP +(14) < POP
-            >>> PUSH <<<< POP +(10)
+                # place all possible taps in memory
+                # use a slider data structure to non-destructively "pop" items
+                # TODO: more compact constant building
+                # use the stack to queue slider insertions before it exists
 
-            >(5)                                # back to ascii space
-
-            PUSH >> + >> POP                    # stage it for encryption
-
-            >>> >+(7) >>
-
-            call{ decrypt begin_attempt }
+                +(146)  PUSH  
+                call{ ds slider_insert_low }
+                +(2)    PUSH
+                call{ ds slider_insert_low }
+                +(4)    PUSH
+                call{ ds slider_insert_low }
+                +(14)   PUSH
+                call{ ds slider_insert_low }
+                +(14)   PUSH
+                call{ ds slider_insert_low }
+                +(13)   PUSH
+                call{ ds slider_insert_low }
+                +(18)   PUSH
+                call{ ds slider_insert_low }
+                +(7)    PUSH
+                call{ ds slider_insert_low }
+                > PUSH < POP +(9)       # guaranteed space for 8 items
+                call{ ds create_slider }
+            }
+            message{
+                # at high rail head of tap slider
+                # we dont have enough room for another slider, but we can
+                # guarantee that the message cache is nonzero data only
+                >+ >>       # offset by three
+                POP         # ascii SPACE
+                # build the first few chars of the message to work with
+                PUSH > POP +(45)            # ascii 'M'
+                PUSH > POP +(37)            # ascii 'r'
+                << PUSH PUSH >>> POP +(14)  # ascii '.'
+                > POP                       # ascii SPACE
+                <<< PUSH >>>> POP +(10)     # ascii 'W'
+                >> +                        # stack bottom marker
+                
+                # set up a rail to the message start 
+                >(6) +(9)
+                [ PUSH > PUSH < POP +> POP -]
+                <[<]
+            }
         }
-        decrypt imports bitwise lfsr_encrypt binds bitwise{
+
+        decrypt imports ds bitwise lfsr_encrypt binds bitwise{
             begin_attempt{
-                < ZERO >                # zero the cc, just in case
-                PUSH << [<] <<<< POP    # stage for seed extraction
+                call{ initial_fetch }
+            }
 
-                call{use_seed}
-                call{bitwise xor}
+            initial_fetch{
+                >[>]> PUSH PUSH     # grab the next value
+                < PUSH > POP <+[<]  # return to start
+                POP                 # place the value
+
+                call{ initial_transition }
+                call{ bitwise xor }
+                call{ initial_message_start }
+                call{ get_message_start }
+            }
+
+            fetch_next_byte{    # fetch a byte from the encrypted message
+                >>>[>]> PUSH PUSH     # grab the next value
+                < PUSH > POP <+[<]  # return to start
+                POP                 # place the value
+                <<                  # safe location to return
+
+                call{ encrypt_and_check }
+                call{ lfsr_encrypt step_lfsr}
+            }
+
+            get_message_start{
+                <<<<<               # go to message cache
+                <<[<]>              # end of stack
+                PUSH                # peek the top byte
+                [>]>                # message cache start
+                POP                 # place the retrieved value
+            }
+
+            initial_message_start{
+                PUSH > PUSH < POP +
+                >>>> POP
+            }
+
+            initial_transition{
+                < ZERO PUSH >> POP          # clear out the initial byte
+                < PUSH < PUSH > POP < POP   # move the seed to seed position
+
+                call{ fetch_next_byte }
+                call{ fetch_tap }
+            }
+
+            fetch_tap{
+                <<< <<[<]<[<]>
+
+                call{ return_tap }
+                call{ ds slider_shift_high }
+                call{ ds slider_peek_high }
+            }
+
+            return_tap{
+                PUSH < PUSH > POP +         # reset the slider rail head
+                [>]>[>]> >>>
+                > POP <                     # place tap in tap location
+            }
+
+            encrypt_and_check{
+                # swap the byte and the lfsr
+                > PUSH > PUSH < POP > POP <<
+
+                # swap seed and byte
+                PUSH > PUSH < POP > POP <
+
+                call{ analyze_result }
+                call{ compare_message_start }
+                call{ get_message_start }
+                call{ bitwise xor}
+            }
+
+            compare_message_start{
+                PUSH > PUSH < POP +
+                >> POP
+                > PUSH <
+                SUB [>-<< PUSH > POP ]>+
+                PUSH < POP > POP <           
+            }
+
+            analyze_result{
+                call{ try_second_byte }
+                [
+                    POP
+                    call{ check_next_byte }
+                    ZERO
+                ]
+            }
+
+            try_second_byte{
+                EXIT
+            }
+
+            check_next_byte{
+                EXIT
             }
 
             use_seed{
@@ -76,21 +197,8 @@ lfsr_decrypt_offset{
                 
                 > PUSH << POP > PUSH > POP << PUSH > POP
                 
-                call{ verify_result_1 }
                 call{ bitwise xor }             # encryption step
                 
-            }
-
-            verify_result_1{ # check byte against message
-                go_to_template      PUSH
-                back_from_template  < POP
-                compare
-                # if equal, do another step
-                call{ verify_result_2 }
-                [
-                    call{ prep_encrypt }
-                    < ZERO + >
-                ]
             }
 
             exit_fn{

@@ -1,4 +1,6 @@
 # Data Structues Module
+# exposes a large number of functions meant to simplify data manipulation
+# Stack, Slider (double stack), etc
 ds{
     preamble{
         +(16)
@@ -28,8 +30,7 @@ ds{
             +(2)
             [->++<]
             > PUSH < POP > POP <
-            +(12)
-            PUSH ZERO PUSH > POP >> POP
+            +(10)
 
             # build a dense rail as the internal traversal structure
             call{ slider init }
@@ -38,28 +39,28 @@ ds{
         slider_insert_high{
             # insert data to the high end of the slider
             # expects to be called from the low end of slider region
-            POP
             [   # retrieve the value if it is nonzero
-                PUSH > PUSH < POP   # zero the working cell
+                POP
             ]
             > PUSH < POP +          # reset the rail head to 1
             stack_traverse_down >   # traverse down to end of high stack
             + < POP                 # place the data
             < PUSH << POP           # shift the marker up
             > stack_traverse_up
+            > PUSH <                # namespace exit
         }
         slider_insert_low{
             # insert data to the high end of the slider
             # expects to be called from the low end of slider region
-            POP
             [   # retrieve the value if it is nonzero
-                PUSH > PUSH < POP   # zero the working cell
+                POP
             ]
             > PUSH < POP +          # reset the rail head to 1
             stack_traverse_up <     # traverse up to end of low stack
             + > POP                 # place the data
             > PUSH >> POP           # shift the marker up
             < stack_traverse_down
+            > PUSH <                # namespace exit
         }
         slider_traverse_up{     # cross a slider structure carrying data
             PUSH > PUSH < POP +
@@ -138,32 +139,17 @@ ds{
         slider{
             init{
                 rail_traverse_up 
-                < ZERO ^<_ << - ^<_ PUSH << POP >     # create up slider barrier
+                < ZERO ^<_ << - ^<_ PUSH << POP >     # create upper slider barrier
                 rail_traverse_down 
                 > ZERO ^>_ >> - ^>_ PUSH >> POP <(7)  # create lower slider barrier
             }
         }
         rail{
-            create{ # traveller function that (destructively) lays a rail
-                # rail length in +0
-                call{ endpoint }
-                PUSH
-                [
-                    # advance the counter one cell, destroy prev fn call
-                    > POP << discard_local_fn_call ZERO >>
-                    call{ create }
-                    PUSH
-                    << PUSH + >> POP
-                ]
-                POP
-                -
-            }
-            endpoint{
-                +               # length will wrap, zero it by adding one
-                +               # construct the rail end padding
-
-                call{ finish }
-                call{ traverse_down }       # traverse back to start
+            create{ # destructively lay a rail of a specified length
+                PUSH > PUSH < POP + >> POP      # create the start marker
+                [ PUSH > PUSH < POP +> POP -]
+                > +
+                call{traverse_down}
             }
             traverse_down{
                 < ZERO >                    # just in case
@@ -172,9 +158,6 @@ ds{
             traverse_up{
                 < ZERO >                    # just in case
                 rail_traverse_up
-            }
-            finish{
-                +                           # lay the startpoint marker
             }
         }
     }
