@@ -271,7 +271,8 @@ lfsr_decrypt_offset{
                 PUSH
                 >>>>[>] > PUSH < POP > POP
                 << ZERO PUSH < POP          # zero the rail
-                +(63) PUSH                  # encryption counter
+                PUSH PUSH
+                +(62) PUSH                  # encryption counter
                 [<]<< PUSH >>>[>]>          # grab the tap
                 
                 # ready
