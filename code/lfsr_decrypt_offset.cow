@@ -84,6 +84,7 @@ lfsr_decrypt_offset{
                 >[>]> PUSH PUSH     # grab the next value
                 < PUSH > POP <+[<]  # return to start
                 POP                 # place the value
+                <<
 
                 call{ initial_transition }
                 call{ bitwise xor }
@@ -92,17 +93,28 @@ lfsr_decrypt_offset{
             }
 
             fetch_next_byte{    # fetch a byte from the encrypted message
-                >>>[>]> PUSH PUSH     # grab the next value
+                # start configuration
+                #    +0     +1     +2     +3
+                # | SEED | TAP  | DEST | RAIL |  
+
+                >>>[>]> PUSH PUSH   # grab the next value
                 < PUSH > POP <+[<]  # return to start
                 POP                 # place the value
                 <<                  # safe location to return
 
                 call{ encrypt_and_check }
                 call{ lfsr_encrypt step_lfsr}
+
+                # final configuration
+                #    +0     +1     +2
+                # | SEED | TAP  | BYTE |
             }
 
             get_message_start{
-                <<<<<               # go to message cache
+                # start configuration
+                #    +0     +1     +2
+                # | BYTE | SEED | TAP  |
+                <<<                 # go to message cache
                 <<[<]>              # end of stack
                 PUSH                # peek the top byte
                 [>]>                # message cache start
@@ -117,13 +129,14 @@ lfsr_decrypt_offset{
             initial_transition{
                 < ZERO PUSH >> POP          # clear out the initial byte
                 < PUSH < PUSH > POP < POP   # move the seed to seed position
+                <
 
                 call{ fetch_next_byte }
                 call{ fetch_tap }
             }
 
             fetch_tap{
-                <<< <<[<]<[<]>
+                << <<[<]<[<]>
 
                 call{ return_tap }
                 call{ ds slider_shift_high }
@@ -137,41 +150,133 @@ lfsr_decrypt_offset{
             }
 
             encrypt_and_check{
+                # start configuration
+                #    +0     +1     +2
+                # | SEED | TAP  | BYTE |
+
                 # swap the byte and the lfsr
                 > PUSH > PUSH < POP > POP <<
 
                 # swap seed and byte
                 PUSH > PUSH < POP > POP <
 
+                call{ try_second_byte }         # fallback call for comp fail
                 call{ analyze_result }
                 call{ compare_message_start }
                 call{ get_message_start }
                 call{ bitwise xor}
+
+                # final configuration
+                #    +0     +1     +2
+                # | BYTE | SEED | TAP  |
             }
 
             compare_message_start{
-                PUSH > PUSH < POP +
-                >> POP
-                > PUSH <
-                SUB [>-<< PUSH > POP ]>+
-                PUSH < POP > POP <           
+                PUSH > PUSH < POP +         # reset stack bottom to 1
+                >> POP                      # place byte for comparison
+                > PUSH <                    # save op2
+                SUB >[< PUSH ->  POP ] <+   # comparison
+                > POP <                     # replace compared byte     
             }
 
             analyze_result{
-                call{ try_second_byte }
                 [
-                    POP
+                    POP                     # pop the fallback call
                     call{ check_next_byte }
                     ZERO
                 ]
             }
 
+            analyze_second_try{ # is this enough criteria to pass the tap?
+                # TODO: special case for M as starting char
+                [
+                    POP                     # pop the fallback call
+                    call{ use_tap }
+                    ZERO
+                ]
+            }
+
             try_second_byte{
-                EXIT
+                <<<<[<]>> PUSH [>]>         # fetch the second byte from top
+                POP                         # place the byte
+                
+                call{ try_next_tap }        # fallback call for comp fail
+                call{ analyze_second_try }
+                call{ compare_message_start }
             }
 
             check_next_byte{
-                EXIT
+                # start configuration
+                #    +0     +1     +2     +3
+                # | ZERO | DECR | SEED | TAP |   
+
+                PUSH >> PUSH > PUSH < POP < POP >> POP <<
+                call{ fetch_next_byte }
+
+                # start configuration
+                # DEST = ZERO, since it is adjacent to a rail line
+                #    +0     +1     +2     +3
+                # | SEED | TAP  | DEST | RAIL |  
+            }
+
+            try_next_tap{
+                # start position is also fetch tap position
+                PUSH >>> POP        # zero the cell adjacent to rail
+                >[>]                # start of untouched data
+                POP [< POP ] PUSH   # restore all the message bytes
+                <[<]                # return to rail head
+                                    # begin an attempt with new tap
+                call{ begin_attempt }
+            }
+
+            use_tap{
+                # start position is also fetch tap position
+                >>> PUSH <<<< POP >
+                PUSH >>> POP        # zero the cell adjacent to rail
+                >[>]                # start of untouched data
+                POP [< POP ] PUSH   # restore all the message bytes
+                <[<]                # return to rail head
+                                    # begin decryption with tap
+                # reposition for decryption stuff
+                <<<< PUSH > PUSH < POP >>> POP <
+                >>>[>]> PUSH < PUSH > POP < +[<]< < POP
+
+                call{ decrypt_message }
+                call{ extract_seed }
+                call{ get_message_start }
+            }
+
+            extract_seed{
+                PUSH > PUSH < POP + >> POP
+                # swap byte and seed, since we know value
+                PUSH > PUSH < POP > POP <
+
+                call{ lfsr_encrypt step_lfsr}
+                call{ extraction_transition }
+                call{ bitwise xor }
+
+            }
+
+            extraction_transition{
+                > PUSH > PUSH < POP > POP <<
+            }
+
+            decrypt_message{
+                # set up for encryption function call
+                # target config:
+                #    +0     +1
+                # | VAL  | SEED |
+                # stack: ... COUNT TAP    
+
+                PUSH
+                >>>>[>] > PUSH < POP > POP
+                << ZERO PUSH < POP          # zero the rail
+                +(63) PUSH                  # encryption counter
+                [<]<< PUSH >>>[>]>          # grab the tap
+                
+                # ready
+                call{lfsr_encrypt encrypt_external}
+
             }
 
             use_seed{

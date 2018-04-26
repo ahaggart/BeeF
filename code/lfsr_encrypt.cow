@@ -87,6 +87,10 @@ lfsr_encrypt{
             call{lfsr advance}
         }
         encrypt_external{ # expose main encryption loop to importers
+            # start config:
+            #    +0     +1
+            # | VAL  | SEED |
+            # stack: ... COUNT TAP            
             < POP >                 # pop off the namespace null
             call{ lfsr kickstart } 
         }
