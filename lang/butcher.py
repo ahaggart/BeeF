@@ -2,8 +2,11 @@
 """
 Alexander Haggart, 4/14/18
 
-Assembler for COW assembly files
+'Assembler' for COW assembly files
     - Assembles .beef machine code from .cow assembly files
+
+a best-guess implementation of a real compiler, will probably be upgraded once
+I read more about compiler theory/take a compilers class
 """
 from __future__ import print_function
 import sys
@@ -757,7 +760,9 @@ def main():
     # resolve *amble closures into code blobs  
     preamble = DependencyNode(base_module[PREAMBLE_KEYWORD],None)
     preamble.link_local(base_layer)
-    preamble_code = ["[-]^>"]
+    #TODO: this is bad, generated preamble code should not modify memory without
+    #       explicit user action, such as call{}, etc
+    preamble_code = ["[-]^>"] 
     preamble.resolve_tokens(preamble_code,0)
     preamble_code.append("\n")
     preamble_code = str.join("",preamble_code)

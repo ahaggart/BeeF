@@ -4,7 +4,7 @@ NOTES ON COMPILER/EMULATOR
 ISSUES
 * namespaces with nested namespaces of the same name produce errors
     * occurred when importing module bitwise into namespace bitwise
-* function bodies without dependencies in importing namespaces case KeyError
+* function bodies without dependencies in importing namespaces case KeyError?
 * invalid inline closure detection doesnt always work
     * "cal{fn}" causes a KeyError in the _NAME_ tag
 * using a non-imported module doesn't cause a compile error, results in a
@@ -14,6 +14,9 @@ ISSUES
 * empty function calls cause an index out of bounds error at compile time
 
 FEATURES
+* better parsing? needs some research on compiler parse strategy
+    * this should be done before adding more features to the hacky compiler
+        we have now
 * new inline closure types (planned):
     * rebase: inform the compiler that the current location of the data head
         should be treated as the basis for relative positioning code
@@ -25,8 +28,22 @@ FEATURES
     * goto: auto-generate instructions to resposition the data head to the given
         relative location
         * clearer, more concise COW files, less prone to error than manually 
-            writing ">" nad "<" to reposition the data head
-* better parsing? needs some research on compiler parse strategy
+            writing ">" and "<" to reposition the data head
+* modifier system (parenthetical expressions): "apply" some expression to 
+    a token by following it with a parenthesized expression
+    * by default, this application will duplicate the token, and thus only
+        accepts numerical input
+    * bindings can define custom modifier behavior by adding a parenthesized
+        expression between the name and the curly braces: binding(expr){tokens}
+        * any occurence of "expr" in binding text is resolved at compile time,
+            substituting "expr" with the expression supplier by the binding
+            invocation
+            * this allows binding subexpressions to be selectively duplicated,
+                as in: [ <(expr) + >(expr) ], to provide a generalized form for
+                expressions which may have different uses for different values
+                of "expr"
+* parameter system: module-wide global parameters
+    * work in same fashion as bindings, but allow for arbitary text
 
 ################################################################################
 NOTES ON CODING STYLE

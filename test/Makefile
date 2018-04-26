@@ -18,6 +18,7 @@ ENC_DIR = enc
 
 MESSAGE_CONVERTER = message_to_seed.py
 CODE_DIR = ../code
+UTIL_DIR = ../util
 SEED_DIR = ${CODE_DIR}/seed
 
 SEED ?= 127
@@ -37,6 +38,6 @@ decrypt: ${DEC_SRC} ${LFSR_SRC} ${INCLUDES}
 seed: encrypt
 	@echo "Making cell file with params: SEED=${SEED} TAP=${TAP}"
 	@./encrypt ${SEED} ${TAP} '${MESSAGE_TO_ENCRYPT}' ${ENC_DIR}/${SEED}_${TAP}_encrypted.txt
-	@${CODE_DIR}/${MESSAGE_CONVERTER} \
+	@${UTIL_DIR}/${MESSAGE_CONVERTER} \
 		${ENC_DIR}/${SEED}_${TAP}_encrypted.txt \
 		${SEED_DIR}/${SEED}_${TAP}_enc.seed

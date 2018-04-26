@@ -55,7 +55,7 @@ terminals:
     "{","}",
     module, preamble, depends, namespace, bindings, postamble,
     binds, imports,
-    name,                                         
+    name, number,                                        
     bound_keyword, raw_assembly
 
 variables: <implicit>
@@ -85,17 +85,32 @@ function_closure->  name { inline_text }
 bindings_closure->  bindings{ binding_closures }
 binding_closures->  binding_closures binding_block
                     | \Epsilon
-binding_block   ->  name import_chain { binding_text }
+binding_block   ->  name modifier_declaration import_chain { binding_text }
 
 postamble_closure-> postamble{  binding_text    }
 binding_text    ->  binding_text bound_keyword
                     | binding_text raw_assembly
                     | \Epsilon
 
-inline_text     ->  inline_text raw_assembly
-                    | inline_text bound_keyword
+modifier_declaration    ->  (modifier_list)
+                            | \Epsilon
+
+modifier_list   ->  modifier_list name
+                    | \Epsilon
+
+inline_text     ->  inline_text text_token
                     | inline_text inline_closure
                     | \Epsilon
+
+text_token      ->  raw_assembly assembly_modifier
+                    | bound_keyword binding_modifier
+
+assembly_modifier   ->  ( number )
+                        | \Epsilon
+
+binding_modifier    ->  ( raw_assembly )
+                        | assembly_modifier
+                        | \Epsilon
 
 inline_closure  ->  keyword_closure
                     | call_closure

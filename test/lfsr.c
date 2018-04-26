@@ -15,7 +15,10 @@ BYTE advance(BYTE seed, BYTE tap){
   return seed << 1 | toggle;
 }
 
-#ifdef __LFSR__
+//pass a command line argument if you want a standalone lfsr stepper utility
+// gcc -D __LFSR__ lfsr.c -o lfsr
+#ifdef __LFSR__ 
+
 int main(int argc, char** argv){
   if(argc != 3){
     printf("usage: lfsr seed tap");
@@ -26,4 +29,5 @@ int main(int argc, char** argv){
 
   printf("advance(%u,%u)\t=\t%u\n",seed,tap,advance(seed,tap));
 }
+
 #endif
