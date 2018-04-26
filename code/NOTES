@@ -45,6 +45,12 @@ FEATURES
 * parameter system: module-wide global parameters
     * work in same fashion as bindings, but allow for arbitary text
 
+OPTIMIZATION
+* compiler currently does none
+* easy:
+    * eliminate "><" and "<>" expressions in compiled code
+        * these have some importance to directive use, might be a better task
+            for the grinder utility
 ################################################################################
 NOTES ON CODING STYLE
 ################################################################################

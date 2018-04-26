@@ -1,5 +1,6 @@
 lfsr_decrypt{
     preamble{
+        # remove_prefix call makes this program Problem3-compliant
         call{remove_prefix}
         call{start_decryption}
     }

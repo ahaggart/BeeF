@@ -1,4 +1,5 @@
-lfsr_decrypt_offset{
+# deprecated because the assignment changed, we can completely reuse other file
+__lfsr_decrypt_offset{
     preamble{
         call{start_decryption}
     }
