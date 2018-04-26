@@ -7,6 +7,9 @@ def main():
         exit(1)
     with open(sys.argv[1],'r') as src:
         with open(sys.argv[2],'w') as dest:
+            for i in range(0,64):
+                dest.write("0,")
+            dest.write("\n")
             while True:
                 char = src.read(1)
                 if not char:

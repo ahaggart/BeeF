@@ -26,7 +26,7 @@ int main(int argc,char** argv){
     if(dest){
         fputc(seed^(BYTE)c,dest);
     }
-    printf("Seed: 0x%x\tEncrypted: 0x%x\n",seed,seed^(BYTE)c);
+    //printf("Seed: 0x%x\tEncrypted: 0x%x\n",seed,seed^(BYTE)c);
   }
   printf("Done.... Encrypted %d chars\n",i);
   if(dest){

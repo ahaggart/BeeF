@@ -1,20 +1,11 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-
-#include "lfsr.h"
+#include "decrypt.h"
 
 const int num_taps = 8;
 const int num_tapped = 4;
 const BYTE taps[] = {0xe1, 0xd4, 0xc6, 0xb8, 0xb4, 0xb2, 0xfa, 0xf3}; 
 const BYTE SPACE_CHAR = ' ';
 const BYTE CAP_M_CHAR = 'M';
-int INVALID_REF = 8;
-
-typedef struct{
-    BYTE seed;
-    BYTE tap; 
-} LFSR_INFO;
+const int INVALID_REF = 8;
 
 void file_too_short(){
   printf("Error: Message file too short.\n");
@@ -100,7 +91,7 @@ void get_encryption_info_2(FILE* msg,LFSR_INFO* info){
 
 }
 
-void get_encryption_info(FILE* msg,LFSR_INFO* info){
+int get_encryption_info(FILE* msg,LFSR_INFO* info){
   //find the seed by looking at the bits
   BYTE seed,lfsr_prev, lfsr_next;
   int impossible[num_taps] = {0};
@@ -139,15 +130,20 @@ void get_encryption_info(FILE* msg,LFSR_INFO* info){
   for(i=0;i<num_taps;i++){
       if(!impossible[i]){
           tap = taps[i];
-          printf("Found tap value: 0x%x in %d bytes\n",tap,count);
           break;
       }
+  }
+  if(i == num_taps){
+      printf("Failed to find tap value.\n");
+      exit(0);
   }
 
   info->tap  = tap;
   info->seed = seed;
 
   fseek(msg,0,SEEK_SET);
+
+  return count;
 }
 
 //decrypt a message that starts with 0+ space chars + "Mr. Watson"
@@ -163,7 +159,8 @@ int main(int argc,char** argv){
   }
 
   LFSR_INFO info;
-  get_encryption_info(msg,&info);
+  int bytes = get_encryption_info(msg,&info);
+  printf("Found tap value: 0x%x in %d bytes\n",info.tap,bytes);
 
   BYTE seed = info.seed;
   int c;

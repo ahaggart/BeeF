@@ -1,5 +1,6 @@
 lfsr_decrypt{
     preamble{
+        # call{remove_prefix}
         call{start_decryption}
     }
     depends{
@@ -10,6 +11,21 @@ lfsr_decrypt{
         start_decryption{
             >(63)
             call{find_seed}
+        }
+        remove_prefix{
+            PUSH
+            <<[<]< 
+            <(63)               # return to c0
+            POP >               # c0 = 0, move to c1
+            [> cmp ]            # overwrite prefix with 1's
+
+            <[<] PUSH > POP +   # set c1 = 1
+
+            rail_shifter        # position the message
+                                
+            <<<[<]<<[<]>        # navigate to the message fragment 
+            
+            wipe_string         # wipe the fragment
         }
         find_seed{
             call{decrypt seed_finder}
@@ -24,14 +40,15 @@ lfsr_decrypt{
             +(32) PUSH <(7) POP  # ascii space
 
             # place all possible taps in memory
-            +(146) PUSH < POP   # TODO: more compact constant building
-            +(2) PUSH < POP
-            +(4) PUSH < POP
-            +(14) PUSH < POP
-            +(14) PUSH < POP
-            +(13) PUSH < POP
-            +(18) PUSH < POP
-            +(7)
+            # TODO: more compact constant building
+            +(146) PUSH < POP               # 178
+            +(2) PUSH < POP                 # 180
+            +(4) PUSH < POP                 # 184
+            +(14) PUSH < POP                # 198
+            +(14) PUSH < POP                # 212
+            +(13) PUSH < POP                # 225
+            +(18) PUSH < POP                # 243
+            +(7)                            # 250
 
             # @ -17
             # prep a stack for storing processed bytes
@@ -47,7 +64,6 @@ lfsr_decrypt{
         }
         decrypt imports bitwise lfsr_encrypt binds lfsr_encrypt{
             get_next{
-                EXIT
                 ZERO            # zero the start cell, just in case
                 >>>[>]          # step over old value in +1
                 > PUSH          # push next value to stack
@@ -94,7 +110,6 @@ lfsr_decrypt{
                 ] <
             }
             get_tap{
-                EXIT
                 < ZERO    <             # skip over empty cells
                 [<]                     # move to last tap in sequence
                 > PUSH                  # grab last tap
@@ -188,7 +203,7 @@ lfsr_decrypt{
                 < ZERO + >          # fill in the gap potentially left by caller
                 ^>(16) < ZERO + PUSH -  # grab 16 cells, adjust zeroed endpoint
                 <[ POP PUSH <] POP      # write 1s until we hit a zero
-                >(15) _<(15) _ >(15) ZERO # write grabbed cells and endpoint
+                >(15) _<(15) _ >(16) ZERO # write grabbed cells and endpoint
                 > [>] >                 # return to next set of data
             }
             panic{ # bad news bears
@@ -227,6 +242,18 @@ lfsr_decrypt{
         }
         fill_to_nonzero{
             +[ PUSH > [< POP - PUSH ] POP ] >
+        }
+        cmp{ # compare two numbers, 1 if equal
+            > PUSH <[->-<]>[<-> ZERO ]<+> POP <
+        }
+        rail_shifter{
+            # slide message along rail of 1's until we hit a null terminator
+            [[>] PUSH > PUSH PUSH < PUSH > POP < POP [<] POP > POP > ]
+        }
+        wipe_string{
+            # write 0s until we hit a null terminator
+            # requires: ZERO in -1
+            [<^>_>]
         }
     }
     postamble{
