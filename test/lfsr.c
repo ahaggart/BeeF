@@ -14,3 +14,14 @@ BYTE advance(BYTE seed, BYTE tap){
   }
   return seed << 1 | toggle;
 }
+
+int main(int argc, char** argv){
+  if(argc != 3){
+    printf("usage: lfsr seed tap");
+    exit(1);
+  }
+  BYTE seed = (BYTE)atoi(argv[1]);
+  BYTE tap  = (BYTE)atoi(argv[2]);
+
+  printf("advance(%u,%u)\t=\t%u\n",seed,tap,advance(seed,tap));
+}

@@ -41,13 +41,13 @@ lfsr_decrypt{
 
             # place all possible taps in memory
             # TODO: more compact constant building
-            +(146) PUSH < POP               # 178
-            +(2) PUSH < POP                 # 180
-            +(4) PUSH < POP                 # 184
-            +(14) PUSH < POP                # 198
-            +(14) PUSH < POP                # 212
-            +(13) PUSH < POP                # 225
-            +(18) PUSH < POP                # 243
+            +(146)  PUSH < POP              # 178
+            +(2)    PUSH < POP              # 180
+            +(4)    PUSH < POP              # 184
+            +(14)   PUSH < POP              # 198
+            +(14)   PUSH < POP              # 212
+            +(13)   PUSH < POP              # 225
+            +(18)   PUSH < POP              # 243
             +(7)                            # 250
 
             # @ -17

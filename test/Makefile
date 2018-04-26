@@ -1,7 +1,9 @@
 CC = gcc
 
 LFSR_SRC = lfsr.c
-INCLUDES = lfsr.h
+LFSR_TARGET = lfsr
+
+INCLUDES = lfsr.h decrypt.h
 
 ENC_SRC = encrypt.c
 ENC_TARGET = encrypt
@@ -17,7 +19,10 @@ MESSAGE_CONVERTER = message_to_seed.py
 CODE_DIR = ../code
 SEED_DIR = ${CODE_DIR}/seed
 
-all: encrypt decrypt
+all: encrypt decrypt lfsr
+
+lfsr: ${INCLUDES} ${LFSR_SRC}
+	${CC} ${CFLAGS} ${LFSR_SRC} -o ${LFSR_TARGET}
 
 encrypt: ${ENC_SRC} ${LFSR_SRC} ${INCLUDES}
 	${CC} ${CFLAGS} ${ENC_SRC} ${LFSR_SRC} -o ${ENC_TARGET}

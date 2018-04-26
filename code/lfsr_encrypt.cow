@@ -162,10 +162,13 @@ lfsr_encrypt{
                 # result: new seed in +0, tap in +1
             }
             apply_tap{
+                # start config:
+                # | |
+                # stack: ... SEED
                 >>>> # move to start of bit pairs
                 bit_and(8)
                 finish_advance
-                < POP >
+                < POP >                 
                 PUSH < POP              # store the result in the control cell
                 > POP [-<++>]           # double original value into -1 (shleft)
                 < PUSH > POP            # copy cc value into +0
