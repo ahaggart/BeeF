@@ -162,6 +162,7 @@ lfsr_encrypt{
                 # result: new seed in +0, tap in +1
             }
             apply_tap{
+                # TODO: fix LSB calc for odd tap pattern
                 # start config:
                 # | |
                 # stack: ... SEED
@@ -182,16 +183,16 @@ lfsr_encrypt{
         toggle_xor{
             # start:    v
             # | zero | AND | toggle |
-
-            # [>[<<->>]<-]>[<<+>>-]<<
-            [->-<]>[<<+>> ZERO ]<<<
+            # consume bits to flip toggle
+            #                           v
+            # | zero | AND | toggle | count |
+            +(8) [-<<[->-<]>[<< PUSH +>> POP ]> PUSH << POP ] < PUSH << POP
         }
         finish_advance{
             <                       # end of last pair
-            <<                      # last pair result
-            # EXIT
-            toggle_xor(7)
-            > PUSH <<<< POP         # place the result in +0
+            # <<                      # last pair result
+            toggle_xor
+            # > PUSH <<<< POP         # place the result in +0
             >(19) lrestore(19)      # restore saved cells
             < PUSH >                
         }

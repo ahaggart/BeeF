@@ -1,6 +1,6 @@
 lfsr_decrypt{
     preamble{
-        # call{remove_prefix}
+        call{remove_prefix}
         call{start_decryption}
     }
     depends{
@@ -148,7 +148,7 @@ lfsr_decrypt{
                 call{check_taps}
             }
             tap_check_transition{
-                call{ panic }       # this should not get called
+                call{ no_tap_panic }# this should not get called
                 <<<                 # check for additional taps
                 [                   # more taps, need another cycle
                                     # assume this is the last one
@@ -206,7 +206,7 @@ lfsr_decrypt{
                 >(15) _<(15) _ >(16) ZERO # write grabbed cells and endpoint
                 > [>] >                 # return to next set of data
             }
-            panic{ # bad news bears
+            no_tap_panic{ # bad news bears
                 EXIT
             }
             exit_fn{
