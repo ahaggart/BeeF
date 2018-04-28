@@ -96,7 +96,7 @@ modifier_declaration    ->  (modifier_list)
                             | \Epsilon
 
 modifier_list   ->  modifier_list name
-                    | \Epsilon
+                    | name
 
 inline_text     ->  inline_text text_token
                     | inline_text inline_closure

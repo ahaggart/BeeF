@@ -7,12 +7,12 @@
 import sys
 
 ASSEMBLY_CHARS = {'_','^','>','<','+','-','[',']'}
-COMPLEMENT = {
+COMPLEMENT = { # instructions which cancel each other when adjacent
     '+':'-',
     '-':'+',
     '>':'<',
     '<':'>',
-    '_':'^', # ebut not the other way around
+    '_':'^', # but not the other way around
 }
 COMMENT_DELIM = '#'
 LINE_MAX = 80
@@ -37,6 +37,7 @@ def main():
                 if char == COMMENT_DELIM and in_directives:
                     src.readline() # throw out the rest of the line
                 elif char in ASSEMBLY_CHARS:
+                    in_directives = False
                     # remove cancelling instructions
                     if line and char in COMPLEMENT and line[-1] == COMPLEMENT[char]:
                         line.pop()

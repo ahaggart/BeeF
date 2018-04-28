@@ -13,22 +13,49 @@ ISSUES
         other nested namespaces
 * empty function calls cause an index out of bounds error at compile time
 
-FEATURES
+PLANNED FEATURES
 * better parsing? needs some research on compiler parse strategy
     * this should be done before adding more features to the hacky compiler
         we have now
+* prettier code generation
+    * is this even worthwhile? no one wants to look at .beef files anyway
+    * need a strategy for grouping things into lines, etc
+        * source mapping? VM directives might get in the way if we try to simply
+            place assembly on the line corresponding to the line that
+            generated it
+            * add a directive to ignore directives in line count
 * new inline closure types (planned):
     * rebase: inform the compiler that the current location of the data head
         should be treated as the basis for relative positioning code
         * functions rebase to the current data head location on entry
-    * location: assert on the current location of the data head, relative to
-        the most recent base address
-        * need to finish implementing VM locks for this to work
-        * raise a VM exception if the data head position does not match
-    * goto: auto-generate instructions to resposition the data head to the given
-        relative location
+        * compiler will attempt to track relative position, but will give up
+            when it encounters a "[" or a "]"
+    * assert: assert on some condition, error on violation
+        * value: assert on the value in some location
+            * enables compiler to optimize under this assumption, 
+                * example: when zeroing cells to make function calls,
+                    compiler can fetch an asserted zero instead of using "[-]"
+            * can specify a range or set of values
+        * stack: assert on the top value of the stack
+            * also enables some compiler optimizations
+        *** need to finish implementing VM locks for these to work
+        *** position assertions don't really make sense, just rebase
+        *** assertions may be unused if the location they assert on is not
+             visited
+    * goto: resposition the data head to the given relative location
         * clearer, more concise COW files, less prone to error than manually 
             writing ">" and "<" to reposition the data head
+    * set: set the value of a cell
+        * by default, will zero then increment cell to value
+        * nearby assertions will be considered as "shortcuts" to value
+    * stable/static/atomic: marks a code block as not changing the data head
+        position, allowing for additional implicit position tracking
+    * load: push a values to stack from a range of relative cell locations
+    * unload: write values from stack to a range of relative cell locations
+    * panic: abort the VM and print a custom message
+* backtracking: debug mode allows stepping forward AND backward
+    * all instructions expect stack ops are easy to backtrack through
+    * use a "popped" stack to restore backtracked POP instructions
 * modifier system (parenthetical expressions): "apply" some expression to 
     a token by following it with a parenthesized expression
     * by default, this application will duplicate the token, and thus only

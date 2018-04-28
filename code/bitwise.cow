@@ -1,8 +1,6 @@
-bitwise{ # https://codegolf.stackexchange.com/questions/9178/bitwise-operators-in-brainfuck
+bitwise{ 
     preamble{ 
-          +(49)
-        > +(15) <
-        call{xor}
+
     }
     namespace{
         expand{
