@@ -1,11 +1,12 @@
 {
     "terminals":["module","preamble","postamble","depends","namespace",
-        "bindings","postamble","binds","imports","{","}","(",")"],
+        "bindings","postamble","binds","imports","{","}","(",")",
+        "rebase","assert","goto","stable","set","panic","call"],
     "generics":["name","number","raw_assembly","bound_keyword"],
     "rules":{
         "module_closure":["module { preamble_closure depends_closure namespace_closure bindings_closure postamble_closure }"],
-        "preamble_closure":["preamble { inline_text }"],
-        "depends_closure":["depends { module_names }"],
+        "preamble_closure":["preamble { inline_text }",null],
+        "depends_closure":["depends { module_names }",null],
         "namespace_closure":["namespace { functional_blocks }"],
         "functional_blocks":["function_closure functional_blocks",
                             "nested_namespace_closure functional_blocks",
@@ -16,9 +17,9 @@
         "module_names":["name module_names",null],
         "function_closure":["name { inline_text }"],
         "bindings_closure":["bindings { binding_closures }"],
-        "binding_closures":["binding_block binding closures",null],
+        "binding_closures":["binding_block binding_closures",null],
         "binding_block":["name modifier_declaration import_chain { binding_text }"],
-        "postamble_closure":["postamble { binding_text }"],
+        "postamble_closure":["postamble { binding_text }",null],
         "binding_text":["bound_keyword binding_text","raw_assembly binding_text",null],
         "modifier_declaration":["( modifier_list )",null],
         "modifier_list":["name modifier_list","name"],
@@ -31,5 +32,5 @@
         "call_path":["name","name name"],
         "keyword":["rebase","assert","goto","stable","set","panic"]
     },
-    "start":null
+    "start":"module_closure"
 } 
