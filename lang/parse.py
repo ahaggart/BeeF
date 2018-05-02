@@ -204,8 +204,20 @@ class Derivation(Expression):
     # build a simple NFA representing this derivation
     def make_NFA(self,id):
         start_state  = ParsingNFAState()
-        accept_state = ParsingNFAState(accept=True)
-        accept_state.tags[REDUCTION_T] = id
+        curr_state = start_state
+        table = [start_state]
+
+        # add a transition and state for each token
+        for symbol in self:
+            new_state = ParsingNFAState()
+            curr_state.add(symbol,len(table))
+            table.append(new_state)
+            curr_state = new_state
+        
+        curr_state.make_accepting()
+        curr_state.tags[REDUCTION_T] = id # tag the accept state with a reduction
+        
+        return ParsingNFA(self.symbol,table)
 
 
 
@@ -215,6 +227,9 @@ class Nonterminal:
         self.is_nullable = None
         self.first_symbol = None   
         self.follow = SuperSet(self.symbol)
+
+    def __str__(self):
+        return self.symbol
 
     def nullable(self,rules,pending=set()):
         if self.is_nullable == None:
@@ -283,6 +298,8 @@ class Terminal:
         return False
     def first(self,rules,pending=set()):
         return set([self.symbol])
+    def __str__(self):
+        return self.symbol
 
 class Generic(Terminal):
     def __init__(self,symbol,regex):
@@ -306,6 +323,7 @@ class Epsilon: # we might not need this
     def make_NFA(self,id):
         state = ParsingNFAState(accept=True)
         state.tags[REDUCTION_T] = id
+        return ParsingNFA("Epsilon",[state])
 
 # parse input token-by-token, using parse table to decide action and state
 class ParsingAutomaton:
@@ -328,7 +346,10 @@ class ParsingNFAState:
         self.epsilons       = set()
         self.tags           = {}
         if accept:
-            self.tags[ACCEPT_T] = True
+            self.make_accepting()
+
+    def make_accepting(self):
+        self.tags[ACCEPT_T] = True
     
     def add(self,token,dest):
         if token == None:
@@ -339,9 +360,24 @@ class ParsingNFAState:
         self.transitions[token].add(dest)
 
 class ParsingNFA:
-    def __init__(self,table=[ParsingNFAState()]):
+    def __init__(self,name=None,table=None):
+        self.name = name
+        if not table:
+            table = [ParsingNFAState()]
         self.table = table
         self.start = 0 # start state is always id 0
+
+    def __str__(self):
+        count = 0
+        base = "{} (NFA):\n".format(self.name)
+        for item in self.table:
+            base = base + "{}:".format(count)
+            for token in item.transitions:
+                base = base + "\t{} -> {}\n".format(token,item.transitions[token])
+            for token in item.epsilons:
+                base = base + "\Epsilon -> {}\n".format(token)
+            count = count + 1
+        return base
 
     def add(prev_state,token):
         new_id = len(self.table)
@@ -471,6 +507,11 @@ def main():
 
     print("FOLLOWS:")
     pp.pprint(follow(g))
+
+    print("NFAS:")
+    for rule in g.rules:
+        for der in g.rules[rule].derivations:
+            print(der.make_NFA(-1))
 
 def parse_error(reason):
     print("Error: {}".format(reason))
