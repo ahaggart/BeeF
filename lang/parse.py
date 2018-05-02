@@ -6,13 +6,18 @@ from __future__ import print_function
 import sys
 import pprint as pp
 import json
+import sets
 
 TERMINALS_KEY = "terminals"
 GENERICS_KEY  = "generics"
 RULES_KEY     = "rules"
 START_KEY     = "start"
 META_START_KEY = "_META_START_"
+EPSILON_T = "_EPSILON_"
+ID_T = "_ID_"
 
+# lazily evaluated set nesting framework, for recursively building token sets
+# with interdependecnies
 class SuperSet:
     def __init__(self,symbol,subsets=[]):
         self.symbol = symbol
@@ -57,7 +62,8 @@ class Grammar:
         rules,nt    = Rule.create(source[RULES_KEY],full_syms)
         nonterminals= [ Nonterminal(sym) for sym in nt ]
         start       = Nonterminal(source[START_KEY])
-        return Grammar(nonterminals,rules,start)
+        g = Grammar(nonterminals,rules,start)
+        return g
 
     def follow(self):
         self.nonterminals[META_START_KEY] = Nonterminal(META_START_KEY)
@@ -182,6 +188,19 @@ class Derivation(Expression):
             first = first.succ
         yield first
 
+    def verify(self,chain,rules):
+        chain = chain[:] # copy the list
+        for symbol in self.symbols:
+            if not chain:       # consumed the whole chain, must be valid
+                return True
+            if not symbol.verify(chain,rules):
+                return False
+        return False
+
+    def make_NFA(self):
+        pass
+
+
 
 class Nonterminal:
     def __init__(self,symbol):
@@ -247,7 +266,7 @@ class Rule:
         first = set()
         for derivation in self.derivations:
             first.update(derivation.first(rules,pending))
-        return first
+        return first        
 
 class Terminal:
     def __init__(self,symbol):
@@ -276,6 +295,208 @@ class Epsilon: # we might not need this
         return set()
     def subexpressions(self):
         return []
+    def verify(self,chain,rules):
+        if len(chain) == 0:
+            return True
+        return False
+
+# parse input token-by-token, using parse table to decide action and state
+class ParsingAutomaton:
+    def __init__(self):
+        pass
+
+class SLRTable:
+    def __init__(self):
+        pass
+
+class ParsingDFA:
+    def __init__(self):
+        pass
+
+class ParsingNFA:
+    # # require a single accept state
+    # def __init__(self):
+    #     self.start  = ParsingNFAStart()
+    #     self.accept = None
+
+    # def link(self,NFAs):
+    #     self.start.link(NFAs)
+
+    # @staticmethod
+    # def create(tokens): # create a simple NFA to parse a token list
+    #     curr = self.start
+    #     for token in tokens:
+    #         is_terminal = token.__class__.__name__ != "Nonterminal"
+    #         next_state = ParsingNFAState()
+    #         curr.add(token.symbol,(next_state,is_terminal))
+    #         curr = next_state
+    #     self.accept = curr
+    #     self.accept.id = 0
+
+    def __init__(self,table=[{}]):
+        self.table = table
+        self.start = 0 # start state is always id 0
+
+    def add(prev_state,token):
+        new_id = len(self.table)
+        self.table[prev_state][token] = new_id
+        self.table.append({})
+        return new_id
+
+    # graft this NFA state into another NFA 
+    def graft(other):
+        table = [{}]
+        self_state_id  = 0
+        other_state_id = 0
+
+        self_tokens  = [token for token in  self.table[ self_state_id]]
+        other_tokens = [token for token in other.table[other_state_id]]
+        for token in (self_tokens|other_tokens):
+            pass
+
+    def determine(self): # convert this NFA into a DFA
+        table = {}
+        start_super = self._collect_reachable([self.start])
+        to_add = set(start_super)
+
+        while len(to_add) != 0:
+            new_add = set()
+            for superstate in to_add:
+                # add this superstate to table if not there already
+                table[superstate] = self._collect_destinations(superstate)
+                for token in table[superstate]:
+                    dest = table[superstate][token]
+                    if dest not in table:
+                        new_add.add(dest)
+            to_add = new_add
+
+        # iterate over the table and build a completely determined table
+        # build a table of state ids
+        table_ids = { start_super:0 }
+        count = 0
+        for state in table:
+            if state == start_super:
+                continue
+            count = count + 1
+            table_ids[state] = count
+
+        # iterate over table and resolve frozen sets into table indices
+        sorted_table = [0]*count
+        for state in table:
+            transitions = dict([
+                    # pair token to the id assigned to the destination state
+                    (token,table_ids[table[state][token]]) # k-v pair  
+                    for token in table[state]
+            ])
+            sorted_table[table_ids[state]] = transitions
+
+        # return the DFA table and the id table
+        # caller may have metadata to attach based superstate composition
+        return sorted_table,table_ids
+
+
+    def _collect_reachable(self,start_set):
+        working_set = set(start_set)
+        ws_size = 0
+        # collect epsilon-reachable states
+        while ws_size != len(working_set):
+            ws_size = len(working_set)
+            ws_copy = working_set.copy()
+            for state in ws_copy:
+                working_set.update(self.table[state].epsilons)
+        return frozenset(working_set) # use this as a superset table entry
+
+    def _collect_destinations(self,states):
+        # collect listed transition tokens
+        tokens = set()
+        for state in states:
+            tokens.update(self.table[state].transitions.keys())
+
+        dest_sets = {}
+        for token in tokens:
+            dest_sets[token] = set()
+            for state in states:
+                dest_sets[token].add(self.table[state].transitions[token])
+            dest_sets[token] = self._collect_reachable(dest_sets[token])
+        return dest_sets
+        
+# use tuples of (token,boolean) to denote transitions
+# (token,False) denotes a nonterminal transition
+class ParsingNFAState:
+    def __init__(self):
+        self.transitions = {}
+        self.epsilons = set()
+        self.id = -1
+        
+
+    # def add(self,name,state):
+    #     self.transitions[name] = state
+
+    # def link(self,NFAs):
+    #     removal = set()
+    #     for tn in self.transitions:
+    #         trans = self.transitions[tn]
+    #         trans[1].link(NFAs)
+    #         if not trans[1]:
+    #             if tn not in NFAs:
+    #                 parse_error("No NFA for: {}".format(tn))
+    #             removal.add(tn)
+    #             # append an epsilon transition into this NFA
+    #             self.transitions[EPSILON_T].append(NFAs[tn].start)
+
+    #     for tn in removal:
+    #         del self.transition[tn]
+
+    # # # graft this NFA state into another NFA 
+    # # def graft(other):
+
+    # # def read(token):
+    # #     if token in self.transitions:
+    # #         return self.transitions[token]
+    # #     parse_error("Parse error after: {}".format(self.name))
+
+# state representing the current expected derivation to parse
+# can represent multiple derivations, until a "branch" is reached that rules
+# out a potential derivation
+class ParsingState:
+    def __init__(self,rule,parent):
+        # the first tokens we expect to encounter in this state
+        # may be terminals or nonterminals
+        # if we cannot match any terminals, check each nonterminal first char
+        self.rule = [derivation for derivation in rule]
+
+        # track the token chain this state has parsed
+        self.chain = []
+
+        # if we encounter a token that should follow the derivation represented
+        # by this state, initiate a reduction and pop to the parent state
+        self.follow = None
+        
+        # use stacks of parsing states to trace reductions
+        self.parent = parent
+        pass
+
+    # read a token, and return the next parsing state to use
+    def read(self,token,rules):
+        chain.append(token)
+        # check if the current derivation step has a rule for expanding it
+        if derivation.symbols[step].symbol in rules:
+            selection = rule.select(token)
+            if selection:
+                # we have enough information to select a derivation from the rule
+                # ready to construct and use a new parsing state for it
+                return ParsingState(selection,self)
+            else:
+                pass
+
+        # no rule, must be a nonterminal, check if the token matches
+        elif derivation.symbols[step].verify(token):
+            # match the token and move on to the next step
+            pass
+        if token in self.follow:
+            # initiate a reduction
+            pass
+        return self
 
 # produce a dictionary(variable->terminal) of the first terminals in strings
 # generated by each variable
