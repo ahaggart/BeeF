@@ -15,6 +15,8 @@ START_KEY     = "start"
 META_START_KEY = "_META_START_"
 EPSILON_T = "_EPSILON_"
 ID_T = "_ID_"
+ACCEPT_T = "_ACCEPTING_"
+REDUCTION_T = "_REDUCTION_"
 
 # lazily evaluated set nesting framework, for recursively building token sets
 # with interdependecnies
@@ -25,19 +27,31 @@ class SuperSet:
         for subset in subsets:
             self.add(subset)
 
-    def __iter__(self,pending=set()): # recursively generate this set's elements
+    def __iter__(self,pending=None): # recursively generate this set's elements
+        if not pending:
+            pending = set()
+        # print("starting evaluation of subset: {} with pending: {}".format(self.symbol,pending))
         pending.add(self.symbol)
-        # print(class(self))
+
         for subset in self.subsets:
             if subset.__class__.__name__ != "SuperSet": # pull everything from base sets
                 for item in subset:
                     yield item
             elif subset.symbol not in pending:
+                # print("Evaluating {} as subset of {}".format(subset.symbol,self.symbol))
                 for item in subset.__iter__(pending):   # recusively resolve
+                    # print("Subset: {}\tElem: {}".format(subset.symbol,item))
                     yield item
+            else:
+                # print("Threw out circular dep {} from evaluation of {}".format(subset.symbol,self.symbol))
+                pass
+        # print("finished evaluation of subset: {}".format(self.symbol))
 
     def add(self,subset):
-        if type(subset) != SuperSet or subset.symbol != self.symbol:
+        if subset.__class__.__name__ != "SuperSet":
+            self.subsets.append(subset)
+        elif subset.symbol != self.symbol:
+            # print("Added {} as subset of {}".format(subset.symbol,self.symbol))
             self.subsets.append(subset)
 
 
@@ -45,7 +59,6 @@ class Grammar:
     def __init__(self,nonterminals,rules,start):
         self.start          = start
         self.nonterminals   = dict([(nont.symbol,nont) for nont in nonterminals])
-#        self.terminals      = terminals
         self.rules          = dict([(rule.symbol,rule) for rule in rules])
         self.start          = start
 
@@ -57,7 +70,7 @@ class Grammar:
         # TODO: do the class packing in the classes themselves?
         terminals   = set(Terminal(term) for term in source[TERMINALS_KEY])
         generics    = set(source[GENERICS_KEY])
-        full_syms = set(source[TERMINALS_KEY])
+        full_syms   = set(source[TERMINALS_KEY])
         full_syms.update(generics)
         rules,nt    = Rule.create(source[RULES_KEY],full_syms)
         nonterminals= [ Nonterminal(sym) for sym in nt ]
@@ -80,12 +93,12 @@ class Grammar:
                     if subexp.succ == None:
                         ss.add(self.nonterminals[rulename].follow)
                         continue
-                    print("{}: {}".format(subexp.succ.symbol,subexp.succ.first(self.rules)))
+                    # print("{}: {}".format(subexp.succ.symbol,subexp.succ.first(self.rules)))
                     ss.add(subexp.succ.first(self.rules))
                     if subexp.succ.nullable(self.rules):
                         if rulename != subexp.token.symbol:
-                            print([symbol.token.symbol for symbol in subexp.succ])
-                            print("added {} as follow subset of {}".format(rulename,ss.symbol))
+                            # print([symbol.token.symbol for symbol in subexp.succ])
+                            # print("added {} as follow subset of {}".format(rulename,ss.symbol))
                             ss.add(self.nonterminals[rulename].follow)
                     # for symbol in subexp:
                     #     print("{},".format(symbol.symbol.symbol),end="") # lol
@@ -164,7 +177,7 @@ class Derivation(Expression):
     @staticmethod
     def create(symbol,source,terminals,nonterminals):
         tokens = []
-        for symbol in str.split(str(source)," "):
+        for symbol in str.split(str(source).strip()," "):
             if symbol in terminals:
                 tokens.append(Terminal(symbol))
             elif symbol in nonterminals:
@@ -188,17 +201,11 @@ class Derivation(Expression):
             first = first.succ
         yield first
 
-    def verify(self,chain,rules):
-        chain = chain[:] # copy the list
-        for symbol in self.symbols:
-            if not chain:       # consumed the whole chain, must be valid
-                return True
-            if not symbol.verify(chain,rules):
-                return False
-        return False
-
-    def make_NFA(self):
-        pass
+    # build a simple NFA representing this derivation
+    def make_NFA(self,id):
+        start_state  = ParsingNFAState()
+        accept_state = ParsingNFAState(accept=True)
+        accept_state.tags[REDUCTION_T] = id
 
 
 
@@ -225,7 +232,8 @@ class Nonterminal:
             pending.add(self.symbol)
             self.first_symbol.update(rules[self.symbol].first(rules,pending))
         else:
-            print("got cached start tokens for: {}".format(self.symbol))
+            # print("got cached start tokens for: {}".format(self.symbol))
+            pass
         return self.first_symbol
             
 
@@ -295,10 +303,9 @@ class Epsilon: # we might not need this
         return set()
     def subexpressions(self):
         return []
-    def verify(self,chain,rules):
-        if len(chain) == 0:
-            return True
-        return False
+    def make_NFA(self,id):
+        state = ParsingNFAState(accept=True)
+        state.tags[REDUCTION_T] = id
 
 # parse input token-by-token, using parse table to decide action and state
 class ParsingAutomaton:
@@ -313,27 +320,26 @@ class ParsingDFA:
     def __init__(self):
         pass
 
+# use tuples of (token,boolean) to denote transitions
+# (token,False) denotes a nonterminal transition
+class ParsingNFAState:
+    def __init__(self,accept=False):
+        self.transitions    = {}
+        self.epsilons       = set()
+        self.tags           = {}
+        if accept:
+            self.tags[ACCEPT_T] = True
+    
+    def add(self,token,dest):
+        if token == None:
+            self.epsilons.add(dest)
+            return
+        if token not in self.transitions:
+            self.transitions[token] = set()
+        self.transitions[token].add(dest)
+
 class ParsingNFA:
-    # # require a single accept state
-    # def __init__(self):
-    #     self.start  = ParsingNFAStart()
-    #     self.accept = None
-
-    # def link(self,NFAs):
-    #     self.start.link(NFAs)
-
-    # @staticmethod
-    # def create(tokens): # create a simple NFA to parse a token list
-    #     curr = self.start
-    #     for token in tokens:
-    #         is_terminal = token.__class__.__name__ != "Nonterminal"
-    #         next_state = ParsingNFAState()
-    #         curr.add(token.symbol,(next_state,is_terminal))
-    #         curr = next_state
-    #     self.accept = curr
-    #     self.accept.id = 0
-
-    def __init__(self,table=[{}]):
+    def __init__(self,table=[ParsingNFAState()]):
         self.table = table
         self.start = 0 # start state is always id 0
 
@@ -416,88 +422,11 @@ class ParsingNFA:
         for token in tokens:
             dest_sets[token] = set()
             for state in states:
-                dest_sets[token].add(self.table[state].transitions[token])
+                if token in self.table[state].transitions:
+                    dest_sets[token].update(self.table[state].transitions[token])
             dest_sets[token] = self._collect_reachable(dest_sets[token])
         return dest_sets
         
-# use tuples of (token,boolean) to denote transitions
-# (token,False) denotes a nonterminal transition
-class ParsingNFAState:
-    def __init__(self):
-        self.transitions = {}
-        self.epsilons = set()
-        self.id = -1
-        
-
-    # def add(self,name,state):
-    #     self.transitions[name] = state
-
-    # def link(self,NFAs):
-    #     removal = set()
-    #     for tn in self.transitions:
-    #         trans = self.transitions[tn]
-    #         trans[1].link(NFAs)
-    #         if not trans[1]:
-    #             if tn not in NFAs:
-    #                 parse_error("No NFA for: {}".format(tn))
-    #             removal.add(tn)
-    #             # append an epsilon transition into this NFA
-    #             self.transitions[EPSILON_T].append(NFAs[tn].start)
-
-    #     for tn in removal:
-    #         del self.transition[tn]
-
-    # # # graft this NFA state into another NFA 
-    # # def graft(other):
-
-    # # def read(token):
-    # #     if token in self.transitions:
-    # #         return self.transitions[token]
-    # #     parse_error("Parse error after: {}".format(self.name))
-
-# state representing the current expected derivation to parse
-# can represent multiple derivations, until a "branch" is reached that rules
-# out a potential derivation
-class ParsingState:
-    def __init__(self,rule,parent):
-        # the first tokens we expect to encounter in this state
-        # may be terminals or nonterminals
-        # if we cannot match any terminals, check each nonterminal first char
-        self.rule = [derivation for derivation in rule]
-
-        # track the token chain this state has parsed
-        self.chain = []
-
-        # if we encounter a token that should follow the derivation represented
-        # by this state, initiate a reduction and pop to the parent state
-        self.follow = None
-        
-        # use stacks of parsing states to trace reductions
-        self.parent = parent
-        pass
-
-    # read a token, and return the next parsing state to use
-    def read(self,token,rules):
-        chain.append(token)
-        # check if the current derivation step has a rule for expanding it
-        if derivation.symbols[step].symbol in rules:
-            selection = rule.select(token)
-            if selection:
-                # we have enough information to select a derivation from the rule
-                # ready to construct and use a new parsing state for it
-                return ParsingState(selection,self)
-            else:
-                pass
-
-        # no rule, must be a nonterminal, check if the token matches
-        elif derivation.symbols[step].verify(token):
-            # match the token and move on to the next step
-            pass
-        if token in self.follow:
-            # initiate a reduction
-            pass
-        return self
-
 # produce a dictionary(variable->terminal) of the first terminals in strings
 # generated by each variable
 def first(grammar):
@@ -522,6 +451,11 @@ def follow(grammar):
     follows = dict()
     for nt in grammar.nonterminals:
         nonterm = grammar.nonterminals[nt]
+        # follow_set = set()
+        # for follow in nonterm.follow:
+        #     follow_set.add(follow)
+        # follows[nonterm.symbol] = follow_set 
+        # print("Resolving nonterminal: {} ***".format(nonterm.symbol))
         follows[nonterm.symbol] = set([follow for follow in nonterm.follow])
     return follows
 
