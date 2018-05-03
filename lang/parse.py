@@ -122,7 +122,9 @@ class Expression:
         for symbol in self.symbols:
             yield symbol
 
-    def nullable(self,rules,pending=set()):
+    def nullable(self,rules,pending=None):
+        if pending == None:
+            pending = set()
         if self.is_nullable == None:
             pending.add(self.symbol)
             self.is_nullable = all(self._nullables(rules,pending))
@@ -132,7 +134,9 @@ class Expression:
             if symbol.symbol not in pending:
                 yield symbol.nullable(rules,pending)
 
-    def first(self,rules,pending=set()):
+    def first(self,rules,pending=None):
+        if pending == None:
+            pending = set()
         if self.first_symbol == None:
             pending.add(self.symbol)
             self.first_symbol = set()
@@ -158,7 +162,9 @@ class SubExpression(Expression):
         for symbol in self:
             yield symbol.token.nullable(rules,pending)
 
-    def first(self,rules,pending=set()):
+    def first(self,rules,pending=None):
+        if pending == None:
+            pending = set()
         if self.first_symbol == None:
             pending.add(self.symbol)
             self.first_symbol = set()
@@ -231,7 +237,9 @@ class Nonterminal:
     def __str__(self):
         return self.symbol
 
-    def nullable(self,rules,pending=set()):
+    def nullable(self,rules,pending=None):
+        if pending == None:
+            pending = set()
         if self.is_nullable == None:
             if self.symbol not in rules:
                 parse_error("No rule for nonterminal: " + self.symbol)
@@ -239,7 +247,9 @@ class Nonterminal:
             self.is_nullable = any(rules[self.symbol]._nullables(rules,pending))
         return self.is_nullable
 
-    def first(self,rules,pending=set()):
+    def first(self,rules,pending=None):
+        if pending == None:
+            pending = set()
         if self.first_symbol == None:
             if self.symbol not in rules:
                 parse_error("No rule for nonterminal: " + self.symbol)
@@ -285,7 +295,9 @@ class Rule:
         for derivation in self.derivations:
             yield derivation.nullable(rules,pending)
 
-    def first(self,rules,pending=set()):
+    def first(self,rules,pending=None):
+        if pending == None:
+            pending = set()
         first = set()
         for derivation in self.derivations:
             first.update(derivation.first(rules,pending))
@@ -294,9 +306,9 @@ class Rule:
 class Terminal:
     def __init__(self,symbol):
         self.symbol = symbol
-    def nullable(self,rules,pending=set()):
+    def nullable(self,rules,pending=None):
         return False
-    def first(self,rules,pending=set()):
+    def first(self,rules,pending=None):
         return set([self.symbol])
     def __str__(self):
         return self.symbol
@@ -314,9 +326,9 @@ class ParseTerminator(Terminal):
         Terminal.__init__(self,"$")
 
 class Epsilon: # we might not need this
-    def nullable(self,rules,pending=set()):
+    def nullable(self,rules,pending=None):
         return True
-    def first(self,rules,pending=set()):
+    def first(self,rules,pending=None):
         return set()
     def subexpressions(self):
         return []
