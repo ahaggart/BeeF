@@ -216,12 +216,12 @@ class Derivation(Expression):
         # add a transition and state for each token
         for symbol in self:
             new_state = ParsingNFAState()
-            curr_state.add(symbol,len(table))
+            curr_state.add(symbol.symbol,len(table))
             table.append(new_state)
             curr_state = new_state
         
         curr_state.make_accepting()
-        curr_state.tags[REDUCTION_T] = id # tag the accept state with a reduction
+        curr_state.tags.add((REDUCTION_T,id)) # tag the accept state with a reduction
         
         return ParsingNFA(self.symbol,table)
 
@@ -334,7 +334,7 @@ class Epsilon: # we might not need this
         return []
     def make_NFA(self,id):
         state = ParsingNFAState(accept=True)
-        state.tags[REDUCTION_T] = id
+        state.tags.add((REDUCTION_T,id))
         return ParsingNFA("Epsilon",[state])
 
 # parse input token-by-token, using parse table to decide action and state
@@ -356,12 +356,12 @@ class ParsingNFAState:
     def __init__(self,accept=False):
         self.transitions    = {}
         self.epsilons       = set()
-        self.tags           = {}
+        self.tags           = set()
         if accept:
             self.make_accepting()
 
     def make_accepting(self):
-        self.tags[ACCEPT_T] = True
+        self.tags.add(ACCEPT_T)
     
     def add(self,token,dest):
         if token == None:
@@ -371,6 +371,17 @@ class ParsingNFAState:
             self.transitions[token] = set()
         self.transitions[token].add(dest)
 
+    def shift_table(self,shamt):
+        for t in self.transitions:
+            self.transitions[t]= set([tid+shamt for tid in self.transitions[t]])
+        newep = set([eid+shamt for eid in self.epsilons])
+    
+    def copy(self):
+        copy = ParsingNFAState(accept=(ACCEPT_T in self.tags))
+        copy.transitions    = self.transitions.copy()
+        copt.epsilons       = self.epsilons.copy()
+        return copy
+
 class ParsingNFA:
     def __init__(self,name=None,table=None):
         self.name = name
@@ -378,35 +389,97 @@ class ParsingNFA:
             table = [ParsingNFAState()]
         self.table = table
         self.start = 0 # start state is always id 0
+        self.accept = None
+        self.find_accepting()
+        self.remove_self_refs()
 
     def __str__(self):
         count = 0
         base = "{} (NFA):\n".format(self.name)
         for item in self.table:
-            base = base + "{}:".format(count)
+            mark = ""
+            if count == 0:
+                mark = mark + "s"
+            if ACCEPT_T in item.tags:
+                mark = mark + "a"
+            base = base + "{}:{}".format(count,mark)
             for token in item.transitions:
                 base = base + "\t{} -> {}\n".format(token,item.transitions[token])
-            for token in item.epsilons:
-                base = base + "\Epsilon -> {}\n".format(token)
+            if item.epsilons:
+                base = base + "\t\Epsilon -> {}\n".format(item.epsilons)
+            if not item.transitions and not item.epsilons:
+                base = base + '\n'
             count = count + 1
         return base
 
-    def add(prev_state,token):
-        new_id = len(self.table)
-        self.table[prev_state][token] = new_id
-        self.table.append({})
-        return new_id
+    def __len__(self):
+        return len(self.table)
+
+    def copy(self):
+        return ParsingNFA(self.name,[s.copy() for s in self.table])
+
+    def shift_table(self,shamt):
+        for item in self.table:
+            item.shift_table(shamt)
+
+    def extend(self,other):
+        self.table.extend(other.table)
+        self.find_accepting()
+        self.remove_self_refs()
+
+    def find_accepting(self):
+        self.accept = set([
+            i for i in range(0,len(self.table)) 
+            if ACCEPT_T in self.table[i].tags
+        ])
+
+    def remove_self_refs(self):
+        for entry in self.table:
+            if self.name in entry.transitions:
+                # print("found a circular ref")
+                # remove the "circular" ref
+                dest = entry.transitions[self.name]
+                del entry.transitions[self.name]
+
+                # add a real circular ref
+                entry.epsilons.add(self.start)
+
+                # add a real circular ref
+                entry.epsilons.add(self.start)
+                for tid in dest:
+                    entry.epsilons.add(tid)
+            else:
+                # print(entry.transitions)
+                pass
+
+    def link(self,other,start_id,dest_id=None):
+        # offset table entries
+        self.shift_table(len(other))
+
+        # link this NFA's accept states to the dest state
+        if dest_id != None:
+            for state in self.accept:
+                self.table[state].add(None,dest_id)  # link into other
+                self.table[state].tags.remove(ACCEPT_T) # unmark accept states
+
+        # link transition to the location where we are inserting
+        other.table[start_id].epsilons.add(len(other))   # add new location
+
+        other.extend(self)    # extend the result NFA with the linked copy
 
     # graft this NFA state into another NFA 
     def graft(other):
-        table = [{}]
-        self_state_id  = 0
-        other_state_id = 0
+        res = other.copy()
+        # search the other NFA's table for tokens matching this NFA's name
+        for idx in range(0,len(other.table)): # use other's table
+            if self.name in other.table[idx].transitions:
+                copy = self.copy() # make a copy of this NFA
+                # replace the transition with this NFA
+                dest_id = other.table[idx].transitions[self.name]
+                copy.link(other,dest_id)    # link copy into result NFA
+                del res.table[idx].transitions[self.name] # delete old entry
 
-        self_tokens  = [token for token in  self.table[ self_state_id]]
-        other_tokens = [token for token in other.table[other_state_id]]
-        for token in (self_tokens|other_tokens):
-            pass
+        return res
 
     def determine(self): # convert this NFA into a DFA
         table = {}
@@ -521,9 +594,26 @@ def main():
     pp.pprint(follow(g))
 
     print("NFAS:")
+    nfas = {}
     for rule in g.rules:
+        count = 0
+        der_nfas = []
         for der in g.rules[rule].derivations:
-            print(der.make_NFA(-1))
+            nfa = der.make_NFA(count)
+            der_nfas.append(nfa)
+            print(nfa)
+            count = count + 1
+        
+        # group derivation NFAs into aggregate NFA
+        agg = ParsingNFA(rule,[ParsingNFAState(),ParsingNFAState(accept=True)])
+
+        for nfa in der_nfas:
+            nfa.link(agg,agg.start,1)
+        nfas[rule] = agg
+
+    print("AGGREGATES:")
+    for nfa in nfas:
+        print(nfas[nfa])
 
 def parse_error(reason):
     print("Error: {}".format(reason))
