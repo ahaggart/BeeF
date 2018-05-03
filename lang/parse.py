@@ -18,6 +18,8 @@ ID_T = "_ID_"
 ACCEPT_T = "_ACCEPTING_"
 REDUCTION_T = "_REDUCTION_"
 
+VERBOSE = False
+
 # lazily evaluated set nesting framework, for recursively building token sets
 # with interdependecnies
 class SuperSet:
@@ -347,8 +349,29 @@ class SLRTable:
         pass
 
 class ParsingDFA:
-    def __init__(self):
-        pass
+    def __init__(self,name,table):
+        self.table  = table
+        self.name   = name
+        self.start  = 0
+    
+    def parse(self,tokens):
+        self.state = self.start
+        for token in tokens:
+            if token not in self.table[self.state]:
+                self.reject(token)
+                return
+            self.state = self.table[self.state][token]
+        self.accept()
+
+    def reject(self,token):
+        print("{} rejected on: {}".format(self.name,token))
+        pp.pprint(self.table[self.state])
+
+
+    def accept(self):
+        print("Accepted input. Finished in state: {}".format(self.state))
+        pp.pprint(self.table[self.state])
+            
 
 # use tuples of (token,boolean) to denote transitions
 # (token,False) denotes a nonterminal transition
@@ -372,15 +395,22 @@ class ParsingNFAState:
         self.transitions[token].add(dest)
 
     def shift_table(self,shamt):
-        for t in self.transitions:
-            self.transitions[t]= set([tid+shamt for tid in self.transitions[t]])
-        newep = set([eid+shamt for eid in self.epsilons])
+        # for t in self.transitions:
+        #     self.transitions[t]= set([tid+shamt for tid in self.transitions[t]])
+        # self.epsilons =  set([eid+shamt for eid in self.epsilons])
+        self.remap(lambda tid:tid+shamt)
     
     def copy(self):
-        copy = ParsingNFAState(accept=(ACCEPT_T in self.tags))
+        copy = ParsingNFAState()
         copy.transitions    = self.transitions.copy()
-        copt.epsilons       = self.epsilons.copy()
+        copy.epsilons       = self.epsilons.copy()
+        copy.tags           = self.tags.copy()
         return copy
+
+    def remap(self,mapfn):
+        for t in self.transitions:
+            self.transitions[t]= set([mapfn(tid) for tid in self.transitions[t]])
+        self.epsilons =  set([mapfn(eid) for eid in self.epsilons])
 
 class ParsingNFA:
     def __init__(self,name=None,table=None):
@@ -404,9 +434,11 @@ class ParsingNFA:
                 mark = mark + "a"
             base = base + "{}:{}".format(count,mark)
             for token in item.transitions:
-                base = base + "\t{} -> {}\n".format(token,item.transitions[token])
+                base = base + "\t{} -> {}".format(token,item.transitions[token])
+                base = base + "\n"
             if item.epsilons:
-                base = base + "\t\Epsilon -> {}\n".format(item.epsilons)
+                base = base + "\t\Epsilon -> {}".format(item.epsilons)
+                base = base + "\n"
             if not item.transitions and not item.epsilons:
                 base = base + '\n'
             count = count + 1
@@ -452,6 +484,31 @@ class ParsingNFA:
                 # print(entry.transitions)
                 pass
 
+    # replace a transition with a link
+    def link_internal(self,token,start,end):
+        linked = False
+        for index in range(0,len(self)):
+            if token in self.table[index].transitions:
+                linked = True
+                # remove the transition and get the endpoint
+                dest = self.table[index].transitions.pop(token)
+
+                # link transition to the location where we are inserting
+                self.table[index].add(None,start)   # add new location
+
+                # link into endpoint
+                self.table[end].epsilons.update(dest)
+        if not linked:
+            # print("Failed to link {} in {}".format(token,self.name))
+            return False
+        return True
+
+    def insert(self,other):
+        other_start = len(self)
+        other.shift_table(other_start)
+        self.extend(other)
+        return other_start
+
     def link(self,other,start_id,dest_id=None):
         # offset table entries
         self.shift_table(len(other))
@@ -468,27 +525,59 @@ class ParsingNFA:
         other.extend(self)    # extend the result NFA with the linked copy
 
     # graft this NFA state into another NFA 
-    def graft(other):
-        res = other.copy()
-        # search the other NFA's table for tokens matching this NFA's name
-        for idx in range(0,len(other.table)): # use other's table
-            if self.name in other.table[idx].transitions:
-                copy = self.copy() # make a copy of this NFA
-                # replace the transition with this NFA
-                dest_id = other.table[idx].transitions[self.name]
-                copy.link(other,dest_id)    # link copy into result NFA
-                del res.table[idx].transitions[self.name] # delete old entry
+    # def graft(self,other):
+    #     res = other.copy()
+    #     # search the other NFA's table for tokens matching this NFA's name
+    #     for idx in range(0,len(other.table)): # use other's table
+    #         if self.name in other.table[idx].transitions:
+    #             print("grafting {} into {}".format(self.name,other.name))
+    #             copy = self.copy() # make a copy of this NFA
+    #             # replace the transition with this NFA
+    #             dest_id = res.table[idx].transitions[self.name].pop()
+    #             copy.link(res,idx,dest_id)    # link copy into result NFA
+    #             del res.table[idx].transitions[self.name] # delete old entry
+    #     return res
 
-        return res
+    # garbage collect this NFA
+    # returns a new NFA with no unreachable states
+    def gc(self):
+        reachable = set()
+        added = set([self.start])
+        while len(added) > 0:
+            dests = self._collect_destinations(added)
+            # print(dests)
+            old_added = added
+            added = set()
+            for token in dests:
+                added.update(dests[token])
+            added.update(self._collect_reachable(old_added))
+            added = added - reachable
+            reachable.update(added)
+
+        id_map = {}
+        new_table = []
+        for i in range(0,len(self.table)):
+            if i in reachable:
+                id_map[i] = len(new_table)
+                new_table.append(self.table[i].copy())
+            else:
+                # print("unreachable: {}".format(i))
+                pass
+
+        for item in new_table:
+            item.remap( lambda tid:id_map[tid] )
+
+        return ParsingNFA(self.name,new_table)
 
     def determine(self): # convert this NFA into a DFA
         table = {}
         start_super = self._collect_reachable([self.start])
-        to_add = set(start_super)
+        to_add = set([start_super])
 
         while len(to_add) != 0:
             new_add = set()
             for superstate in to_add:
+                # print(superstate)
                 # add this superstate to table if not there already
                 table[superstate] = self._collect_destinations(superstate)
                 for token in table[superstate]:
@@ -508,7 +597,7 @@ class ParsingNFA:
             table_ids[state] = count
 
         # iterate over table and resolve frozen sets into table indices
-        sorted_table = [0]*count
+        sorted_table = [0]*(count+1)
         for state in table:
             transitions = dict([
                     # pair token to the id assigned to the destination state
@@ -611,9 +700,34 @@ def main():
             nfa.link(agg,agg.start,1)
         nfas[rule] = agg
 
-    print("AGGREGATES:")
-    for nfa in nfas:
-        print(nfas[nfa])
+    # print("AGGREGATES:")
+    # for nfa in nfas:
+    #     print(nfas[nfa])
+
+    VERBOSE = True
+    print("TESTING:")
+    base = nfas.pop(META_START_KEY)
+    offsets = {}
+    for name in nfas:
+        nfa = nfas[name]
+        offset = base.insert(nfa)
+        offsets[name] = (offset,offset+1)
+
+    while( # I love python
+        any([   base.link_internal(name,offsets[name][0],offsets[name][1]) 
+                for name in offsets ])):
+        continue # loop until there are no successful link attempts
+
+    # print(base)
+    parse_table,mappings = base.determine()
+    parser = ParsingDFA("PARSER",parse_table)
+
+    # pp.pprint(parser.table)
+
+    with open("../code/test.cow","r") as f:
+        parser.parse(f.read().strip().split())
+
+    # print(base.gc())
 
 def parse_error(reason):
     print("Error: {}".format(reason))

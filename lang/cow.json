@@ -4,7 +4,7 @@
         "rebase","assert","goto","stable","set","panic","call"],
     "generics":["name","number","raw_assembly","bound_keyword"],
     "rules":{
-        "module_closure":["module { preamble_closure depends_closure namespace_closure bindings_closure postamble_closure }"],
+        "module_closure":["name { preamble_closure depends_closure namespace_closure bindings_closure postamble_closure }"],
         "preamble_closure":["preamble { inline_text }",null],
         "depends_closure":["depends { module_names }",null],
         "namespace_closure":["namespace { functional_blocks }"],

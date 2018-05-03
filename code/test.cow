@@ -1,52 +1,8 @@
-test_cow{
-    depends{
-        code/library.cow 
-        code/other_module.cow
-    }
-    preamble{
-        call{entry_function}
-    }
-    namespace{
-        nested_namespace imports library binds library{
-            my_function{
-                libb
-            }
-            nested_function_1{
-                call{my_function}
-                call{nested_function_2}
-            }
-            nested_function_2{
-                call{library libf1}
-            }
+name { 
+    namespace {
+        name {
+            raw_assembly ( name )
+            bound_keyword ( number )
         }
-        my_other_function{
-
-        }
-        entry_function{
-            ++
-            call{function3}
-            call{function4}
-        }
-        function3{
-            > +++ <
-        }
-        function4{
-            >> ++++ <<
-            call{nested_namespace nested_function_1}
-        }
-        function5{
-
-        }
-    }
-    bindings{
-        xor{
-            >>> +++++ <<<
-        }
-        not{
-
-        }
-    }
-    postamble{
-
     }
 }
