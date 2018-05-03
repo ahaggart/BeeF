@@ -30,6 +30,7 @@ PLANNED FEATURES
         * functions rebase to the current data head location on entry
         * compiler will attempt to track relative position, but will give up
             when it encounters a "[" or a "]"
+            * will follow trivial loops if they contain balanced "<" and ">"
     * assert: assert on some condition, error on violation
         * value: assert on the value in some location
             * enables compiler to optimize under this assumption, 
@@ -45,11 +46,23 @@ PLANNED FEATURES
     * goto: resposition the data head to the given relative location
         * clearer, more concise COW files, less prone to error than manually 
             writing ">" and "<" to reposition the data head
+        * accepts relative location or layout names as destination
     * set: set the value of a cell
         * by default, will zero then increment cell to value
         * nearby assertions will be considered as "shortcuts" to value
+    * layout: assign names to relative locations in the current coordinate base
+        * inner text is a whitespace delimited list of position-name pairs
+        * reserved names carry special meaning
+            * free: unused memory location, allow compiler to optimize around
+        * bindings which contain layout information allow modules to export 
+            formatting information for their function calls
     * stable/static/atomic: marks a code block as not changing the data head
         position, allowing for additional implicit position tracking
+        * wraps code block in data head position assertions to enforce property
+        * creates a local positioning scope that is applied only to interior
+            * initial state is copied from containing scope
+            * rebases will not affect the containing scope on exit
+            * layout information will not pollute containing scope
     * load: push a values to stack from a range of relative cell locations
     * unload: write values from stack to a range of relative cell locations
     * panic: abort the VM and print a custom message
@@ -58,12 +71,12 @@ PLANNED FEATURES
     * use a "popped" stack to restore backtracked POP instructions
 * modifier system (parenthetical expressions): "apply" some expression to 
     a token by following it with a parenthesized expression
-    * by default, this application will duplicate the token, and thus only
+    * by default, application will duplicate the token, and thus only
         accepts numerical input
     * bindings can define custom modifier behavior by adding a parenthesized
         expression between the name and the curly braces: binding(expr){tokens}
         * any occurence of "expr" in binding text is resolved at compile time,
-            substituting "expr" with the expression supplier by the binding
+            substituting "expr" with the expression supplied in the binding
             invocation
             * this allows binding subexpressions to be selectively duplicated,
                 as in: [ <(expr) + >(expr) ], to provide a generalized form for
@@ -75,9 +88,11 @@ PLANNED FEATURES
 OPTIMIZATION
 * compiler currently does none
 * easy:
-    * eliminate "><" and "<>" expressions in compiled code
-        * these have some importance to directive use, might be a better task
-            for the grinder utility
+    * eliminate pairs of instructions that have no effect
+        * "<>" and "><"
+        * "^_"
+        * "+-" and "-+"
+
 ################################################################################
 NOTES ON CODING STYLE
 ################################################################################
