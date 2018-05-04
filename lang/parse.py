@@ -56,6 +56,8 @@ class SuperSet:
             # print("Added {} as subset of {}".format(subset.symbol,self.symbol))
             self.subsets.append(subset)
 
+def pivot(table):
+    return dict([(table[k],k) for k in table])
 
 class Grammar:
     def __init__(self,nonterminals,rules,start):
@@ -223,7 +225,8 @@ class Derivation(Expression):
             curr_state = new_state
         
         curr_state.make_accepting()
-        curr_state.tags.add((REDUCTION_T,id)) # tag the accept state with a reduction
+        # tag the accept state with a reduction
+        curr_state.tags.add((REDUCTION_T,self.symbol,"{}_{}".format(self.symbol,id)))
         
         return ParsingNFA(self.symbol,table)
 
@@ -303,7 +306,27 @@ class Rule:
         first = set()
         for derivation in self.derivations:
             first.update(derivation.first(rules,pending))
-        return first        
+        return first
+
+    def make_NFA(self):
+        count = 0
+        der_nfas = []
+        for der in self.derivations:
+            nfa = der.make_NFA(count)
+            der_nfas.append(nfa)
+            count = count + 1
+        
+        # group derivation NFAs into aggregate NFA
+        agg = ParsingNFA(
+            self.symbol,
+            [ParsingNFAState(),ParsingNFAState(accept=True)])
+        
+        # agg.table[1].tags.add((REDUCTION_T,self.symbol,-1))
+
+        for nfa in der_nfas:
+            nfa.link(agg,agg.start,1) 
+        
+        return agg       
 
 class Terminal:
     def __init__(self,symbol):
@@ -336,17 +359,77 @@ class Epsilon: # we might not need this
         return []
     def make_NFA(self,id):
         state = ParsingNFAState(accept=True)
-        state.tags.add((REDUCTION_T,id))
-        return ParsingNFA("Epsilon",[state])
+        state.tags.add((REDUCTION_T,EPSILON_T,"{}_{}".format(EPSILON_T,id)))
+        return ParsingNFA(EPSILON_T,[state])
+
+class ParsingAction:
+    def __init__(self,triggers,action):
+        self.triggers   = triggers
+        self.action     = action
+
+    def __str__(self):
+        return "{"+str.join(",",["\""+str(t)+"\"" for t in self.triggers])+"}} -> {}".format(self.action)
+
+    def __repr__(self):
+        return self.__str__()
 
 # parse input token-by-token, using parse table to decide action and state
 class ParsingAutomaton:
-    def __init__(self):
-        pass
+    def __init__(self,name,grammar):
+        self.name = name
+        self.grammar = grammar
+        self.actions = {}
 
-class SLRTable:
-    def __init__(self):
-        pass
+    def build(self):
+        nfas = {}
+        for rule in self.grammar.rules:
+            nfas[rule] = self.grammar.rules[rule].make_NFA()
+
+        # combine the NFAs for each rule into one big NFA
+        base = nfas.pop(META_START_KEY)
+        offsets = {}
+        for name in nfas:
+            nfa = nfas[name]
+            offset = base.insert(nfa)
+            offsets[name] = (offset,offset+1)
+
+        while( # I love python
+            any([base.link_internal(name,offsets[name][0],offsets[name][1]) 
+                for name in offsets ])):
+            continue # loop until there are no successful link attempts
+
+        parse_table,mappings = base.determine()
+        parser = ParsingDFA(self.name,parse_table) # build a DFA with the parse table
+
+        # grab the follow sets for the grammar
+        follows = follow(self.grammar)
+
+        # extract reduction information from mapping table
+        reduction_table = {}
+        for superstate in mappings:
+            idx = mappings[superstate]
+            for state in superstate:
+                # if ACCEPT_T not in base.table[state].tags:
+                #     continue
+                for tag in base.table[state].tags:
+                    if tag == ACCEPT_T:
+                        continue
+                    if tag[0] == REDUCTION_T:
+                        if tag[1] == EPSILON_T:
+                            continue
+                        if idx not in self.actions:
+                            self.actions[idx] = []
+                        self.actions[idx].append(ParsingAction(
+                            follows[tag[1]],tag[2]
+                        ))
+        for i in range(0,len(parse_table)):
+            if i in self.actions:
+                self.actions[i].insert(0,parse_table[i])
+                # self.actions[i].append(0,parse_table[i])
+        pp.pprint(self.actions)
+                        
+
+        return parser
 
 class ParsingDFA:
     def __init__(self,name,table):
@@ -357,11 +440,16 @@ class ParsingDFA:
     def parse(self,tokens):
         self.state = self.start
         for token in tokens:
-            if token not in self.table[self.state]:
-                self.reject(token)
+            if self.process(token) == -1:
                 return
-            self.state = self.table[self.state][token]
         self.accept()
+
+    def process(self,token):
+        if token not in self.table[self.state]:
+            self.reject(token)
+            return -1
+        self.state = self.table[self.state][token]
+        return self.state
 
     def reject(self,token):
         print("{} rejected on: {}".format(self.name,token))
@@ -524,20 +612,6 @@ class ParsingNFA:
 
         other.extend(self)    # extend the result NFA with the linked copy
 
-    # graft this NFA state into another NFA 
-    # def graft(self,other):
-    #     res = other.copy()
-    #     # search the other NFA's table for tokens matching this NFA's name
-    #     for idx in range(0,len(other.table)): # use other's table
-    #         if self.name in other.table[idx].transitions:
-    #             print("grafting {} into {}".format(self.name,other.name))
-    #             copy = self.copy() # make a copy of this NFA
-    #             # replace the transition with this NFA
-    #             dest_id = res.table[idx].transitions[self.name].pop()
-    #             copy.link(res,idx,dest_id)    # link copy into result NFA
-    #             del res.table[idx].transitions[self.name] # delete old entry
-    #     return res
-
     # garbage collect this NFA
     # returns a new NFA with no unreachable states
     def gc(self):
@@ -661,11 +735,6 @@ def follow(grammar):
     follows = dict()
     for nt in grammar.nonterminals:
         nonterm = grammar.nonterminals[nt]
-        # follow_set = set()
-        # for follow in nonterm.follow:
-        #     follow_set.add(follow)
-        # follows[nonterm.symbol] = follow_set 
-        # print("Resolving nonterminal: {} ***".format(nonterm.symbol))
         follows[nonterm.symbol] = set([follow for follow in nonterm.follow])
     return follows
 
@@ -682,47 +751,8 @@ def main():
     print("FOLLOWS:")
     pp.pprint(follow(g))
 
-    print("NFAS:")
-    nfas = {}
-    for rule in g.rules:
-        count = 0
-        der_nfas = []
-        for der in g.rules[rule].derivations:
-            nfa = der.make_NFA(count)
-            der_nfas.append(nfa)
-            print(nfa)
-            count = count + 1
-        
-        # group derivation NFAs into aggregate NFA
-        agg = ParsingNFA(rule,[ParsingNFAState(),ParsingNFAState(accept=True)])
-
-        for nfa in der_nfas:
-            nfa.link(agg,agg.start,1)
-        nfas[rule] = agg
-
-    # print("AGGREGATES:")
-    # for nfa in nfas:
-    #     print(nfas[nfa])
-
-    VERBOSE = True
-    print("TESTING:")
-    base = nfas.pop(META_START_KEY)
-    offsets = {}
-    for name in nfas:
-        nfa = nfas[name]
-        offset = base.insert(nfa)
-        offsets[name] = (offset,offset+1)
-
-    while( # I love python
-        any([   base.link_internal(name,offsets[name][0],offsets[name][1]) 
-                for name in offsets ])):
-        continue # loop until there are no successful link attempts
-
-    # print(base)
-    parse_table,mappings = base.determine()
-    parser = ParsingDFA("PARSER",parse_table)
-
-    # pp.pprint(parser.table)
+    print("PARSING:")
+    parser = ParsingAutomaton("PARSER",g).build()
 
     with open("../code/test.cow","r") as f:
         parser.parse(f.read().strip().split())
