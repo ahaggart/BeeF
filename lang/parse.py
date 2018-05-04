@@ -17,6 +17,8 @@ EPSILON_T = "_EPSILON_"
 ID_T = "_ID_"
 ACCEPT_T = "_ACCEPTING_"
 REDUCTION_T = "_REDUCTION_"
+EXPANDED_T = "_EXPANDED_"
+SHIFT_T = "_SHIFT_"
 
 VERBOSE = False
 
@@ -58,6 +60,15 @@ class SuperSet:
 
 def pivot(table):
     return dict([(table[k],k) for k in table])
+
+class Stack(list):
+    def push(x):
+        self.append(x)
+    def peek():
+        if len(self):
+            return self[len(self)-1]
+        return None
+        # raise IndexError
 
 class Grammar:
     def __init__(self,nonterminals,rules,start):
@@ -223,10 +234,13 @@ class Derivation(Expression):
             curr_state.add(symbol.symbol,len(table))
             table.append(new_state)
             curr_state = new_state
+            if symbol.__class__.__name__ != "Nonterminal":
+                curr_state.tag(SHIFT_T,symbol.symbol)
         
         curr_state.make_accepting()
         # tag the accept state with a reduction
-        curr_state.tags.add((REDUCTION_T,self.symbol,"{}_{}".format(self.symbol,id)))
+        curr_state.tag(REDUCTION_T,(self.symbol,id))
+        curr_state.untag(SHIFT_T)
         
         return ParsingNFA(self.symbol,table)
 
@@ -319,12 +333,12 @@ class Rule:
         # group derivation NFAs into aggregate NFA
         agg = ParsingNFA(
             self.symbol,
-            [ParsingNFAState(),ParsingNFAState(accept=True)])
+            [ParsingNFAState()])
         
         # agg.table[1].tags.add((REDUCTION_T,self.symbol,-1))
 
         for nfa in der_nfas:
-            nfa.link(agg,agg.start,1) 
+            nfa.link(agg,agg.start) 
         
         return agg       
 
@@ -359,7 +373,7 @@ class Epsilon: # we might not need this
         return []
     def make_NFA(self,id):
         state = ParsingNFAState(accept=True)
-        state.tags.add((REDUCTION_T,EPSILON_T,"{}_{}".format(EPSILON_T,id)))
+        state.tag(REDUCTION_T,(EPSILON_T,id))
         return ParsingNFA(EPSILON_T,[state])
 
 class ParsingAction:
@@ -373,12 +387,44 @@ class ParsingAction:
     def __repr__(self):
         return self.__str__()
 
+    def shift(self,stack):
+        return
+
+    def go(self,stack):
+        return
+
+    def reduce(self,stack):
+        return
+
+    def accept(self,stack):
+        return
+
+    def reject(self,stack):
+        return
+
 # parse input token-by-token, using parse table to decide action and state
 class ParsingAutomaton:
     def __init__(self,name,grammar):
         self.name = name
         self.grammar = grammar
         self.actions = {}
+        self.build()
+
+    def parse(self,tokens):
+        stack = Stack((0,{}))
+        action = {}
+        # for token in tokens:
+        #     if token in action:
+        #         pass # do a thing
+
+        #     self.dfa.state = stack.peek()[0]
+        #     state = self.dfa.process(token)
+
+        #     if state in self.actions:
+        #         action = self.actions[state]
+        #     else:
+        #         action = {}
+
 
     def build(self):
         nfas = {}
@@ -387,6 +433,7 @@ class ParsingAutomaton:
 
         # combine the NFAs for each rule into one big NFA
         base = nfas.pop(META_START_KEY)
+
         offsets = {}
         for name in nfas:
             nfa = nfas[name]
@@ -400,6 +447,8 @@ class ParsingAutomaton:
 
         parse_table,mappings = base.determine()
         parser = ParsingDFA(self.name,parse_table) # build a DFA with the parse table
+        # print(base)
+        # pp.pprint(parse_table)
 
         # grab the follow sets for the grammar
         follows = follow(self.grammar)
@@ -409,26 +458,28 @@ class ParsingAutomaton:
         for superstate in mappings:
             idx = mappings[superstate]
             for state in superstate:
-                # if ACCEPT_T not in base.table[state].tags:
-                #     continue
-                for tag in base.table[state].tags:
-                    if tag == ACCEPT_T:
+                tags = base.table[state].tags
+                if ACCEPT_T in tags and REDUCTION_T in tags:
+                    terminal = tags[REDUCTION_T][0]
+                    if terminal == EPSILON_T:
                         continue
-                    if tag[0] == REDUCTION_T:
-                        if tag[1] == EPSILON_T:
-                            continue
-                        if idx not in self.actions:
-                            self.actions[idx] = []
-                        self.actions[idx].append(ParsingAction(
-                            follows[tag[1]],tag[2]
-                        ))
-        for i in range(0,len(parse_table)):
-            if i in self.actions:
-                self.actions[i].insert(0,parse_table[i])
-                # self.actions[i].append(0,parse_table[i])
+                    if idx not in self.actions:
+                        self.actions[idx] = {}
+                    action = ParsingAction(follows[terminal],(terminal,tags[REDUCTION_T][1]))
+                    if terminal in self.actions[idx]:# and self.actions[idx][terminal].action[0] != terminal:
+                        parse_error("SLR Table Conflict:\n{}\n{}".format(
+                            self.actions[idx][terminal],action))
+                    self.actions[idx][terminal] = action
+                if SHIFT_T in tags:
+                    terminal = tags[SHIFT_T]
+                    if idx not in self.actions:
+                        self.actions[idx] = {}
+                    if terminal in self.actions[idx] and self.actions[idx][terminal].action[0] != SHIFT_T:
+                        parse_error("SLR Table Conflict: {}".format(self.actions[idx][terminal]))
+                    self.actions[idx][terminal] = ParsingAction([terminal],(SHIFT_T,None))   
+        
         pp.pprint(self.actions)
-                        
-
+        self.dfa = parser         
         return parser
 
 class ParsingDFA:
@@ -467,12 +518,12 @@ class ParsingNFAState:
     def __init__(self,accept=False):
         self.transitions    = {}
         self.epsilons       = set()
-        self.tags           = set()
+        self.tags           = {}
         if accept:
             self.make_accepting()
 
     def make_accepting(self):
-        self.tags.add(ACCEPT_T)
+        self.tag(ACCEPT_T)
     
     def add(self,token,dest):
         if token == None:
@@ -481,6 +532,14 @@ class ParsingNFAState:
         if token not in self.transitions:
             self.transitions[token] = set()
         self.transitions[token].add(dest)
+
+    def tag(self,key,value=None):
+        self.tags[key] = value
+
+    def untag(self,key):
+        if key in self.tags:
+            return self.tags.pop(key)
+        return None
 
     def shift_table(self,shamt):
         # for t in self.transitions:
@@ -509,7 +568,7 @@ class ParsingNFA:
         self.start = 0 # start state is always id 0
         self.accept = None
         self.find_accepting()
-        self.remove_self_refs()
+        # self.remove_self_refs()
 
     def __str__(self):
         count = 0
@@ -545,7 +604,7 @@ class ParsingNFA:
     def extend(self,other):
         self.table.extend(other.table)
         self.find_accepting()
-        self.remove_self_refs()
+        # self.remove_self_refs()
 
     def find_accepting(self):
         self.accept = set([
@@ -576,16 +635,19 @@ class ParsingNFA:
     def link_internal(self,token,start,end):
         linked = False
         for index in range(0,len(self)):
-            if token in self.table[index].transitions:
+            item = self.table[index]
+            if token in item.transitions and EXPANDED_T not in item.tags:
                 linked = True
                 # remove the transition and get the endpoint
-                dest = self.table[index].transitions.pop(token)
+                # dest = self.table[index].transitions.pop(token)
+                # dest = self.table[index].transitions[token]
 
                 # link transition to the location where we are inserting
                 self.table[index].add(None,start)   # add new location
+                self.table[index].tag(EXPANDED_T)
 
                 # link into endpoint
-                self.table[end].epsilons.update(dest)
+                # self.table[end].epsilons.update(dest)
         if not linked:
             # print("Failed to link {} in {}".format(token,self.name))
             return False
@@ -601,13 +663,13 @@ class ParsingNFA:
         # offset table entries
         self.shift_table(len(other))
 
-        # link this NFA's accept states to the dest state
-        if dest_id != None:
-            for state in self.accept:
-                self.table[state].add(None,dest_id)  # link into other
-                self.table[state].tags.remove(ACCEPT_T) # unmark accept states
+        # # link this NFA's accept states to the dest state
+        # if dest_id != None:
+        #     for state in self.accept:
+        #         self.table[state].add(None,dest_id)  # link into other
+        #         self.table[state].tags.remove(ACCEPT_T) # unmark accept states
 
-        # link transition to the location where we are inserting
+        # # link transition to the location where we are inserting
         other.table[start_id].epsilons.add(len(other))   # add new location
 
         other.extend(self)    # extend the result NFA with the linked copy
@@ -752,7 +814,7 @@ def main():
     pp.pprint(follow(g))
 
     print("PARSING:")
-    parser = ParsingAutomaton("PARSER",g).build()
+    parser = ParsingAutomaton("PARSER",g)
 
     with open("../code/test.cow","r") as f:
         parser.parse(f.read().strip().split())
