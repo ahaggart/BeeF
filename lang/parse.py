@@ -19,6 +19,7 @@ ACCEPT_T = "_ACCEPTING_"
 REDUCTION_T = "_REDUCTION_"
 EXPANDED_T = "_EXPANDED_"
 SHIFT_T = "_SHIFT_"
+GO_T = "_GO_"
 
 VERBOSE = False
 
@@ -84,9 +85,9 @@ class Grammar:
     def create(source):
         # TODO: do the class packing in the classes themselves?
         terminals   = set(Terminal(term) for term in source[TERMINALS_KEY])
-        generics    = set(source[GENERICS_KEY])
+        generics    = source[GENERICS_KEY]
         full_syms   = set(source[TERMINALS_KEY])
-        full_syms.update(generics)
+        full_syms.update(generics.keys())
         rules,nt    = Rule.create(source[RULES_KEY],full_syms)
         nonterminals= [ Nonterminal(sym) for sym in nt ]
         start       = Nonterminal(source[START_KEY])
@@ -302,7 +303,7 @@ class Rule:
             ders = []
             for derivation in source[symbol]:
                 if derivation == None:
-                    ders.append(Epsilon())
+                    ders.append(Epsilon(symbol))
                     continue
                 ders.append(Derivation.create(symbol,derivation,terminals,nonterms))
             rules.append(Rule(symbol,ders))
@@ -365,6 +366,8 @@ class ParseTerminator(Terminal):
         Terminal.__init__(self,"$")
 
 class Epsilon: # we might not need this
+    def __init__(self,symbol):
+        self.symbol = symbol
     def nullable(self,rules,pending=None):
         return True
     def first(self,rules,pending=None):
@@ -373,7 +376,7 @@ class Epsilon: # we might not need this
         return []
     def make_NFA(self,id):
         state = ParsingNFAState(accept=True)
-        state.tag(REDUCTION_T,(EPSILON_T,id))
+        state.tag(REDUCTION_T,(self.symbol,id))
         return ParsingNFA(EPSILON_T,[state])
 
 class ParsingAction:
@@ -386,6 +389,9 @@ class ParsingAction:
 
     def __repr__(self):
         return self.__str__()
+
+    def act(self,stack):
+        return
 
     def shift(self,stack):
         return
@@ -408,6 +414,7 @@ class ParsingAutomaton:
         self.name = name
         self.grammar = grammar
         self.actions = {}
+        self.action_table = []
         self.build()
 
     def parse(self,tokens):
@@ -445,47 +452,87 @@ class ParsingAutomaton:
                 for name in offsets ])):
             continue # loop until there are no successful link attempts
 
-        parse_table,mappings = base.determine()
-        parser = ParsingDFA(self.name,parse_table) # build a DFA with the parse table
+        parser,mappings = base.determine()
+        parse_table = parser.table # build a DFA with the parse table
         # print(base)
         # pp.pprint(parse_table)
 
         # grab the follow sets for the grammar
         follows = follow(self.grammar)
 
-        # extract reduction information from mapping table
-        reduction_table = {}
-        for superstate in mappings:
-            idx = mappings[superstate]
-            for state in superstate:
-                tags = base.table[state].tags
-                if ACCEPT_T in tags and REDUCTION_T in tags:
-                    terminal = tags[REDUCTION_T][0]
-                    if terminal == EPSILON_T:
-                        continue
-                    if idx not in self.actions:
-                        self.actions[idx] = {}
-                    action = ParsingAction(follows[terminal],(terminal,tags[REDUCTION_T][1]))
-                    if terminal in self.actions[idx]:# and self.actions[idx][terminal].action[0] != terminal:
-                        parse_error("SLR Table Conflict:\n{}\n{}".format(
-                            self.actions[idx][terminal],action))
-                    self.actions[idx][terminal] = action
-                if SHIFT_T in tags:
-                    terminal = tags[SHIFT_T]
-                    if idx not in self.actions:
-                        self.actions[idx] = {}
-                    if terminal in self.actions[idx] and self.actions[idx][terminal].action[0] != SHIFT_T:
-                        parse_error("SLR Table Conflict: {}".format(self.actions[idx][terminal]))
-                    self.actions[idx][terminal] = ParsingAction([terminal],(SHIFT_T,None))   
+        state_to_superstate = pivot(mappings)
+
+        slr_con_msg = "SLR Table Conflict:\n{} for {}\n>> in: {}"
+
+        for state in range(0,len(parse_table)):
+            actions = {}
+            self.action_table.append(actions)
+            superstate = state_to_superstate[state]
+
+            if state in parser.accepts:
+                action = None
+                for s in superstate:
+                    tags = base.table[s].tags
+                    if REDUCTION_T in tags and ACCEPT_T in tags:
+                        if action != None:
+                            pp.pprint(actions)
+                            parse_error(slr_con_msg.format(
+                                action,state,parser.table[state]))
+                        action = tags[REDUCTION_T]
+                if action:
+                    for tk in follows[action[0]]:
+                        actions[tk] = (REDUCTION_T,action[0],action[1])
+            for tr in parser.table[state]:
+                if tr in actions:
+                    # pp.pprint(parser.table)
+                    pp.pprint(actions)
+                    parse_error(slr_con_msg.format(
+                        actions[tr],tr,parser.table[state]))
+                if tr in self.grammar.nonterminals:
+                    actions[tr] = (GO_T,-1)
+                else:
+                    actions[tr] = (SHIFT_T,-1)
+
+        pp.pprint(self.action_table)
+
+        # # extract reduction information from mapping table
+        # reduction_table = {}
+        # for superstate in mappings:
+        #     idx = mappings[superstate]
+        #     actions = {}
+        #     self.action_table.append(actions)
+
+        #     for state in superstate:
+        #         tags = base.table[state].tags
+        #         if ACCEPT_T in tags and REDUCTION_T in tags:
+        #             terminal        = tags[REDUCTION_T][0]
+        #             reduction_id    = tags[REDUCTION_T][1]
+        #             for tk in follows[terminal]:
+        #                 action = (REDUCTION_T,reduction_id)
+        #                 if tk in actions:
+        #                     parse_error("SLR Table Conflict:\n{}\n{}".format(
+        #                         actions[tk],action))    
+        #                 actions[tk] = action
+        #         if SHIFT_T in tags:
+        #             terminal = tags[SHIFT_T]
+        #             if idx not in self.actions:
+        #                 self.actions[idx] = {}
+        #             for tk in follows[terminal]:
+        #                 action = (SHIFT_T,-1)
+        #                 if tk in self.actions[idx]:
+        #                     parse_error("SLR Table Conflict:\n{}\n{}".format(
+        #                         self.actions[idx][tk],action))    
+        #                 self.actions[idx][tk] = action 
         
-        pp.pprint(self.actions)
+        # pp.pprint(self.actions)
         self.dfa = parser         
         return parser
 
 class ParsingDFA:
-    def __init__(self,name,table):
+    def __init__(self,name,table,accepts):
         self.table  = table
         self.name   = name
+        self.accepts = accepts
         self.start  = 0
     
     def parse(self,tokens):
@@ -707,6 +754,7 @@ class ParsingNFA:
 
     def determine(self): # convert this NFA into a DFA
         table = {}
+        accepts = set()
         start_super = self._collect_reachable([self.start])
         to_add = set([start_super])
 
@@ -731,6 +779,8 @@ class ParsingNFA:
                 continue
             count = count + 1
             table_ids[state] = count
+            if state & self.accept: # intersection of superstate and accepting
+                accepts.add(count)
 
         # iterate over table and resolve frozen sets into table indices
         sorted_table = [0]*(count+1)
@@ -744,7 +794,7 @@ class ParsingNFA:
 
         # return the DFA table and the id table
         # caller may have metadata to attach based superstate composition
-        return sorted_table,table_ids
+        return ParsingDFA(self.name,sorted_table,accepts),table_ids
 
 
     def _collect_reachable(self,start_set):
