@@ -475,6 +475,11 @@ class ParsingAutomaton:
                     tags = base.table[s].tags
                     if REDUCTION_T in tags and ACCEPT_T in tags:
                         if action != None:
+                            print("SUPERSTATE:")
+                            pp.pprint(superstate)
+                            print("NFA:")
+                            print(base)
+                            print("ACTIONS:")
                             pp.pprint(actions)
                             parse_error(slr_con_msg.format(
                                 action,state,parser.table[state]))
