@@ -4,6 +4,7 @@
 """
 from __future__ import print_function
 import sys
+import re
 import pprint as pp
 import json
 import sets
@@ -20,6 +21,11 @@ REDUCTION_T = "_REDUCTION_"
 EXPANDED_T = "_EXPANDED_"
 SHIFT_T = "_SHIFT_"
 GO_T = "_GO_"
+REJECT_T = "_REJECT_"
+
+SYMBOL_I = 0
+STATE_I = 1
+TREE_I = 2
 
 VERBOSE = False
 
@@ -63,20 +69,21 @@ def pivot(table):
     return dict([(table[k],k) for k in table])
 
 class Stack(list):
-    def push(x):
+    def push(self,x):
         self.append(x)
-    def peek():
+    def peek(self):
         if len(self):
             return self[len(self)-1]
         return None
         # raise IndexError
 
 class Grammar:
-    def __init__(self,nonterminals,rules,start):
+    def __init__(self,nonterminals,generics,rules,start):
         self.start          = start
         self.nonterminals   = dict([(nont.symbol,nont) for nont in nonterminals])
         self.rules          = dict([(rule.symbol,rule) for rule in rules])
         self.start          = start
+        self.generics       = generics
 
         if not self.start.symbol in self.nonterminals:
             parse_error("Invalid start variable: {}".format(self.start))
@@ -86,12 +93,15 @@ class Grammar:
         # TODO: do the class packing in the classes themselves?
         terminals   = set(Terminal(term) for term in source[TERMINALS_KEY])
         generics    = source[GENERICS_KEY]
+        generics    = dict([
+            (name,re.compile(generics[name])) for name in generics
+        ])
         full_syms   = set(source[TERMINALS_KEY])
         full_syms.update(generics.keys())
         rules,nt    = Rule.create(source[RULES_KEY],full_syms)
         nonterminals= [ Nonterminal(sym) for sym in nt ]
         start       = Nonterminal(source[START_KEY])
-        g = Grammar(nonterminals,rules,start)
+        g = Grammar(nonterminals,generics,rules,start)
         return g
 
     def follow(self):
@@ -222,6 +232,24 @@ class Derivation(Expression):
             yield first
             first = first.succ
         yield first
+
+    def reduce(self,stack):
+        symbols = self.symbols[:]
+        tree = None
+        print("Reducing: {}".format(self.symbol))
+        while symbols:
+            if tree == None:
+                tree = {}
+            top = stack.pop()
+            expected = str(top[SYMBOL_I])
+            tree[expected] = top[TREE_I]
+            actual = str(symbols.pop())
+            print(actual)
+            if expected != actual:
+                print("{} == {} : {}".format(expected,actual,expected==actual))
+                parse_error("Expected symbol in reduction: \"{}\"\nGot: \"{}\"".format(
+                    expected,actual))
+        return tree
 
     # build a simple NFA representing this derivation
     def make_NFA(self,id):
@@ -378,59 +406,118 @@ class Epsilon: # we might not need this
         state = ParsingNFAState(accept=True)
         state.tag(REDUCTION_T,(self.symbol,id))
         return ParsingNFA(EPSILON_T,[state])
-
-class ParsingAction:
-    def __init__(self,triggers,action):
-        self.triggers   = triggers
-        self.action     = action
-
-    def __str__(self):
-        return "{"+str.join(",",["\""+str(t)+"\"" for t in self.triggers])+"}} -> {}".format(self.action)
-
-    def __repr__(self):
-        return self.__str__()
-
-    def act(self,stack):
-        return
-
-    def shift(self,stack):
-        return
-
-    def go(self,stack):
-        return
-
     def reduce(self,stack):
-        return
-
-    def accept(self,stack):
-        return
-
-    def reject(self,stack):
-        return
+        return None
 
 # parse input token-by-token, using parse table to decide action and state
 class ParsingAutomaton:
     def __init__(self,name,grammar):
-        self.name = name
-        self.grammar = grammar
-        self.actions = {}
-        self.action_table = []
+        self.name           = name
+        self.grammar        = grammar
+        self.action_table   = []
+        self.dfa            = None
         self.build()
 
+    def act(self,stack,tree,backlog,token,action_data):
+        action = action_data[0]
+        data = action_data[1]
+        print(action_data)
+        if action == GO_T:
+            return self.go(stack,tree,backlog,token)
+        elif action == REDUCTION_T:
+            return self.reduce(stack,tree,backlog,token,data)
+        elif action == SHIFT_T:
+            return self.shift(stack,tree,backlog,token)
+        elif action == ACCEPT_T:
+            return self.accept(stack,tree,backlog,token)
+        elif action == REJECT_T:
+            return self.reject(stack,tree,backlog,token)
+        else:
+            parse_error("Invalid action?")
+
+    def reduce(self,stack,tree,backlog,token,data):
+        nt = data[0]
+        red_id = data[1]
+        # print(nt)
+        # print(red_id)
+        tree = self.grammar.rules[nt].derivations[red_id].reduce(stack)
+
+        # push the nonterminal to the backlog
+        backlog.push(token)
+        backlog.push(nt)
+
+        # make the current tree a subtree of the next tree
+        print("DFA before:")
+        pp.pprint(self.dfa.table[self.dfa.state])
+        # stack.peek()[TREE_I][nt] = tree
+        self.dfa.state = stack.peek()[STATE_I]
+        print("DFA after:")
+        pp.pprint(self.dfa.table[self.dfa.state])
+        print("TREE:")
+        pp.pprint(tree)
+        return tree
+
+    def go(self,stack,tree,backlog,token):
+        stack.push((token,self.dfa.state,tree))
+        return tree
+
+    def shift(self,stack,tree,backlog,token):
+        stack.push((token,self.dfa.state,{}))
+        return {}
+
+    def accept(self,stack,tree,backlog,token):
+        print("accepted")
+        return tree
+
+    def reject(self,stack,tree,backlog,token):
+        print("rejected")        
+        return tree
+
     def parse(self,tokens):
-        stack = Stack((0,{}))
-        action = {}
-        # for token in tokens:
-        #     if token in action:
-        #         pass # do a thing
+        print("PARSING:")
+        pp.pprint(self.dfa.table)
+        processed = []
+        tree = {}
+        working_tree = tree
+        stack = Stack(("base",0,{}))
+        stack.push(("root",0,tree))
+        backlog = Stack()
+        self.dfa.reset()
 
-        #     self.dfa.state = stack.peek()[0]
-        #     state = self.dfa.process(token)
+        tokens.append("$")
 
-        #     if state in self.actions:
-        #         action = self.actions[state]
-        #     else:
-        #         action = {}
+        for token in tokens:
+            while backlog: # parse the nonterminal backlog first
+                nt = backlog.pop()
+                print(nt)
+                working_tree = self.process(stack,working_tree,backlog,nt)
+                print()
+            print(token)
+            working_tree = self.process(stack,working_tree,backlog,token)
+            processed.append(token)
+            # pp.pprint(tree)
+            print()
+        pp.pprint(working_tree)
+
+    def process(self,stack,tree,backlog,token):
+        old_state = self.dfa.state
+        p = self.dfa.process(token)
+        if p != None: # DFA rejected, try generics
+            matched = False
+            for sym in p:
+                if sym in self.grammar.generics:
+                    if self.grammar.generics[sym].match(token):
+                        matched = True
+                        self.dfa.process(sym) # use the generic symbol
+            # if not matched:
+            #     parse_error("Unable to match token: {}".format(token))
+        if token in self.action_table[old_state]:
+            return self.act(stack,
+                            tree,
+                            backlog,
+                            token,
+                            self.action_table[old_state][token])
+        return tree
 
 
     def build(self):
@@ -486,7 +573,7 @@ class ParsingAutomaton:
                         action = tags[REDUCTION_T]
                 if action:
                     for tk in follows[action[0]]:
-                        actions[tk] = (REDUCTION_T,action[0],action[1])
+                        actions[tk] = (REDUCTION_T,(action[0],action[1]))
             for tr in parser.table[state]:
                 if tr in actions:
                     # pp.pprint(parser.table)
@@ -499,37 +586,6 @@ class ParsingAutomaton:
                     actions[tr] = (SHIFT_T,-1)
 
         pp.pprint(self.action_table)
-
-        # # extract reduction information from mapping table
-        # reduction_table = {}
-        # for superstate in mappings:
-        #     idx = mappings[superstate]
-        #     actions = {}
-        #     self.action_table.append(actions)
-
-        #     for state in superstate:
-        #         tags = base.table[state].tags
-        #         if ACCEPT_T in tags and REDUCTION_T in tags:
-        #             terminal        = tags[REDUCTION_T][0]
-        #             reduction_id    = tags[REDUCTION_T][1]
-        #             for tk in follows[terminal]:
-        #                 action = (REDUCTION_T,reduction_id)
-        #                 if tk in actions:
-        #                     parse_error("SLR Table Conflict:\n{}\n{}".format(
-        #                         actions[tk],action))    
-        #                 actions[tk] = action
-        #         if SHIFT_T in tags:
-        #             terminal = tags[SHIFT_T]
-        #             if idx not in self.actions:
-        #                 self.actions[idx] = {}
-        #             for tk in follows[terminal]:
-        #                 action = (SHIFT_T,-1)
-        #                 if tk in self.actions[idx]:
-        #                     parse_error("SLR Table Conflict:\n{}\n{}".format(
-        #                         self.actions[idx][tk],action))    
-        #                 self.actions[idx][tk] = action 
-        
-        # pp.pprint(self.actions)
         self.dfa = parser         
         return parser
 
@@ -543,16 +599,16 @@ class ParsingDFA:
     def parse(self,tokens):
         self.state = self.start
         for token in tokens:
-            if self.process(token) == -1:
-                return
+            p = self.process(token)
+            if p != None:
+                return p
         self.accept()
 
     def process(self,token):
         if token not in self.table[self.state]:
             self.reject(token)
-            return -1
+            return self.table[self.state]
         self.state = self.table[self.state][token]
-        return self.state
 
     def reject(self,token):
         print("{} rejected on: {}".format(self.name,token))
@@ -562,6 +618,9 @@ class ParsingDFA:
     def accept(self):
         print("Accepted input. Finished in state: {}".format(self.state))
         pp.pprint(self.table[self.state])
+
+    def reset(self):
+        self.state = self.start
             
 
 # use tuples of (token,boolean) to denote transitions

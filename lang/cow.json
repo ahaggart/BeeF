@@ -22,7 +22,7 @@
         "function_closure":["name { inline_text }"],
         "bindings_closure":["bindings { binding_closures }",null],
         "binding_closures":["binding_block binding_closures",null],
-        "binding_block":["name modifier_declaration import_chain { binding_text }"],
+        "binding_block":["name modifier_declaration { binding_text }"],
         "postamble_closure":["postamble { binding_text }",null],
         "binding_text":["bound_keyword binding_text","raw_assembly binding_text",null],
         "modifier_declaration":["( modifier_list )",null],
