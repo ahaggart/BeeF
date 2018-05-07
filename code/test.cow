@@ -1,4 +1,11 @@
 module_name{ 
+    preamble{
+
+    }
+    depends{
+        bitwise2
+        library
+    }
     namespace{
         function{
             ><_^ ( bkw )
@@ -15,6 +22,9 @@ module_name{
         }
     }
     bindings {
+
+    }
+    postamble{
 
     }
 }
