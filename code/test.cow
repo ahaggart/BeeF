@@ -1,18 +1,16 @@
-module_name { 
-    namespace {
-        function {
+module_name{ 
+    namespace{
+        function{
             ><_^ ( bkw )
             hello ( +70 )
         }
-        namespace nested {
+        namespace nested{
             nested_function {
-                assert {
+                assert{
                     some_assembly
                     _><_^+
                 }
-                layout {
-                    some_more_assembly
-                }
+                layout{some_more_assembly}
             }
         }
     }

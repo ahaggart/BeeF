@@ -110,6 +110,7 @@ class Grammar:
         nonterminals= [ Nonterminal(sym) for sym in nt ]
         start       = Nonterminal(source[START_KEY])
         g = Grammar(nonterminals,generics,rules,start)
+        g.follow() # compute the follow sets
         return g
 
     def follow(self):
@@ -246,7 +247,7 @@ class Derivation(Expression):
     def reduce(self,stack,generics):
         symbols = self.symbols[:]
         tree = None
-        print("Reducing: {}".format(self.symbol))
+        # print("Reducing: {}".format(self.symbol))
         while symbols:
             if tree == None:
                 tree = {}
@@ -261,7 +262,7 @@ class Derivation(Expression):
                     ))
                 tree[expected] = actual
             elif expected != actual:
-                print("{} == {} : {}".format(expected,actual,expected==actual))
+                # print("{} == {} : {}".format(expected,actual,expected==actual))
                 parse_error("Expected symbol in reduction: \"{}\"\nGot: \"{}\"".format(
                     expected,actual))
         return tree
@@ -436,7 +437,7 @@ class ParsingAutomaton:
     def act(self,stack,tree,backlog,token,action_data):
         action = action_data[0]
         data = action_data[1]
-        print(action_data)
+        # print(action_data)
         if action == GO_T:
             return self.go(stack,tree,backlog,token)
         elif action == REDUCTION_T:
@@ -462,14 +463,14 @@ class ParsingAutomaton:
         backlog.push(nt)
 
         # make the current tree a subtree of the next tree
-        print("DFA before:")
-        pp.pprint(self.dfa.table[self.dfa.state])
+        # print("DFA before:")
+        # pp.pprint(self.dfa.table[self.dfa.state])
         # stack.peek()[TREE_I][nt] = tree
         self.dfa.state = stack.peek()[STATE_I]
-        print("DFA after:")
-        pp.pprint(self.dfa.table[self.dfa.state])
-        print("TREE:")
-        pp.pprint(tree)
+        # print("DFA after:")
+        # pp.pprint(self.dfa.table[self.dfa.state])
+        # print("TREE:")
+        # pp.pprint(tree)
         return tree,False
 
     def go(self,stack,tree,backlog,token):
@@ -491,8 +492,8 @@ class ParsingAutomaton:
         return tree,True    
 
     def parse(self,tokens):
-        print("PARSING:")
-        pp.pprint(self.dfa.table)
+        # print("PARSING:")
+        # pp.pprint(self.dfa.table)
         processed = []
         tree = {}
         working_tree = tree
@@ -508,23 +509,23 @@ class ParsingAutomaton:
         for token in tokens:
             while backlog: # parse the nonterminal backlog first
                 nt = backlog.pop()
-                print(nt)
+                # print(nt)
                 working_tree,done = self.process(stack,working_tree,backlog,nt)
-                print()
+                # print()
                 if done:
                     break                
             if done:
                 break 
-            print(token)
+            # print(token)
             working_tree,done = self.process(stack,working_tree,backlog,token)
             processed.append(token)
             # pp.pprint(tree)
-            print()
+            # print()
             if done:
                 break 
             
         working_tree.pop("$")
-        pp.pprint(working_tree)
+        # pp.pprint(working_tree)
         return working_tree
 
     def process(self,stack,tree,backlog,token):
@@ -537,7 +538,7 @@ class ParsingAutomaton:
                 if sym in self.grammar.generics:
                     if self.grammar.generics[sym].match(token):
                         matched = True
-                        print("Matched {} to {}".format(token,sym))
+                        # print("Matched {} to {}".format(token,sym))
                         self.dfa.process(sym) # use the generic symbol
                         break                
             if not matched:
@@ -545,7 +546,7 @@ class ParsingAutomaton:
                 for action in self.action_table[old_state]:
                     if action in self.grammar.generics:
                         if self.grammar.generics[action].match(token):
-                            print("Matched {} to {}".format(token,action))
+                            # print("Matched {} to {}".format(token,action))
                             matched = True
                             sym = action
                             break
@@ -568,7 +569,6 @@ class ParsingAutomaton:
 
         # combine the NFAs for each rule into one big NFA
         base = nfas.pop(META_META_START_KEY)
-
         offsets = {}
         for name in nfas:
             nfa = nfas[name]
@@ -582,10 +582,7 @@ class ParsingAutomaton:
 
         parser,mappings = base.determine()
         parse_table = parser.table # build a DFA with the parse table
-        # print(base)
-        # pp.pprint(parse_table)
 
-        # grab the follow sets for the grammar
         follows = follow(self.grammar)
 
         state_to_superstate = pivot(mappings)
@@ -603,12 +600,6 @@ class ParsingAutomaton:
                     tags = base.table[s].tags
                     if REDUCTION_T in tags and ACCEPT_T in tags:
                         if action != None:
-                            print("SUPERSTATE:")
-                            pp.pprint(superstate)
-                            print("NFA:")
-                            print(base)
-                            print("ACTIONS:")
-                            pp.pprint(actions)
                             parse_error(slr_con_msg.format(
                                 action,state,parser.table[state]))
                         action = tags[REDUCTION_T]
@@ -620,8 +611,6 @@ class ParsingAutomaton:
                             actions[tk] = (REDUCTION_T,(action[0],action[1]))
             for tr in parser.table[state]:
                 if tr in actions:
-                    # pp.pprint(parser.table)
-                    pp.pprint(actions)
                     parse_error(slr_con_msg.format(
                         actions[tr],tr,parser.table[state]))
                 if tr in self.grammar.nonterminals:
@@ -629,7 +618,6 @@ class ParsingAutomaton:
                 else:
                     actions[tr] = (SHIFT_T,-1)
 
-        pp.pprint(self.action_table)
         self.dfa = parser         
         return parser
 
@@ -655,20 +643,19 @@ class ParsingDFA:
         self.state = self.table[self.state][token]
 
     def reject(self,token):
-        print("{} rejected on: {}".format(self.name,token))
-        pp.pprint(self.table[self.state])
+        # print("{} rejected on: {}".format(self.name,token))
+        # pp.pprint(self.table[self.state])
+        pass
 
 
     def accept(self):
-        print("Accepted input. Finished in state: {}".format(self.state))
-        pp.pprint(self.table[self.state])
+        # print("Accepted input. Finished in state: {}".format(self.state))
+        # pp.pprint(self.table[self.state])
+        pass
 
     def reset(self):
         self.state = self.start
-            
 
-# use tuples of (token,boolean) to denote transitions
-# (token,False) denotes a nonterminal transition
 class ParsingNFAState:
     def __init__(self,accept=False):
         self.transitions    = {}
@@ -697,9 +684,6 @@ class ParsingNFAState:
         return None
 
     def shift_table(self,shamt):
-        # for t in self.transitions:
-        #     self.transitions[t]= set([tid+shamt for tid in self.transitions[t]])
-        # self.epsilons =  set([eid+shamt for eid in self.epsilons])
         self.remap(lambda tid:tid+shamt)
     
     def copy(self):
@@ -723,7 +707,6 @@ class ParsingNFA:
         self.start = 0 # start state is always id 0
         self.accept = None
         self.find_accepting()
-        # self.remove_self_refs()
 
     def __str__(self):
         count = 0
@@ -759,7 +742,6 @@ class ParsingNFA:
     def extend(self,other):
         self.table.extend(other.table)
         self.find_accepting()
-        # self.remove_self_refs()
 
     def find_accepting(self):
         self.accept = set([
@@ -770,7 +752,6 @@ class ParsingNFA:
     def remove_self_refs(self):
         for entry in self.table:
             if self.name in entry.transitions:
-                # print("found a circular ref")
                 # remove the "circular" ref
                 dest = entry.transitions[self.name]
                 del entry.transitions[self.name]
@@ -783,7 +764,6 @@ class ParsingNFA:
                 for tid in dest:
                     entry.epsilons.add(tid)
             else:
-                # print(entry.transitions)
                 pass
 
     # replace a transition with a link
@@ -793,18 +773,10 @@ class ParsingNFA:
             item = self.table[index]
             if token in item.transitions and EXPANDED_T not in item.tags:
                 linked = True
-                # remove the transition and get the endpoint
-                # dest = self.table[index].transitions.pop(token)
-                # dest = self.table[index].transitions[token]
-
                 # link transition to the location where we are inserting
                 self.table[index].add(None,start)   # add new location
                 self.table[index].tag(EXPANDED_T)
-
-                # link into endpoint
-                # self.table[end].epsilons.update(dest)
         if not linked:
-            # print("Failed to link {} in {}".format(token,self.name))
             return False
         return True
 
@@ -814,23 +786,16 @@ class ParsingNFA:
         self.extend(other)
         return other_start
 
-    def link(self,other,start_id,dest_id=None):
+    def link(self,other,start_id):
         # offset table entries
         self.shift_table(len(other))
-
-        # # link this NFA's accept states to the dest state
-        # if dest_id != None:
-        #     for state in self.accept:
-        #         self.table[state].add(None,dest_id)  # link into other
-        #         self.table[state].tags.remove(ACCEPT_T) # unmark accept states
-
-        # # link transition to the location where we are inserting
         other.table[start_id].epsilons.add(len(other))   # add new location
 
         other.extend(self)    # extend the result NFA with the linked copy
 
     # garbage collect this NFA
     # returns a new NFA with no unreachable states
+    # will not affect DFA produced by determine()
     def gc(self):
         reachable = set()
         added = set([self.start])
@@ -869,7 +834,6 @@ class ParsingNFA:
         while len(to_add) != 0:
             new_add = set()
             for superstate in to_add:
-                # print(superstate)
                 # add this superstate to table if not there already
                 table[superstate] = self._collect_destinations(superstate)
                 for token in table[superstate]:
@@ -901,7 +865,7 @@ class ParsingNFA:
             sorted_table[table_ids[state]] = transitions
 
         # return the DFA table and the id table
-        # caller may have metadata to attach based superstate composition
+        # caller may have metadata to attach based on superstate composition
         return ParsingDFA(self.name,sorted_table,accepts),table_ids
 
 
@@ -930,6 +894,42 @@ class ParsingNFA:
                     dest_sets[token].update(self.table[state].transitions[token])
             dest_sets[token] = self._collect_reachable(dest_sets[token])
         return dest_sets
+
+class Tokenizer:
+    def __init__(self,source,token_fn=None):
+        self.source = source
+        self.pre    = []
+        self.post   = []
+        self.token_fn = token_fn if token_fn else lambda(x):[x]
+
+    def __iter__(self): # pass the token lists through the filter
+        for tk in self.pre:
+            for _tk in self.token_fn(tk):
+                yield(_tk)        
+        for tk in self.source:
+            for _tk in self.token_fn(tk):
+                yield(_tk)
+        for tk in self.post:
+            for _tk in self.token_fn(tk):
+                yield(_tk)
+    
+    def prepend(self,token):
+        self.pre.insert(0,token)
+
+    def append(self,token):
+        self.post.append(token)
+
+class SourceReader:
+    def __init__(self,file):
+        self.file = file
+        self.line = 0
+    
+    def __iter__(self):
+        self.line = 0
+        for line in self.file:
+            for token in line.strip().split():
+                yield token
+            self.line = self.line + 1
         
 # produce a dictionary(variable->terminal) of the first terminals in strings
 # generated by each variable
@@ -951,33 +951,27 @@ def nullable(grammar):
             
 
 def follow(grammar):
-    grammar.follow()
     follows = dict()
     for nt in grammar.nonterminals:
         nonterm = grammar.nonterminals[nt]
         follows[nonterm.symbol] = set([follow for follow in nonterm.follow])
     return follows
 
+def brace_splitter(regex,token):
+    return [tk for tk in regex.split(token) if tk]
+
 def main():
     with open("cow.json","r") as src:
         g = Grammar.create(json.loads(src.read()))
 
-    print("NULLABLES:")
-    pp.pprint(nullable(g))
-
-    print("STARTS:")
-    pp.pprint(first(g))
-
-    print("FOLLOWS:")
-    pp.pprint(follow(g))
-
-    print("PARSING:")
     parser = ParsingAutomaton("PARSER",g)
 
-    with open("../code/test.cow","r") as f:
-        parser.parse(f.read().strip().split())
+    brace_splitter_regex= re.compile("([{}()])")
+    token_fn = lambda(tk):brace_splitter(brace_splitter_regex,tk)
 
-    # print(base.gc())
+    with open("../code/test.cow","r") as f:
+        tree = parser.parse(Tokenizer(SourceReader(f),token_fn))
+        pp.pprint(tree)
 
 def parse_error(reason):
     print("Error: {}".format(reason))
