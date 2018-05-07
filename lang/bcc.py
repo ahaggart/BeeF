@@ -25,9 +25,7 @@ def compile_tree(tree,path):
 
     module = tree[MODULE_VAR]
 
-    tree = Util.unroll(tree,'inline_text')
-    tree = Util.unroll(tree,'functional_blocks')
-    tree = Util.unroll(tree,'module_names')
+    tree = Util.unroll(tree)
 
     pp.pprint(tree)
 
