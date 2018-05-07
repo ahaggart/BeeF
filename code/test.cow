@@ -4,5 +4,19 @@ module_name {
             ><_^ ( bkw )
             hello ( +70 )
         }
+        namespace nested {
+            nested_function {
+                assert {
+                    some_assembly
+                    _><_^+
+                }
+                layout {
+                    some_more_assembly
+                }
+            }
+        }
+    }
+    bindings {
+
     }
 }

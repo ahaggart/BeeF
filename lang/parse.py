@@ -5,9 +5,11 @@
 from __future__ import print_function
 import sys
 import re
-import pprint as pp
+import pprint
 import json
 import sets
+
+pp = pprint.PrettyPrinter(indent=1)
 
 # FORMAT KEYWORDS
 TERMINALS_KEY   = "terminals"
@@ -543,7 +545,7 @@ class ParsingAutomaton:
                 for action in self.action_table[old_state]:
                     if action in self.grammar.generics:
                         if self.grammar.generics[action].match(token):
-                            print("Matched {} to {}".format(token,sym))
+                            print("Matched {} to {}".format(token,action))
                             matched = True
                             sym = action
                             break
@@ -554,6 +556,8 @@ class ParsingAutomaton:
                             backlog,
                             token,
                             self.action_table[old_state][sym])
+        elif not matched:
+            parse_error("Unable to match symbol: {}".format(token))
         return tree,False
 
 

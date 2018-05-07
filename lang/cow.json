@@ -1,12 +1,12 @@
 {
     "terminals":["module","preamble","postamble","depends","namespace",
         "bindings","postamble","binds","imports","{","}","(",")",
-        "rebase","assert","goto","stable","set","panic","call"],
+        "rebase","assert","goto","stable","set","panic","call","layout"],
     "generics":{
-        "name":"[a-zA-Z_]+[a-zA-Z_0-9]",
+        "name":"^[a-zA-Z_]+[a-zA-Z_0-9]*$",
         "number":"[+-]?[0-9]",
         "raw_assembly":"[][+<>^_-]+",
-        "bound_keyword":"[a-zA-Z_]+[a-zA-Z_0-9]"},
+        "bound_keyword":"^[a-zA-Z_]+[a-zA-Z_0-9]*$"},
     "rules":{
         "module_closure":["name { preamble_closure depends_closure namespace_closure bindings_closure postamble_closure }"],
         "preamble_closure":["preamble { inline_text }",null],
@@ -34,7 +34,7 @@
         "keyword_closure":["keyword { inline_text }"],
         "call_closure":["call { call_path }"],
         "call_path":["name","name name"],
-        "keyword":["rebase","assert","goto","stable","set","panic"]
+        "keyword":["rebase","assert","goto","stable","set","panic","layout"]
     },
     "start":"module_closure"
 } 
