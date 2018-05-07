@@ -1,8 +1,8 @@
-name { 
+module_name { 
     namespace {
-        name {
-            raw_assembly ( name )
-            bound_keyword ( number )
+        function {
+            ><_^ ( bkw )
+            hello ( +70 )
         }
     }
 }

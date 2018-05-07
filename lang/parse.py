@@ -9,23 +9,29 @@ import pprint as pp
 import json
 import sets
 
-TERMINALS_KEY = "terminals"
-GENERICS_KEY  = "generics"
-RULES_KEY     = "rules"
-START_KEY     = "start"
-META_START_KEY = "_META_START_"
-EPSILON_T = "_EPSILON_"
-ID_T = "_ID_"
-ACCEPT_T = "_ACCEPTING_"
-REDUCTION_T = "_REDUCTION_"
-EXPANDED_T = "_EXPANDED_"
-SHIFT_T = "_SHIFT_"
-GO_T = "_GO_"
-REJECT_T = "_REJECT_"
+# FORMAT KEYWORDS
+TERMINALS_KEY   = "terminals"
+GENERICS_KEY    = "generics"
+RULES_KEY       = "rules"
+START_KEY       = "start"
 
-SYMBOL_I = 0
-STATE_I = 1
-TREE_I = 2
+# INTERNAL KEYWORDS
+META_START_KEY      = "_META_START_"
+META_META_START_KEY = "_META_META_START_"
+
+# TAGS
+EPSILON_T       = "_EPSILON_"
+ID_T            = "_ID_"
+ACCEPT_T        = "_ACCEPTING_"
+REDUCTION_T     = "_REDUCTION_"
+EXPANDED_T      = "_EXPANDED_"
+SHIFT_T         = "_SHIFT_"
+GO_T            = "_GO_"
+REJECT_T        = "_REJECT_"
+
+SYMBOL_I        = 0
+STATE_I         = 1
+TREE_I          = 2
 
 VERBOSE = False
 
@@ -106,7 +112,9 @@ class Grammar:
 
     def follow(self):
         self.nonterminals[META_START_KEY] = Nonterminal(META_START_KEY)
+        self.nonterminals[META_META_START_KEY] = Nonterminal(META_META_START_KEY)
         self.rules[META_START_KEY] = Rule(META_START_KEY,[Derivation(META_START_KEY,[self.start,ParseTerminator()])])
+        self.rules[META_META_START_KEY] = Rule(META_META_START_KEY,[Derivation(META_META_START_KEY,[self.nonterminals[META_START_KEY],ParseTerminator()])])
         for rulename in self.rules:
             for der in self.rules[rulename]:
                 for subexp in der.subexpressions():
@@ -233,7 +241,7 @@ class Derivation(Expression):
             first = first.succ
         yield first
 
-    def reduce(self,stack):
+    def reduce(self,stack,generics):
         symbols = self.symbols[:]
         tree = None
         print("Reducing: {}".format(self.symbol))
@@ -241,11 +249,16 @@ class Derivation(Expression):
             if tree == None:
                 tree = {}
             top = stack.pop()
-            expected = str(top[SYMBOL_I])
+            actual = str(top[SYMBOL_I])
+            expected = str(symbols.pop())
             tree[expected] = top[TREE_I]
-            actual = str(symbols.pop())
-            print(actual)
-            if expected != actual:
+            if expected in generics:
+                if generics[expected].match(actual) == None:
+                    parse_error("Failed to match generic symbol {} to {}".format(
+                        expected,actual
+                    ))
+                tree[expected] = actual
+            elif expected != actual:
                 print("{} == {} : {}".format(expected,actual,expected==actual))
                 parse_error("Expected symbol in reduction: \"{}\"\nGot: \"{}\"".format(
                     expected,actual))
@@ -406,7 +419,7 @@ class Epsilon: # we might not need this
         state = ParsingNFAState(accept=True)
         state.tag(REDUCTION_T,(self.symbol,id))
         return ParsingNFA(EPSILON_T,[state])
-    def reduce(self,stack):
+    def reduce(self,stack,generics):
         return None
 
 # parse input token-by-token, using parse table to decide action and state
@@ -440,7 +453,7 @@ class ParsingAutomaton:
         red_id = data[1]
         # print(nt)
         # print(red_id)
-        tree = self.grammar.rules[nt].derivations[red_id].reduce(stack)
+        tree = self.grammar.rules[nt].derivations[red_id].reduce(stack,self.grammar.generics)
 
         # push the nonterminal to the backlog
         backlog.push(token)
@@ -455,23 +468,25 @@ class ParsingAutomaton:
         pp.pprint(self.dfa.table[self.dfa.state])
         print("TREE:")
         pp.pprint(tree)
-        return tree
+        return tree,False
 
     def go(self,stack,tree,backlog,token):
         stack.push((token,self.dfa.state,tree))
-        return tree
+        return tree,False
 
     def shift(self,stack,tree,backlog,token):
-        stack.push((token,self.dfa.state,{}))
-        return {}
+        stack.push((token,self.dfa.state,token))
+        return {},False
 
     def accept(self,stack,tree,backlog,token):
         print("accepted")
-        return tree
+        stack.pop()
+        tree = stack.pop()[TREE_I]
+        return tree,True
 
     def reject(self,stack,tree,backlog,token):
-        print("rejected")        
-        return tree
+        print("rejected")
+        return tree,True    
 
     def parse(self,tokens):
         print("PARSING:")
@@ -485,39 +500,61 @@ class ParsingAutomaton:
         self.dfa.reset()
 
         tokens.append("$")
+        tokens.append("$")
 
+        done = False
         for token in tokens:
             while backlog: # parse the nonterminal backlog first
                 nt = backlog.pop()
                 print(nt)
-                working_tree = self.process(stack,working_tree,backlog,nt)
+                working_tree,done = self.process(stack,working_tree,backlog,nt)
                 print()
+                if done:
+                    break                
+            if done:
+                break 
             print(token)
-            working_tree = self.process(stack,working_tree,backlog,token)
+            working_tree,done = self.process(stack,working_tree,backlog,token)
             processed.append(token)
             # pp.pprint(tree)
             print()
+            if done:
+                break 
+            
+        working_tree.pop("$")
         pp.pprint(working_tree)
+        return working_tree
 
     def process(self,stack,tree,backlog,token):
         old_state = self.dfa.state
         p = self.dfa.process(token)
+        sym = token
+        matched = False
         if p != None: # DFA rejected, try generics
-            matched = False
             for sym in p:
                 if sym in self.grammar.generics:
                     if self.grammar.generics[sym].match(token):
                         matched = True
+                        print("Matched {} to {}".format(token,sym))
                         self.dfa.process(sym) # use the generic symbol
-            # if not matched:
-            #     parse_error("Unable to match token: {}".format(token))
-        if token in self.action_table[old_state]:
+                        break                
+            if not matched:
+                sym = token
+                for action in self.action_table[old_state]:
+                    if action in self.grammar.generics:
+                        if self.grammar.generics[action].match(token):
+                            print("Matched {} to {}".format(token,sym))
+                            matched = True
+                            sym = action
+                            break
+
+        if sym in self.action_table[old_state]:
             return self.act(stack,
                             tree,
                             backlog,
                             token,
-                            self.action_table[old_state][token])
-        return tree
+                            self.action_table[old_state][sym])
+        return tree,False
 
 
     def build(self):
@@ -526,7 +563,7 @@ class ParsingAutomaton:
             nfas[rule] = self.grammar.rules[rule].make_NFA()
 
         # combine the NFAs for each rule into one big NFA
-        base = nfas.pop(META_START_KEY)
+        base = nfas.pop(META_META_START_KEY)
 
         offsets = {}
         for name in nfas:
@@ -572,8 +609,11 @@ class ParsingAutomaton:
                                 action,state,parser.table[state]))
                         action = tags[REDUCTION_T]
                 if action:
-                    for tk in follows[action[0]]:
-                        actions[tk] = (REDUCTION_T,(action[0],action[1]))
+                    if action[0] == META_META_START_KEY:
+                        actions["$"] = (ACCEPT_T,("null",-1))
+                    else:
+                        for tk in follows[action[0]]:
+                            actions[tk] = (REDUCTION_T,(action[0],action[1]))
             for tr in parser.table[state]:
                 if tr in actions:
                     # pp.pprint(parser.table)
