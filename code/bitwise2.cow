@@ -1,6 +1,6 @@
 bitwise2{
     depends{
-        
+
     }
     namespace{
         function{
@@ -8,6 +8,8 @@ bitwise2{
         }
     }
     bindings{
-
+        bitwise_binding{
+            ^^^^^
+        }
     }
 }

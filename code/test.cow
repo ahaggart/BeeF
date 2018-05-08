@@ -7,8 +7,8 @@ test{
     }
     namespace{
         function{
-            ><_^ ( bkw )
-            hello ( +70 )
+            ><_^ ( +70 )
+            hello ( bkw )
             scope{
                 goodbye
                 assert{
@@ -33,7 +33,12 @@ test{
         }
     }
     bindings {
-
+        hello{
+            ><><><><
+        }
+        goodbye{
+            ++++----
+        }
     }
     postamble{
 
