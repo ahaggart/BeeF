@@ -1,0 +1,13 @@
+bitwise2{
+    depends{
+        
+    }
+    namespace{
+        function{
+            
+        }
+    }
+    bindings{
+
+    }
+}

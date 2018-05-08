@@ -1,18 +1,29 @@
-module_name{ 
+test{ 
     preamble{
 
     }
     depends{
         bitwise2
-        library
     }
     namespace{
         function{
             ><_^ ( bkw )
             hello ( +70 )
+            scope{
+                goodbye
+                assert{
+                    testing_keyword
+                    scope{
+                        super_deep_nesting
+                    }
+                }
+            }
+            call{ bitwise2 function }
         }
         namespace nested{
             nested_function {
+                bind{ bitwise2 }
+                bind{ ( >< ) to local }
                 assert{
                     some_assembly
                     _><_^+

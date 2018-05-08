@@ -82,8 +82,12 @@ class Stack(list):
     def peek(self):
         if len(self):
             return self[len(self)-1]
-        return None
-        # raise IndexError
+        raise IndexError,"Peeking empty stack"
+    
+    def swap(self,value):
+        if not len(self):
+            raise IndexError,"Swapping empty stack"
+        self[len(self)-1] = value
 
 class Grammar:
     def __init__(self,nonterminals,generics,rules,start):
@@ -254,17 +258,27 @@ class Derivation(Expression):
             top = stack.pop()
             actual = str(top[SYMBOL_I])
             expected = str(symbols.pop())
-            tree[expected] = top[TREE_I]
+                
             if expected in generics:
                 if generics[expected].match(actual) == None:
                     parse_error("Failed to match generic symbol {} to {}".format(
                         expected,actual
                     ))
-                tree[expected] = actual
+
+                # handle duplicate generics by placing them in a list
+                # maintins ordering of elements
+                if expected in tree:
+                    if tree[expected].__class__.__name__ != "list":
+                        tree[expected] = [tree[expected]]
+                    tree[expected].insert(0,actual)
+                else:
+                    tree[expected] = actual
             elif expected != actual:
                 # print("{} == {} : {}".format(expected,actual,expected==actual))
                 parse_error("Expected symbol in reduction: \"{}\"\nGot: \"{}\"".format(
                     expected,actual))
+            else:
+                tree[expected] = top[TREE_I]
         return tree
 
     # build a simple NFA representing this derivation
@@ -903,7 +917,6 @@ class Util:
     @staticmethod
     def unroll(tree):
         for var in Util.collect_recursive(tree):
-            print(var)
             tree = Util._unroll(tree,var)
         return tree
 
