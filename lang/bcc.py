@@ -267,6 +267,9 @@ def resolve_keyword(closure,scope):
     keyword = closure[BOUND_KEYWORD_VAR]
     if keyword not in scope.get(KEYWORD_INFO):
         raise KeyError("Keyword not in scope: {}".format(keyword))
+    # print("FOUND MAPPING FOR {}:".format(keyword))
+    # print(scope)
+    # pp.pprint(scope.get(make_binding_var(keyword)))
 
 def increase_block_depth(scope):
     depth = scope.get(DEPTH_INFO)
@@ -303,10 +306,7 @@ def make_layout_var(layout):
 def bind_current_module(scope,module):
     bind_current_module_name(scope,module[NAME_TAG])
     # implicitly bind the module's bindings
-    curr_bindings = scope.get(KEYWORD_INFO).copy()
-    for binding in module[BINDINGS_VAR][BINDING_BLOCKS_VAR]:
-        curr_bindings.add(binding[BINDING_BLOCK_VAR][NAME_TAG])
-    scope.bind(KEYWORD_INFO,curr_bindings)    
+    bind_module(scope,module[NAME_TAG]) 
 
 def bind_current_module_name(scope,name):
     scope.bind(MODULE_INFO,name) # bind the module name to metadata
@@ -333,7 +333,7 @@ class Scope:
         self.symbols = {}
 
     def __str__(self):
-        return str(self.snapshot())
+        return pp.pformat(self.snapshot())
 
     def snapshot(self):
         values = {}

@@ -28,13 +28,17 @@ test{
         }
         namespace nested{
             nested_function {
-                bind{ bitwise2 }
+                bitwise_binding
+                scope{
+                    bind{ bitwise2 }
+                    bitwise_binding
+                    assert{
+                        some_assembly
+                        _><_^+
+                    }
+                }
                 bitwise_binding
                 bind{ local to  ><  }
-                assert{
-                    some_assembly
-                    _><_^+
-                }
                 layout{some_more_assembly}
             }
         }
@@ -49,7 +53,10 @@ test{
             ++++----
         }
         some_more_assembly{
-            
+
+        }
+        bitwise_binding{
+            -----
         }
     }
     postamble{
