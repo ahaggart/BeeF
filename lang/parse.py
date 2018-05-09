@@ -947,7 +947,7 @@ class Util:
                 tree[variable] = sub
                 sub = None
             while sub != None:
-                tmp  = sub.pop(variable)
+                tmp  = sub.pop(variable) if variable in sub else None
                 unrolled.append(Util._unroll(sub,variable,reverse))
                 sub = tmp
             if reverse:

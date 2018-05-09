@@ -7,7 +7,7 @@ test{
     }
     namespace{
         function{
-            ><_^ ( +70 )
+            ><_^ ( +2 )
             hello ( bkw )
             bind{ testing_keyword to 
                 ^^__ 
@@ -17,7 +17,7 @@ test{
             bind{ super_deep_nesting to <<>> hello _+_+ }
             scope{
                 goodbye
-                assert{
+                scope{
                     testing_keyword
                     scope{
                         super_deep_nesting
@@ -32,14 +32,23 @@ test{
                 scope{
                     bind{ bitwise2 }
                     bitwise_binding
-                    assert{
+                    scope{
                         some_assembly
                         _><_^+
                     }
                 }
                 bitwise_binding
                 bind{ local to  ><  }
-                layout{some_more_assembly}
+                layout{
+                    target      +8
+                    target2     +9
+                    target3     +10
+                }
+
+                set{
+                    target      +10
+                    {+2}        target2
+                }
             }
         }
     }

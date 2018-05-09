@@ -35,11 +35,22 @@ TEXT_VAR        = "inline_text"
 
 TOKEN_VAR       = "text_token"
 INLINE_VAR      = "inline_closure"
-SCOPE_VAR       = "scope"
-BIND_VAR        = "bind"
+
+KEYWORD_VAR     = "keyword_closure"
+
 BIND_BODY_VAR   = "bind_statement"
 BIND_TEXT_VAR   = "non_empty_binding_text"
-KEYWORD_VAR     = "keyword_closure"
+
+LAYOUT_INNER_VAR= "layout_statement"
+
+SET_INNER_VAR   = "set_statement"
+SET_PAIR_VAR    = "set_pair"
+DATA_SOURCE_VAR = "data_source"
+DATA_TARGET_VAR = "data_target"
+DATA_ADDRESS_VAR= "data_address"
+
+GOTO_INNER_VAR  = "goto_statement"
+
 
 ASSEMBLY_VAR    = "raw_assembly"
 MODIFIER_VAR    = "modifier"
@@ -53,6 +64,9 @@ DEPTH_INFO      = ("DEPTH","INFO")
 KEYWORD_INFO    = ("BOUND","KEYWORDS")
 MODULE_INFO     = ("MODULE","NAME")
 MAPPING_INFO    = ("MAPPING","INFO")
+PATH_INFO       = ("PATH","INFO")
+
+TEXT_TARGET     = ("TEXT","TARGET")
 
 # TAGS
 # important grammar terminals and generics
@@ -61,6 +75,28 @@ NUMBER_TAG  = 'number'
 MODULES_TAG = 'module_names'
 BINDING_TAG = "binding"
 LAYOUT_TAG  = "layout"
+BIND_TAG    = "bind"
+SET_TAG     = "set"
+SCOPE_TAG   = "scope"
+
+GOTO_TAG    = "goto"
+PUSH_TAG    = "push"
+POP_TAG     = "pop"
+CREATE_TAG  = "create"
+
+ADDRESS_TAG = "address"
+CONSTANT_TAG= "constant"
+
+DATA_TAG    = "data"
+
+PUSH_INSTR  = "^"
+POP_INSTR   = "_"
+RIGHT_INSTR = ">"
+LEFT_INSTR  = "<"
+CBF_INSTR   = "["
+ABR_INSTR   = "]"
+INC_INSTR   = "+"
+DEC_INSTR   = "-"
 
 EXT = ".cow"
 
@@ -73,6 +109,13 @@ def build(module,parser,path):
     loader = lambda(name):module_loader(name,parser,path)
     master_scope = build_master_scope(module,loader)
 
+    # use a table to hold intermediate compiled results
+    # should only contain assembly and function call prototypes
+    text_table = {}
+
+    # when a scope exits, update the text table
+    target_grabber= lambda image: update_text_table(text_table,image)
+
     # 2. Resolve inline text
     #       a. Resolve bindings and modifier applications
     #       b. Resolve non-call inline closures
@@ -80,13 +123,16 @@ def build(module,parser,path):
     # use a Scope object for managing variable scope
     # object will mutate with each closure yielded by generator,
     # and will represent the variable scope of the closure
-    scope = Scope()
+    
+    scope = Scope(target_grabber)
     scope.enter() # create a top level scope for bindings
     set_block_depth(scope,0)
 
     # add metadata for keywords that are accessible from scope
     scope.bind(KEYWORD_INFO,set())
     scope.bind(MAPPING_INFO,dict())
+    scope.bind(TEXT_TARGET,CopyList())
+    scope.bind(PATH_INFO,CopyList())
 
     # populate the global scope with module bindings
     for binding in traverse_module_bindings(master_scope,scope):
@@ -97,6 +143,8 @@ def build(module,parser,path):
         process_inline_closure(closure,scope)
     
     scope.exit()
+
+    pp.pprint(text_table)
 
     # 3. Create soft links between dependent code and depended module
     # 4. Build namespace tables for each module
@@ -161,6 +209,22 @@ def make_source_reader(file):
     token_fn = lambda(tk):brace_splitter(brace_splitter_regex,tk)
     return Tokenizer(SourceReader(file),token_fn)
 
+def update_text_table(table,image):
+    table_insert(table,image[PATH_INFO],image[TEXT_TARGET])
+
+def table_insert(table,path,data):
+    curr = table
+    path = path[:]
+    if not path:
+        # raise ValueError("Invalid path: {}".format(path))
+        return # fail quietly
+    while path:
+        i = path.pop(0)
+        if i not in curr:
+            curr[i] = {}
+        curr = curr[i]
+    curr[DATA_TAG] = data
+
 # RECURSIVE TREE TRAVERSAL AND SCOPE MANAGMENT #################################
 
 def traverse_module_bindings(base,scope):
@@ -191,6 +255,13 @@ def traverse_namespace_text(namespace,scope):
         return
     scope.enter() # create a scope for this namespace
     increase_block_depth(scope) # used for external function call resolution
+
+    # update the path for this scope
+    if NAME_TAG in namespace:
+        append_path(scope,namespace[NAME_TAG])
+    else:
+        append_path(scope,scope.get(MODULE_INFO))
+    
     for block in namespace[BLOCKS_VAR]:
         for text in traverse_block_text(block,scope):
             yield text
@@ -207,23 +278,31 @@ def traverse_block_text(block,scope):
 def traverse_function_text(func,scope):
     if func[TEXT_VAR] == None:
         return
+    
+    # create an itermediate scope for path resolution
+    scope.enter() # update the path for this scope
+    append_path(scope,func[NAME_TAG])
+    
     for text in traverse_scoped_text(func[TEXT_VAR],scope):
         yield text
+
+    scope.exit()
 
 def traverse_scoped_text(inline,scope):
     if inline == None:
         return
     scope.enter() # create a local scope
+    append_path(scope,SCOPE_TAG)
     for text in inline:
         if TOKEN_VAR in text:
             yield text
         elif INLINE_VAR in text and KEYWORD_VAR in text[INLINE_VAR]:
             sub = text[INLINE_VAR][KEYWORD_VAR]
-            if BIND_VAR in sub:
-                yield sub
-            elif KEYWORD_TERM in sub:
+            if SCOPE_TAG in sub:
                 for txt in traverse_scoped_text(sub[TEXT_VAR],scope):
                     yield txt
+            else:
+                yield sub
     scope.exit() # exit the local scope
 
 # CLOSURE PROCESSING STUFF #####################################################
@@ -232,8 +311,12 @@ def process_inline_closure(closure,scope):
     # pp.pprint(closure)
     if TOKEN_VAR in closure:
         process_text_closure(closure[TOKEN_VAR],scope)
-    elif BIND_VAR in closure:
+    elif BIND_TAG in closure:
         process_bind_closure(closure,scope)
+    elif LAYOUT_TAG in closure:
+        process_layout_closure(closure,scope)
+    elif SET_TAG in closure:
+        process_set_closure(closure,scope)
 
 def process_text_closure(closure,scope):
     # pp.pprint(closure)
@@ -247,6 +330,8 @@ def process_text_closure(closure,scope):
             closure[MODIFIER_VAR] = None # destroy the modifier
             # duplicate the token
             closure[ASSEMBLY_VAR] = closure[ASSEMBLY_VAR] * mod_val
+        with scope.use(TEXT_TARGET) as target:
+            target.append(closure[ASSEMBLY_VAR])
     elif BOUND_KEYWORD_VAR in closure: # resolve the keyword
         # resolve the keyword into assembly and swap the tags
         closure[ASSEMBLY_VAR] = resolve_keyword(closure,scope)
@@ -264,7 +349,7 @@ def process_bind_closure(closure,scope):
         bind_module(scope,body[NAME_TAG])
         return
     
-    # inline binding: convert to the standard binding format
+    # inline binding
     text = body[BIND_TEXT_VAR].copy()
 
     binding_text = text.pop(BINDING_TEXT_VAR)
@@ -272,6 +357,9 @@ def process_bind_closure(closure,scope):
         binding_text = []
     prefix = text # get whatever else is there and prepend to list
     binding_text.insert(0,prefix)
+
+    # convert to the standard binding format
+    # move this to a helper function?
     binding = {
         MODIFIER_DEC_VAR:None,
         BINDING_TEXT_VAR:binding_text,
@@ -280,17 +368,114 @@ def process_bind_closure(closure,scope):
     scope.bind(make_binding_var(binding[NAME_TAG]),binding)
 
     # add this keyword to the bound keywords for this scope
-    bound = scope.get(KEYWORD_INFO).copy()
-    bound.add(name)
-    scope.bind(KEYWORD_INFO,bound)
+    with scope.use(KEYWORD_INFO) as bound:
+        bound.add(name)
+
+def process_layout_closure(layout,scope):
+    for entry in layout[LAYOUT_INNER_VAR]:
+        bind_layout_info(scope,entry)
+
+def process_set_closure(closure,scope):
+    statement_block = []
+    for item in closure[SET_INNER_VAR]:
+        statement_block.append(process_set_statement(item[SET_PAIR_VAR],scope))
+    # reorder set statements and convert to GOTO and PUSH/POP actions
+    optimized = optimize_statement_block(statement_block,scope)
+
+    closure[TEXT_VAR] = optimized
+
+def process_set_statement(pair,scope):
+    source = pair[DATA_SOURCE_VAR]
+    target = pair[DATA_TARGET_VAR]
+
+    if NAME_TAG in target: # resolve the target address from scope layout
+        t_address = scope.get(make_layout_var(target[NAME_TAG]))
+    else: # target is already an address
+        t_address = int(target[DATA_ADDRESS_VAR][NUMBER_TAG])
+
+    s_address = None
+    s_type = ADDRESS_TAG
+    if NAME_TAG in source: # resolve the source address from scope layout
+        s_address = scope.get(make_layout_var(source[NAME_TAG]))
+    elif DATA_ADDRESS_VAR in source: # source is an address
+        s_address = int(source[DATA_ADDRESS_VAR][NUMBER_TAG])
+    
+    if s_address == None: # couldnt match source to a resolved type -> numeric
+        s_address = int(source[NUMBER_TAG])
+        s_type = CONSTANT_TAG
+
+    return (t_address,s_address,s_type)
+
+# optimize a group of statements for minimal code size/cycle count
+def optimize_statement_block(block,scope):
+    # minimize data head movement by grabbing and dropping values efficiently
+    # probably need some graph theory stuff here
+    # edges point from dependent node to depended node
+    # have:
+    # - set of nodes that must be visited
+    # - set of order dependencies that must be obeyed
+
+    # doing things stupidly for now
+    pair_compare = lambda x,y:(x[0]-y[0])
+    block = sorted(block[:],cmp=pair_compare)
+    sources     = [pair[0] for pair in block if pair[2] == ADDRESS_TAG]
+
+    actions = []
+
+    for addr in sources:
+        actions.append((GOTO_TAG,addr))
+        actions.append((PUSH_TAG,addr))
+
+    block.sort(cmp=pair_compare,reverse=True) 
+    for triple in block:
+        actions.append((GOTO_TAG,triple[1]))
+        if triple[2] == ADDRESS_TAG:
+            actions.append((POP_TAG, triple[1]))    # pop the grabbed value
+        else:
+            actions.append((CREATE_TAG, triple[0])) # create the source constant
+    
+    return expand_action_tags(actions,scope)
+
+def expand_action_tags(actions,scope):
+    expanded = []
+    for action in actions:
+        if action[0] == GOTO_TAG:
+            expanded.append(make_goto_closure(action[1]))
+        elif action[0] == PUSH_TAG:
+            expanded.append(make_assembly_closure(PUSH_INSTR))
+        elif action[0] == POP_TAG:
+            expanded.append(make_assembly_closure(POP_INSTR))
+        elif action[0] == CREATE_TAG:
+            expanded.append(make_create_closure(action[1]))
+    return expanded
+
+class DataNode:
+    def __init__(self,loc):
+        self.edges = []
+        self.loc = loc
+    
+    def add(self,node):
+        self.edges.append((node,abs(self.loc-node.loc)))
       
-def resolve_keyword(closure,scope):
+def resolve_keyword(closure,scope): # resolve a bound keyword into assembly
+    # pp.pprint(closure)
     keyword = closure[BOUND_KEYWORD_VAR]
     if keyword not in scope.get(KEYWORD_INFO):
         raise KeyError("Keyword not in scope: {}".format(keyword))
-    # print("FOUND MAPPING FOR {}:".format(keyword))
-    # print(scope)
-    # pp.pprint(scope.get(make_binding_var(keyword)))
+    
+    # grab the binding from the local scope
+    binding = scope.get(make_binding_var(keyword))
+
+    # text = resolve_binding(binding,closure[MODIFIER_VAR],scope)
+
+def resolve_binding(closure,modifier,scope):
+    raise NotImplementedError
+    pass
+
+def process_binding_text(closure,scope):
+    # recursively resolve text in this binding
+    raise NotImplementedError
+    pass
 
 # SCOPE MANAGEMENT HELPER FUNCTIONS ############################################
 
@@ -308,14 +493,19 @@ def add_global_binding(scope,binding):
     binding_name = binding[NAME_TAG]
     module_name = scope.get(MODULE_INFO)
 
-    mapping = scope.get(MAPPING_INFO).copy()
-    if module_name not in mapping:
-        mapping[module_name] = set()
-    mapping[module_name].add(binding_name)
-    scope.bind(MAPPING_INFO,mapping)
+    with scope.use(MAPPING_INFO) as mapping:
+        if module_name not in mapping:
+            mapping[module_name] = set()
+        mapping[module_name].add(binding_name)
 
     binding_var = make_binding_var(binding_name,module_name)
     return scope.bind(binding_var,binding)
+
+def append_path(scope,name):
+    with scope.use(PATH_INFO) as path:
+        path.append(name)
+    with scope.use(TEXT_TARGET) as text:
+        text.clear()
 
 def make_binding_var(binding,module=None):
     if module:
@@ -324,7 +514,32 @@ def make_binding_var(binding,module=None):
         return (BINDING_TAG,binding)
 
 def make_layout_var(layout):
-    return (LAYOUT_TAG,None)
+    return (LAYOUT_TAG,layout)
+
+def make_goto_closure(addr):
+    return pack_keyword_closure({
+        GOTO_TAG:GOTO_TAG,
+        GOTO_INNER_VAR:{
+            NUMBER_TAG:addr,
+        }
+    })
+
+def make_assembly_closure(text):
+    return {
+        TOKEN_VAR:{
+            MODIFIER_VAR:None,
+            ASSEMBLY_VAR:text,
+        }
+    }
+
+def make_create_closure(value):
+    return pack_keyword_closure({
+        CREATE_TAG:CREATE_TAG,
+        NUMBER_TAG:value,
+    })
+
+def pack_keyword_closure(closure):
+    return { INLINE_VAR:{ KEYWORD_VAR:closure } }
 
 def bind_current_module(scope,module):
     bind_current_module_name(scope,module[NAME_TAG])
@@ -336,25 +551,28 @@ def bind_current_module_name(scope,name):
 
 def bind_module(scope,name):
     # print("BINDING MODULE: {}".format(name))
-    bound_list = scope.get(KEYWORD_INFO).copy()
-    for bname in scope.get(MAPPING_INFO)[name]:
-        global_var = make_binding_var(bname,name)
-        scoped_var = make_binding_var(bname)
-        # print("BINDING {} to {}".format(global_var,scoped_var))
+    with scope.use(KEYWORD_INFO) as bound_list:
+        for bname in scope.get(MAPPING_INFO)[name]:
+            global_var = make_binding_var(bname,name)
+            scoped_var = make_binding_var(bname)
+            # print("BINDING {} to {}".format(global_var,scoped_var))
 
-        # bind global definition into local definition
-        scope.bind(scoped_var,scope.get(global_var))
+            # bind global definition into local definition
+            scope.bind(scoped_var,scope.get(global_var))
 
-        bound_list.add(bname)
-    scope.bind(KEYWORD_INFO,bound_list)
+            bound_list.add(bname)
+
+def bind_layout_info(scope,info): # bind layout information into the scope
+    scope.bind(make_layout_var(info[NAME_TAG]),int(info[NUMBER_TAG]))
 
 # HELPER CLASSES ###############################################################
 
 class Scope:
-    def __init__(self):
+    def __init__(self,image_hook=None):
         self.defined = Stack()
         self.curr_symbols = set()
         self.symbols = {}
+        self.image_hook = image_hook
 
     def __str__(self):
         return pp.pformat(self.snapshot())
@@ -371,6 +589,9 @@ class Scope:
         if symbol not in self.symbols or not len(self.symbols[symbol]):
             raise KeyError("Symbol not in scope: {}".format(symbol))   
         return self.symbols[symbol].peek()
+
+    def use(self,symbol):
+        return ScopeCopyContextManager(self,symbol)
 
     def bind(self,symbol,value):
         if symbol in self.curr_symbols:
@@ -389,9 +610,33 @@ class Scope:
     def exit(self):
         if not len(self.defined):
             raise IndexError("Exiting base scope")
+        if self.image_hook:
+            self.image_hook(self.snapshot())
         for symbol in self.curr_symbols:
             self.symbols[symbol].pop()
         self.curr_symbols = self.defined.pop()
+
+class ScopeCopyContextManager:
+    def __init__(self,scope,symbol):
+        self.scope = scope
+        self.symbol = symbol
+        self.hold = None
+
+    def __enter__(self):
+        # grab the symbol from the scope and make a copy
+        self.hold = self.scope.get(self.symbol).copy()
+        return self.hold
+
+    def __exit__(self,exc_type,exc_value,traceback):
+        # bind the value back into scope
+        self.scope.bind(self.symbol,self.hold)
+
+class CopyList(list):
+    def copy(self):
+        return CopyList(self[:])
+    def clear(self):
+        while self:
+            self.pop()
 
 class BCCErrorHandler:
     def error(self,msg):

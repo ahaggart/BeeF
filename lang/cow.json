@@ -31,12 +31,25 @@
         "text_token":["raw_assembly modifier","bound_keyword modifier"],
         "modifier":["( name )","( number )",null],
         "inline_closure":["keyword_closure","call_closure"],
-        "keyword_closure":["keyword { inline_text }","bind { bind_statement }"],
+        "keyword_closure":[ "scope { inline_text }",
+                            "bind { bind_statement }",
+                            "layout { layout_statement }",
+                            "set { set_statement }",
+                            "goto { goto_statement }"
+                        ],
         "call_closure":["call { call_path }"],
         "call_path":["name","name name"],
-        "keyword":["rebase","assert","goto","scope","set","panic","layout"],
+        "keyword":["rebase","assert","goto","scope","panic"],
         "bind_statement":["name","name to non_empty_binding_text"],
-        "non_empty_binding_text":["keyword_closure binding_text","bound_keyword binding_text","raw_assembly binding_text"]
+        "non_empty_binding_text":["keyword_closure binding_text","bound_keyword binding_text","raw_assembly binding_text"],
+        "layout_statement":["name number layout_statement","name number"],
+        "set_statement":["set_pair set_statement","set_pair"],
+        "set_pair":["data_target data_source"],
+        "data_target":["name","data_address"],
+        "data_source":["name","number","data_address"],
+        "data_address":["{ number }"],
+        "goto_statement":["name","number"]
+    
     },
     "start":"module_closure"
 } 
