@@ -10,6 +10,8 @@ import pprint as pp
 
 from parse import ParsingAutomaton,Grammar,Util,Stack
 
+# CONSTANTS ####################################################################
+
 # VARIABLES (NONTERMINALS)
 # important subtree labels
 MODULE_VAR      = "module_closure"
@@ -62,18 +64,7 @@ LAYOUT_TAG  = "layout"
 
 EXT = ".cow"
 
-# compile BeeF from a syntax tree
-def parse(source,parser):
-    tree = parser.parse(source)
-    assert(MODULE_VAR in tree)
-    tree = Util.unroll(tree,parser.grammar)
-
-    module = tree[MODULE_VAR]
-
-    assert NAMESPACE_VAR in module,"No namespace in module: {}".format(root_module)
-    assert BINDINGS_VAR in module,"No bindings in module: {}".format(root_module)
-
-    return module
+# TOP LEVEL COMPILER ROUTINE ###################################################
 
 def build(module,parser,path):
     pp.pprint(module)
@@ -85,6 +76,10 @@ def build(module,parser,path):
     # 2. Resolve inline text
     #       a. Resolve bindings and modifier applications
     #       b. Resolve non-call inline closures
+
+    # use a Scope object for managing variable scope
+    # object will mutate with each closure yielded by generator,
+    # and will represent the variable scope of the closure
     scope = Scope()
     scope.enter() # create a top level scope for bindings
     set_block_depth(scope,0)
@@ -97,8 +92,7 @@ def build(module,parser,path):
     for binding in traverse_module_bindings(master_scope,scope):
         add_global_binding(scope,binding[BINDING_BLOCK_VAR])
 
-    # print(scope)
-
+    # in-order module code traversal
     for closure in traverse_module_text(master_scope,scope):
         process_inline_closure(closure,scope)
     
@@ -111,6 +105,20 @@ def build(module,parser,path):
     # 7. Wrap namespace table entries in counting block structure
     # 8. Build preamble and postamble text
     return
+
+# HIGH LEVEL HELPER FUNCTIONS ##################################################
+
+def parse(source,parser):
+    tree = parser.parse(source)
+    assert(MODULE_VAR in tree)
+    tree = Util.unroll(tree,parser.grammar)
+
+    module = tree[MODULE_VAR]
+
+    assert NAMESPACE_VAR in module,"No namespace in module: {}".format(root_module)
+    assert BINDINGS_VAR in module,"No bindings in module: {}".format(root_module)
+
+    return module
 
 def build_master_scope(root_module,module_loader_fn):
     master_scope = { root_module[NAME_TAG] : root_module }
@@ -132,7 +140,9 @@ def module_loader(module_name,parser,path):
     fname = str.join("/",path + [module_name + EXT])
     with open(fname,'r') as msrc: # find and parse the file
         mod = parse(make_source_reader(msrc),parser)
-    assert mod[NAME_TAG] == module_name,"Root module name must match file name: {} in {}".format(mod[NAME_TAG],fname)
+    errstr = "Root module name must match file name: {} in {}".format(
+        mod[NAME_TAG],fname)
+    assert mod[NAME_TAG] == module_name,errstr
     return mod
 
 def collect_dependencies(module,acc,new_added):
@@ -142,6 +152,16 @@ def collect_dependencies(module,acc,new_added):
             if depname not in acc:
                 acc.add(depname)
                 new_added.add(depname)
+
+def brace_splitter(regex,token):
+    return [tk for tk in regex.split(token) if tk]
+
+def make_source_reader(file):
+    brace_splitter_regex= re.compile("([{}()])")
+    token_fn = lambda(tk):brace_splitter(brace_splitter_regex,tk)
+    return Tokenizer(SourceReader(file),token_fn)
+
+# RECURSIVE TREE TRAVERSAL AND SCOPE MANAGMENT #################################
 
 def traverse_module_bindings(base,scope):
     for name in base:
@@ -167,14 +187,14 @@ def traverse_module_text(base,scope):
     scope.exit() # exit the global scope
 
 def traverse_namespace_text(namespace,scope):
-    scope.enter()
-    increase_block_depth(scope)        
     if namespace[BLOCKS_VAR] == None:
         return
+    scope.enter() # create a scope for this namespace
+    increase_block_depth(scope) # used for external function call resolution
     for block in namespace[BLOCKS_VAR]:
         for text in traverse_block_text(block,scope):
             yield text
-    scope.exit()
+    scope.exit() # exit namespace scope
 
 def traverse_block_text(block,scope):
     if FUNC_VAR in block:
@@ -194,7 +214,6 @@ def traverse_scoped_text(inline,scope):
     if inline == None:
         return
     scope.enter() # create a local scope
-    increase_block_depth(scope)
     for text in inline:
         if TOKEN_VAR in text:
             yield text
@@ -205,7 +224,9 @@ def traverse_scoped_text(inline,scope):
             elif KEYWORD_TERM in sub:
                 for txt in traverse_scoped_text(sub[TEXT_VAR],scope):
                     yield txt
-    scope.exit()
+    scope.exit() # exit the local scope
+
+# CLOSURE PROCESSING STUFF #####################################################
 
 def process_inline_closure(closure,scope):
     # pp.pprint(closure)
@@ -231,7 +252,6 @@ def process_text_closure(closure,scope):
         closure[ASSEMBLY_VAR] = resolve_keyword(closure,scope)
         closure[MODIFIER_VAR] = None
 
-# convert an inline binding to the standard binding format
 def process_bind_closure(closure,scope):
     # pp.pprint(closure)
     body = closure[BIND_BODY_VAR]
@@ -244,6 +264,7 @@ def process_bind_closure(closure,scope):
         bind_module(scope,body[NAME_TAG])
         return
     
+    # inline binding: convert to the standard binding format
     text = body[BIND_TEXT_VAR].copy()
 
     binding_text = text.pop(BINDING_TEXT_VAR)
@@ -270,6 +291,8 @@ def resolve_keyword(closure,scope):
     # print("FOUND MAPPING FOR {}:".format(keyword))
     # print(scope)
     # pp.pprint(scope.get(make_binding_var(keyword)))
+
+# SCOPE MANAGEMENT HELPER FUNCTIONS ############################################
 
 def increase_block_depth(scope):
     depth = scope.get(DEPTH_INFO)
@@ -325,6 +348,7 @@ def bind_module(scope,name):
         bound_list.add(bname)
     scope.bind(KEYWORD_INFO,bound_list)
 
+# HELPER CLASSES ###############################################################
 
 class Scope:
     def __init__(self):
@@ -409,14 +433,6 @@ class SourceReader:
             for token in line.strip().split():
                 yield token
             self.line = self.line + 1
-
-def brace_splitter(regex,token):
-    return [tk for tk in regex.split(token) if tk]
-
-def make_source_reader(file):
-    brace_splitter_regex= re.compile("([{}()])")
-    token_fn = lambda(tk):brace_splitter(brace_splitter_regex,tk)
-    return Tokenizer(SourceReader(file),token_fn)
 
 def compile_module(source):
     with open("cow.json","r") as src:
