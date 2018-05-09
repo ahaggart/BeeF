@@ -79,6 +79,7 @@ def pivot(table):
 class Stack(list):
     def push(self,x):
         self.append(x)
+    
     def peek(self):
         if len(self):
             return self[len(self)-1]

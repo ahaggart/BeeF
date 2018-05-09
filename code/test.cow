@@ -16,11 +16,17 @@ test{
             }
             bind{ super_deep_nesting to <<>> hello _+_+ }
             scope{
+                rebase{ 0 }
                 goodbye
-                scope{
+                lock{
                     testing_keyword
+                    +^+^_-_-
                     scope{
                         super_deep_nesting
+                    }
+                    --++^^__
+                    scope{
+                        << >>> <<>> [<>]
                     }
                 }
             }

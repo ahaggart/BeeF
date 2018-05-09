@@ -65,6 +65,8 @@ KEYWORD_INFO    = ("BOUND","KEYWORDS")
 MODULE_INFO     = ("MODULE","NAME")
 MAPPING_INFO    = ("MAPPING","INFO")
 PATH_INFO       = ("PATH","INFO")
+ORDER_INFO      = ("ORDER","INFO")
+TRACKING_INFO   = ("TRACKING","INFO")
 
 TEXT_TARGET     = ("TEXT","TARGET")
 
@@ -78,6 +80,8 @@ LAYOUT_TAG  = "layout"
 BIND_TAG    = "bind"
 SET_TAG     = "set"
 SCOPE_TAG   = "scope"
+REBASE_TAG  = "rebase"
+LOCK_TAG    = "lock"
 
 GOTO_TAG    = "goto"
 PUSH_TAG    = "push"
@@ -133,6 +137,7 @@ def build(module,parser,path):
     scope.bind(MAPPING_INFO,dict())
     scope.bind(TEXT_TARGET,CopyList())
     scope.bind(PATH_INFO,CopyList())
+    scope.bind(TRACKING_INFO,Stack([make_pos_tracker(None)]))
 
     # populate the global scope with module bindings
     for binding in traverse_module_bindings(master_scope,scope):
@@ -282,6 +287,7 @@ def traverse_function_text(func,scope):
     # create an itermediate scope for path resolution
     scope.enter() # update the path for this scope
     append_path(scope,func[NAME_TAG])
+    update_tracking(scope,0) # rebase to 0 on function entry
     
     for text in traverse_scoped_text(func[TEXT_VAR],scope):
         yield text
@@ -291,8 +297,9 @@ def traverse_function_text(func,scope):
 def traverse_scoped_text(inline,scope):
     if inline == None:
         return
+    order = update_scope_order(scope)
     scope.enter() # create a local scope
-    append_path(scope,SCOPE_TAG)
+    append_path(scope,order)
     for text in inline:
         if TOKEN_VAR in text:
             yield text
@@ -301,6 +308,13 @@ def traverse_scoped_text(inline,scope):
             if SCOPE_TAG in sub:
                 for txt in traverse_scoped_text(sub[TEXT_VAR],scope):
                     yield txt
+            elif LOCK_TAG in sub:
+                # maintain tracking
+                # TODO: add VM locks to enforce
+                pos = get_tracked_pos(scope)
+                for txt in traverse_scoped_text(sub[TEXT_VAR],scope):
+                    yield txt
+                update_tracking(scope,pos)
             else:
                 yield sub
     scope.exit() # exit the local scope
@@ -317,6 +331,8 @@ def process_inline_closure(closure,scope):
         process_layout_closure(closure,scope)
     elif SET_TAG in closure:
         process_set_closure(closure,scope)
+    elif REBASE_TAG in closure:
+        process_rebase_closure(closure,scope)
 
 def process_text_closure(closure,scope):
     # pp.pprint(closure)
@@ -330,12 +346,32 @@ def process_text_closure(closure,scope):
             closure[MODIFIER_VAR] = None # destroy the modifier
             # duplicate the token
             closure[ASSEMBLY_VAR] = closure[ASSEMBLY_VAR] * mod_val
-        with scope.use(TEXT_TARGET) as target:
-            target.append(closure[ASSEMBLY_VAR])
+        process_raw_text(closure[ASSEMBLY_VAR],scope)
     elif BOUND_KEYWORD_VAR in closure: # resolve the keyword
         # resolve the keyword into assembly and swap the tags
         closure[ASSEMBLY_VAR] = resolve_keyword(closure,scope)
         closure[MODIFIER_VAR] = None
+
+def process_raw_text(text,scope):
+    with scope.use(TEXT_TARGET) as target:
+        target.append(text)
+    tracker = get_pos_tracker(scope)
+    if tracker[ADDRESS_TAG] == None:
+        return
+    for char in text:
+        if tracker[ADDRESS_TAG] == None:
+            break
+        if char in tracker:
+            tracker[char] = tracker[char] + 1
+        elif char == CBF_INSTR:
+            track_loop_entry(scope)
+        elif char == ABR_INSTR:
+            track_loop_exit(scope)
+        tracker = get_pos_tracker(scope)
+    # if tracker[ADDRESS_TAG] != None:
+    #     print("Tracking to {} through {}".format(get_tracked_pos(scope),text))
+    # else:
+    #     print("Tracking invalidated on: {}".format(text))
 
 def process_bind_closure(closure,scope):
     # pp.pprint(closure)
@@ -384,6 +420,10 @@ def process_set_closure(closure,scope):
 
     closure[TEXT_VAR] = optimized
 
+def process_rebase_closure(closure,scope):
+    base = int(closure[NUMBER_TAG])
+    update_tracking(scope,base)
+
 def process_set_statement(pair,scope):
     source = pair[DATA_SOURCE_VAR]
     target = pair[DATA_TARGET_VAR]
@@ -426,7 +466,7 @@ def optimize_statement_block(block,scope):
         actions.append((GOTO_TAG,addr))
         actions.append((PUSH_TAG,addr))
 
-    block.sort(cmp=pair_compare,reverse=True) 
+    block.reverse()
     for triple in block:
         actions.append((GOTO_TAG,triple[1]))
         if triple[2] == ADDRESS_TAG:
@@ -504,8 +544,60 @@ def add_global_binding(scope,binding):
 def append_path(scope,name):
     with scope.use(PATH_INFO) as path:
         path.append(name)
-    with scope.use(TEXT_TARGET) as text:
-        text.clear()
+
+    # clear this scope's text target
+    scope.bind(TEXT_TARGET,CopyList())
+    scope.bind(ORDER_INFO,0)
+
+def update_scope_order(scope):
+    order = scope.get(ORDER_INFO)
+    with scope.use(TEXT_TARGET) as target:
+        target.append(order)
+    scope.bind(ORDER_INFO,order+1)
+    return order
+
+def make_pos_tracker(addr):
+    return { RIGHT_INSTR:0, LEFT_INSTR:0, ADDRESS_TAG:addr }
+
+def get_pos_tracker(scope):
+    return scope.get(TRACKING_INFO).peek()
+
+def update_tracking(scope,addr):
+    reset_tracking(scope,addr)
+
+def get_tracked_pos(scope):
+    pos = get_pos_tracker(scope)
+    base = pos[ADDRESS_TAG]
+    resolved = (base + pos[RIGHT_INSTR] - pos[LEFT_INSTR])
+    reset_tracking(scope,resolved)
+    return resolved
+
+def reset_tracking(scope,addr=None):
+    # print("Resetting tracking to: {}".format(addr))
+    pos_tracker = get_pos_tracker(scope)
+    pos_tracker[RIGHT_INSTR] = 0
+    pos_tracker[LEFT_INSTR]  = 0
+    pos_tracker[ADDRESS_TAG] = addr
+
+def invalidate_tracking(scope):
+    reset_tracking(scope,None)
+
+def create_tracking_scope(scope):
+    tracker = scope.get(TRACKING_INFO)
+    tracker.push(tracker.peek().copy())
+
+def destroy_tracking_scope(scope):
+    return scope.get(TRACKING_INFO).pop()
+
+def track_loop_entry(scope):
+    create_tracking_scope(scope)
+
+def track_loop_exit(scope): # pop the current tracking scope
+    old = destroy_tracking_scope(scope)
+
+    # tracking was lost in old scope, invalidate new
+    if old[RIGHT_INSTR] != old[LEFT_INSTR] or old[ADDRESS_TAG] == None:
+        invalidate_tracking(scope)
 
 def make_binding_var(binding,module=None):
     if module:
