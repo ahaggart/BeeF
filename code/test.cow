@@ -9,6 +9,12 @@ test{
         function{
             ><_^ ( +70 )
             hello ( bkw )
+            bind{ testing_keyword to 
+                ^^__ 
+                ++-- 
+                >><< 
+            }
+            bind{ super_deep_nesting to <<>> hello _+_+ }
             scope{
                 goodbye
                 assert{
@@ -23,7 +29,8 @@ test{
         namespace nested{
             nested_function {
                 bind{ bitwise2 }
-                bind{ ( >< ) to local }
+                bitwise_binding
+                bind{ local to  ><  }
                 assert{
                     some_assembly
                     _><_^+
@@ -34,10 +41,15 @@ test{
     }
     bindings {
         hello{
-            ><><><><
+            ><>
+            <><
+            ><
         }
         goodbye{
             ++++----
+        }
+        some_more_assembly{
+            
         }
     }
     postamble{

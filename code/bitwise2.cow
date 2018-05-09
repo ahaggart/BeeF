@@ -11,5 +11,8 @@ bitwise2{
         bitwise_binding{
             ^^^^^
         }
+        some_assembly{
+            _____
+        }
     }
 }

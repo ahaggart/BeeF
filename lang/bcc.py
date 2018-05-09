@@ -10,6 +10,8 @@ import pprint as pp
 
 from parse import ParsingAutomaton,Grammar,Util,Stack
 
+# VARIABLES (NONTERMINALS)
+# important subtree labels
 MODULE_VAR      = "module_closure"
 IMPORT_VAR      = "depends_closure"
 PREAMBLE_VAR    = "preamble_closure"
@@ -19,6 +21,7 @@ BINDINGS_VAR    = "bindings_closure"
 
 BINDING_BLOCKS_VAR  = "binding_closures"
 BINDING_BLOCK_VAR   = "binding_block"
+BINDING_TEXT_VAR    = "binding_text"
 
 BOUND_KEYWORD_VAR   = "bound_keyword"
 
@@ -32,21 +35,27 @@ TOKEN_VAR       = "text_token"
 INLINE_VAR      = "inline_closure"
 SCOPE_VAR       = "scope"
 BIND_VAR        = "bind"
+BIND_BODY_VAR   = "bind_statement"
+BIND_TEXT_VAR   = "non_empty_binding_text"
 KEYWORD_VAR     = "keyword_closure"
 
 ASSEMBLY_VAR    = "raw_assembly"
 MODIFIER_VAR    = "modifier"
+MODIFIER_DEC_VAR= "modifier_declaration"
 
 KEYWORD_TERM    = "keyword"
 
-# scope metadata
+# SCOPE METADATA
 # use a tuple to prevent name collisions with other data
 DEPTH_INFO      = ("DEPTH","INFO")  
 KEYWORD_INFO    = ("BOUND","KEYWORDS")
 MODULE_INFO     = ("MODULE","NAME")
+MAPPING_INFO    = ("MAPPING","INFO")
 
-NAME_TAG = 'name'
-NUMBER_TAG  =   'number'
+# TAGS
+# important grammar terminals and generics
+NAME_TAG    = 'name'
+NUMBER_TAG  = 'number'
 MODULES_TAG = 'module_names'
 BINDING_TAG = "binding"
 LAYOUT_TAG  = "layout"
@@ -57,7 +66,7 @@ EXT = ".cow"
 def parse(source,parser):
     tree = parser.parse(source)
     assert(MODULE_VAR in tree)
-    tree = Util.unroll(tree)
+    tree = Util.unroll(tree,parser.grammar)
 
     module = tree[MODULE_VAR]
 
@@ -67,6 +76,7 @@ def parse(source,parser):
     return module
 
 def build(module,parser,path):
+    pp.pprint(module)
     # 1. Collect dependencies from tree, expanding the master scope until all
     #       dependencies are included
     loader = lambda(name):module_loader(name,parser,path)
@@ -81,15 +91,17 @@ def build(module,parser,path):
 
     # add metadata for keywords that are accessible from scope
     scope.bind(KEYWORD_INFO,set())
+    scope.bind(MAPPING_INFO,dict())
 
     # populate the global scope with module bindings
     for binding in traverse_module_bindings(master_scope,scope):
         add_global_binding(scope,binding[BINDING_BLOCK_VAR])
 
+    # print(scope)
+
     for closure in traverse_module_text(master_scope,scope):
         process_inline_closure(closure,scope)
     
-    print(scope)
     scope.exit()
 
     # 3. Create soft links between dependent code and depended module
@@ -135,6 +147,7 @@ def traverse_module_bindings(base,scope):
     for name in base:
         module = base[name]
         bindings = module[BINDINGS_VAR][BINDING_BLOCKS_VAR]
+        bind_current_module_name(scope,module[NAME_TAG])
         for text in traverse_binding_text(bindings,scope):
             yield text
 
@@ -148,7 +161,7 @@ def traverse_module_text(base,scope):
     scope.enter() # create a global scope
     for name in base:
         module = base[name]
-        bind_module(scope,module)
+        bind_current_module(scope,module)
         for text in traverse_namespace_text(module[NAMESPACE_VAR],scope):
             yield text
     scope.exit() # exit the global scope
@@ -198,9 +211,11 @@ def process_inline_closure(closure,scope):
     # pp.pprint(closure)
     if TOKEN_VAR in closure:
         process_text_closure(closure[TOKEN_VAR],scope)
+    elif BIND_VAR in closure:
+        process_bind_closure(closure,scope)
 
 def process_text_closure(closure,scope):
-    pp.pprint(closure)
+    # pp.pprint(closure)
     if ASSEMBLY_VAR in closure: # raw assembly, only need to resolve modifier
         modifier = closure[MODIFIER_VAR]
         if modifier != None:
@@ -215,7 +230,39 @@ def process_text_closure(closure,scope):
         # resolve the keyword into assembly and swap the tags
         closure[ASSEMBLY_VAR] = resolve_keyword(closure,scope)
         closure[MODIFIER_VAR] = None
-        
+
+# convert an inline binding to the standard binding format
+def process_bind_closure(closure,scope):
+    # pp.pprint(closure)
+    body = closure[BIND_BODY_VAR]
+    name = body[NAME_TAG]
+
+    # module binding
+    if BIND_TEXT_VAR not in body:
+        if NAME_TAG not in body:
+            handler.error("Malformed inline binding: {}".format(closure))
+        bind_module(scope,body[NAME_TAG])
+        return
+    
+    text = body[BIND_TEXT_VAR].copy()
+
+    binding_text = text.pop(BINDING_TEXT_VAR)
+    if binding_text == None:
+        binding_text = []
+    prefix = text # get whatever else is there and prepend to list
+    binding_text.insert(0,prefix)
+    binding = {
+        MODIFIER_DEC_VAR:None,
+        BINDING_TEXT_VAR:binding_text,
+        NAME_TAG:name
+    }
+    scope.bind(make_binding_var(binding[NAME_TAG]),binding)
+
+    # add this keyword to the bound keywords for this scope
+    bound = scope.get(KEYWORD_INFO).copy()
+    bound.add(name)
+    scope.bind(KEYWORD_INFO,bound)
+      
 def resolve_keyword(closure,scope):
     keyword = closure[BOUND_KEYWORD_VAR]
     if keyword not in scope.get(KEYWORD_INFO):
@@ -232,22 +279,52 @@ def get_block_depth(scope):
     return scope.get(DEPTH_INFO)
 
 def add_global_binding(scope,binding):
-    return scope.bind(make_binding_var(binding),binding)
+    binding_name = binding[NAME_TAG]
+    module_name = scope.get(MODULE_INFO)
 
-def make_binding_var(binding):
-    return (BINDING_TAG,binding[NAME_TAG])
+    mapping = scope.get(MAPPING_INFO).copy()
+    if module_name not in mapping:
+        mapping[module_name] = set()
+    mapping[module_name].add(binding_name)
+    scope.bind(MAPPING_INFO,mapping)
+
+    binding_var = make_binding_var(binding_name,module_name)
+    return scope.bind(binding_var,binding)
+
+def make_binding_var(binding,module=None):
+    if module:
+        return (BINDING_TAG,module,binding)
+    else:
+        return (BINDING_TAG,binding)
 
 def make_layout_var(layout):
     return (LAYOUT_TAG,None)
 
-def bind_module(scope,module):
-    scope.bind(MODULE_INFO,module[NAME_TAG]) # bind the module name to metadata
-
+def bind_current_module(scope,module):
+    bind_current_module_name(scope,module[NAME_TAG])
     # implicitly bind the module's bindings
     curr_bindings = scope.get(KEYWORD_INFO).copy()
     for binding in module[BINDINGS_VAR][BINDING_BLOCKS_VAR]:
         curr_bindings.add(binding[BINDING_BLOCK_VAR][NAME_TAG])
-    scope.bind(KEYWORD_INFO,curr_bindings)
+    scope.bind(KEYWORD_INFO,curr_bindings)    
+
+def bind_current_module_name(scope,name):
+    scope.bind(MODULE_INFO,name) # bind the module name to metadata
+
+def bind_module(scope,name):
+    # print("BINDING MODULE: {}".format(name))
+    bound_list = scope.get(KEYWORD_INFO).copy()
+    for bname in scope.get(MAPPING_INFO)[name]:
+        global_var = make_binding_var(bname,name)
+        scoped_var = make_binding_var(bname)
+        # print("BINDING {} to {}".format(global_var,scoped_var))
+
+        # bind global definition into local definition
+        scope.bind(scoped_var,scope.get(global_var))
+
+        bound_list.add(bname)
+    scope.bind(KEYWORD_INFO,bound_list)
+
 
 class Scope:
     def __init__(self):
@@ -268,7 +345,7 @@ class Scope:
 
     def get(self,symbol):
         if symbol not in self.symbols or not len(self.symbols[symbol]):
-            raise KeyError("Symbol not in scope: {}".format(symbol))            
+            raise KeyError("Symbol not in scope: {}".format(symbol))   
         return self.symbols[symbol].peek()
 
     def bind(self,symbol,value):

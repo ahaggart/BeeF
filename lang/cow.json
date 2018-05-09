@@ -24,7 +24,7 @@
         "binding_closures":["binding_block binding_closures",null],
         "binding_block":["name modifier_declaration { binding_text }"],
         "postamble_closure":["postamble { binding_text }",null],
-        "binding_text":["keyword_closure binding_text","bound_keyword binding_text","raw_assembly binding_text",null],
+        "binding_text":["binding_text keyword_closure","binding_text bound_keyword","binding_text raw_assembly",null],
         "modifier_declaration":["( modifier_list )",null],
         "modifier_list":["name modifier_list","name"],
         "inline_text":["text_token inline_text","inline_closure inline_text",null],
@@ -35,7 +35,8 @@
         "call_closure":["call { call_path }"],
         "call_path":["name","name name"],
         "keyword":["rebase","assert","goto","scope","set","panic","layout"],
-        "bind_statement":["name","( binding_text ) to name"]
+        "bind_statement":["name","name to non_empty_binding_text"],
+        "non_empty_binding_text":["keyword_closure binding_text","bound_keyword binding_text","raw_assembly binding_text"]
     },
     "start":"module_closure"
 } 
