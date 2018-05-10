@@ -53,6 +53,10 @@ GOTO_INNER_VAR  = "goto_statement"
 
 ASSERT_INNER_VAR = "assert_statement"
 
+MODIFIER_CHAIN_VAR = "modifier_chain"
+MODIFIER_LIST_VAR  = "modifier_list"
+MODIFIER_ARG_VAR   = "modifier_arg"
+
 ASSEMBLY_VAR    = "raw_assembly"
 MODIFIER_VAR    = "modifier"
 MODIFIER_DEC_VAR= "modifier_declaration"
@@ -85,6 +89,8 @@ SCOPE_TAG   = "scope"
 REBASE_TAG  = "rebase"
 LOCK_TAG    = "lock"
 ASSERT_TAG  = "assert"
+TEXT_TAG    = "text"
+ASSEMBLY_TAG= ASSEMBLY_VAR
 
 GOTO_TAG    = "goto"
 PUSH_TAG    = "push"
@@ -110,6 +116,8 @@ DEC_INSTR   = "-"
 ZERO_BINDING = "[-]"
 
 CELL_MAX = 255
+
+TOKEN_CHAR_REGEX = "([{},()])"
 
 COMMENT_DELIM = "#"
 
@@ -222,7 +230,7 @@ def brace_splitter(regex,token):
     return [tk for tk in regex.split(token) if tk]
 
 def make_source_reader(file):
-    brace_splitter_regex= re.compile("([{}()])")
+    brace_splitter_regex= re.compile(TOKEN_CHAR_REGEX)
     token_fn = lambda(tk):brace_splitter(brace_splitter_regex,tk)
     return Tokenizer(SourceReader(file),token_fn)
 
@@ -363,18 +371,27 @@ def process_text_closure(closure,scope):
     # pp.pprint(closure)
     if ASSEMBLY_VAR in closure: # raw assembly, only need to resolve modifier
         modifier = closure[MODIFIER_VAR]
+        assembly = closure[ASSEMBLY_VAR]
         if modifier != None:
             if NAME_TAG in modifier:
+                vvar = make_value_var(modifier[NAME_TAG])
+                if not scope.has(vvar):
+                    handler.error("Non-numeric modifier: {}".format(
+                        modifier))
+                mod_val = scope.get(vvar)
+            elif ASSEMBLY_TAG in modifier:
                 handler.error("Non-numeric modifier: {}".format(
-                    modifier[NAME_TAG]))
-            mod_val = int(modifier[NUMBER_TAG])
-            closure[MODIFIER_VAR] = None # destroy the modifier
+                    modifier))
+            else:
+                mod_val = int(modifier[NUMBER_TAG])
+            # closure[MODIFIER_VAR] = None # destroy the modifier
             # duplicate the token
-            closure[ASSEMBLY_VAR] = closure[ASSEMBLY_VAR] * mod_val
-        emit_raw_text(closure[ASSEMBLY_VAR],scope)
+            # closure[ASSEMBLY_VAR] = closure[ASSEMBLY_VAR] * mod_val
+            assembly = closure[ASSEMBLY_VAR] * mod_val
+        emit_raw_text(assembly,scope)
     elif BOUND_KEYWORD_VAR in closure: # resolve the keyword
         # resolve the keyword into assembly and swap the tags
-        resolve_keyword(closure,scope)
+        process_bound_keyword(closure,scope)
 
 def emit_raw_text(text,scope):
     if not text:
@@ -612,7 +629,7 @@ def process_value_assertion(closure,scope):
     with scope.use(KNOWN_VALUE_INFO) as kv:
         kv[addr] = val
    
-def resolve_keyword(closure,scope): # resolve a bound keyword into assembly
+def process_bound_keyword(closure,scope): # resolve a bound keyword into assembly
     # pp.pprint(closure)
     keyword = closure[BOUND_KEYWORD_VAR]
     if keyword not in scope.get(KEYWORD_INFO):
@@ -621,7 +638,85 @@ def resolve_keyword(closure,scope): # resolve a bound keyword into assembly
     # grab the binding from the local scope
     binding = scope.get(make_binding_var(keyword))
 
-    process_binding_text(binding,scope)
+    # build a partial scope for resolving modifiers
+    partial = {}
+
+    # this is a bad way to do this
+    # TODO: add a way to intercept emitted text and duplicate it
+    dups = 1
+
+    if closure[MODIFIER_VAR] != None:
+        # print("got here {}".format(keyword))
+        modifiers = closure[MODIFIER_VAR]
+        binding_def = format_binding_def(binding)
+        apperr = "Cannot apply {} to binding: {}".format(
+                format_modifiers(modifiers),binding_def)
+        matcherr = "Cannot match \"{}\" to \"{}\" in {}"
+        if binding[MODIFIER_DEC_VAR] != None:
+            applied = build_modifier_chain(modifiers)
+            declared = binding[MODIFIER_DEC_VAR][MODIFIER_LIST_VAR]
+
+            if len(applied) != len(declared):
+                raise ValueError(apperr)
+
+            mods = [dec[MODIFIER_ARG_VAR][NAME_TAG] for dec in declared]
+
+            for i in range(0,len(declared)):
+                param = declared[i][MODIFIER_ARG_VAR]
+                arg = applied[i]
+                arg_val = arg[1]
+                match_error = ValueError(matcherr.format(arg_val,param[NAME_TAG],binding_def))
+
+                if LAYOUT_TAG in param:
+                    layout_var = make_layout_var(arg_val)
+                    local_var  = make_layout_var(param[NAME_TAG]) 
+                    if not scope.has(layout_var):
+                        raise match_error
+                    partial[local_var] = scope.get(layout_var)
+                elif VALUE_TAG in param: # expecting a number
+                    if arg[0] == NUMBER_TAG: # raw number
+                        partial[make_value_var(param[NAME_TAG])] = int(arg[1])
+                    elif arg[0] == NAME_TAG: # named number (param forwarding)
+                        vvar = make_value_var(arg[NAME_TAG])
+                        pvar = make_value_var(param[NAME_TAG])
+                        partial[pvar] = scope.get(vvar)
+                    else:
+                        raise match_error
+                elif TEXT_TAG in param: # expecting a keyword or raw assembly
+                    kvar = make_binding_var(param[NAME_TAG])
+                    # build a fake binding to implement text substitution
+                    if arg[0] == NAME_TAG:
+                        bvar = make_bound_keyword_closure(arg[1])
+                    elif arg[0] == ASSEMBLY_TAG:
+                        bvar = make_assembly_closure(arg[1])
+                    else:
+                        raise match_error
+                    partial[kvar] = pack_into_binding_text(param[NAME_TAG],[bvar])
+                    if KEYWORD_INFO not in partial:
+                        partial[KEYWORD_INFO] = scope.get(KEYWORD_INFO).copy()
+                    partial[KEYWORD_INFO].add(param[NAME_TAG])
+                else:
+                    raise ValueError(apperr)
+        else: # binding does not declare any modifiers, treat as raw text
+            if NUMBER_TAG in modifiers:
+                dups = int(modifiers[NUMBER_TAG])
+            elif NAME_TAG in modifiers:
+                vvar = make_value_var(modifiers[NAME_TAG])
+                if not scope.has(vvar):
+                    raise ValueError(apperr)
+                dups = scope.get(vvar)
+            elif modifiers[MODIFIER_CHAIN_VAR] != None:
+                raise ValueError(apperr)
+            pass
+    elif binding[MODIFIER_DEC_VAR] != None:
+        # binding expects modifiers
+        raise ValueError("Binding {} expects modifiers".format(keyword))
+
+    with scope.partial(partial) as scope:
+        count = 0
+        while count < dups:
+            process_binding_text(binding,scope)
+            count = count + 1
 
 def resolve_binding(closure,modifier,scope):
     raise NotImplementedError
@@ -673,6 +768,12 @@ def pack_binding_text(binding):
 def pack_inline_closure(closure):
     return { INLINE_VAR: closure }
 
+def pack_into_binding_text(name,text):
+    return { 
+        BINDING_TEXT_VAR:text,
+        NAME_TAG:name,
+        MODIFIER_DEC_VAR:None,
+    }
 
 def append_path(scope,name):
     with scope.use(PATH_INFO) as path:
@@ -732,6 +833,9 @@ def make_binding_var(binding,module=None):
 def make_layout_var(layout):
     return (LAYOUT_TAG,layout)
 
+def make_value_var(name):
+    return (VALUE_TAG,name)
+
 def make_goto_closure(addr):
     return {
         GOTO_TAG:GOTO_TAG,
@@ -745,6 +849,14 @@ def make_assembly_closure(text):
         TOKEN_VAR:{
             MODIFIER_VAR:None,
             ASSEMBLY_VAR:text,
+        }
+    }
+
+def make_bound_keyword_closure(keyword):
+    return {
+        TOKEN_VAR:{
+            MODIFIER_VAR:None,
+            BOUND_KEYWORD_VAR:keyword,
         }
     }
 
@@ -799,6 +911,57 @@ def bind_module(scope,name):
 def bind_layout_info(scope,info): # bind layout information into the scope
     scope.bind(make_layout_var(info[NAME_TAG]),int(info[NUMBER_TAG]))
 
+def format_modifiers(modifier):
+    text = ["("]
+
+    def text_append(text,statement):
+        if NAME_TAG in statement:
+            text.append(statement[NAME_TAG])
+        elif ASSEMBLY_TAG in statement:
+            text.append(statement[ASSEMBLY_TAG])
+        else:
+            text.append(statement[NUMBER_TAG])
+
+    text_append(text,modifier)
+    if modifier[MODIFIER_CHAIN_VAR] != None:
+        for mod in modifier[MODIFIER_CHAIN_VAR]:
+            text_append(text,mod)
+    text.append(")")
+    return " ".join(text)
+
+def format_binding_def(binding):
+
+    def text_append(text,statement):
+        statement = statement[MODIFIER_ARG_VAR]
+        sub = []
+        if LAYOUT_TAG in statement:
+            sub.append(LAYOUT_TAG)
+        elif VALUE_TAG in statement:
+            sub.append(VALUE_TAG)
+        else:
+            sub.append(TEXT_TAG)
+        sub.append(statement[NAME_TAG])
+        text.append(" ".join(sub))
+
+    inner = []
+    if binding[MODIFIER_DEC_VAR] != None:
+        for mod in binding[MODIFIER_DEC_VAR][MODIFIER_LIST_VAR]:
+            text_append(inner,mod)
+
+    return " ".join([binding[NAME_TAG],"(",", ".join(inner),")"])
+
+def build_modifier_chain(modifiers):
+    chain = []
+    if modifiers[MODIFIER_CHAIN_VAR] != None:
+        for mod in [modifiers]+modifiers[MODIFIER_CHAIN_VAR]:
+            if NAME_TAG in mod:
+                chain.append((NAME_TAG,mod[NAME_TAG]))
+            elif NUMBER_TAG in mod:
+                chain.append((NUMBER_TAG,mod[NUMBER_TAG]))
+            else:
+                chain.append((ASSEMBLY_TAG,mod[ASSEMBLY_TAG]))
+    return chain
+
 # HELPER CLASSES ###############################################################
 
 class Scope:
@@ -818,7 +981,9 @@ class Scope:
                 values[symbol] = self.symbols[symbol].peek()
         return values
                 
-
+    def has(self,symbol):
+        return symbol in self.symbols and len(self.symbols[symbol]) > 0
+    
     def get(self,symbol):
         if symbol not in self.symbols or not len(self.symbols[symbol]):
             raise KeyError("Symbol not in scope: {}".format(symbol))   
@@ -901,7 +1066,10 @@ class ScopePartialContextManager:
             if symbol in self.scope.curr_symbols:
                 self.scope.curr_symbols.remove(symbol)
                 self.rebind.add(symbol)
-            self.lock[symbol] = len(self.scope.symbols[symbol])
+            if self.scope.has(symbol):
+                self.lock[symbol] = len(self.scope.symbols[symbol]) 
+            else:
+                self.lock[symbol] = 0
             self.scope.bind(symbol,self.subset[symbol]) # rebind the subset
         return self.scope
 

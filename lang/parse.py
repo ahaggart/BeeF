@@ -574,7 +574,7 @@ class ParsingAutomaton:
                             token,
                             self.action_table[old_state][sym])
         elif not matched:
-            parse_error("Unable to match symbol: {}".format(token))
+            parse_error("Unable to match symbol: \"{}\"".format(token))
         return tree,False
 
 
@@ -1011,5 +1011,5 @@ def follow(grammar):
     return follows
 
 def parse_error(reason):
-    print("Error: {}".format(reason))
+    raise AssertionError("Error: {}".format(reason))
     exit(1)

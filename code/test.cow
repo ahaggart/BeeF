@@ -8,14 +8,20 @@ test{
     namespace{
         function{
             ><_^ ( +2 )
-            hello ( bkw )
+            layout{
+                test +10
+            }
+            bind{sub to ++++ ++++ ++++}
+            hello ( some_more_assembly test +-+-+ +3 )
+            sub
+            goto{test}
             bind{ testing_keyword to 
                 --
                 ^^__ 
                 ++-- 
                 >><< 
             }
-            bind{ super_deep_nesting to <<>> hello _+_+ }
+            bind{ super_deep_nesting to <<>> _+_+ }
             scope{
                 rebase{ 0 }
                 goodbye
@@ -71,21 +77,27 @@ test{
         }
     }
     bindings {
-        hello{
+        hello( text sub, layout layout, text raw, value val ){
             ><> (2)
-            <><
+            <>< (val)
             ><
+            sub (val)
+            raw (val)
             scope{
                 >> << ^^ __
             }
+            goto{layout}
             goodbye
+            layout{
+                test 0
+            }
         }
         goodbye{
             ++++----
             bind{ testing_keyword to _-_-_- }
         }
         some_more_assembly{
-
+            -- -- --
         }
         bitwise_binding{
             -----
