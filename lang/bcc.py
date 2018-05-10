@@ -259,30 +259,29 @@ def traverse_binding_text(base,scope):
         yield binding
 
 def traverse_module_text(base,scope):
-    scope.enter() # create a global scope
-    for name in base:
-        module = base[name]
-        bind_current_module(scope,module)
-        for text in traverse_namespace_text(module[NAMESPACE_VAR],scope):
-            yield text
-    scope.exit() # exit the global scope
+    with scope.inner() as scope:
+        for name in base:
+            module = base[name]
+            bind_current_module(scope,module)
+            for text in traverse_namespace_text(module[NAMESPACE_VAR],scope):
+                yield text
 
 def traverse_namespace_text(namespace,scope):
     if namespace[BLOCKS_VAR] == None:
         return
-    scope.enter() # create a scope for this namespace
-    increase_block_depth(scope) # used for external function call resolution
 
-    # update the path for this scope
-    if NAME_TAG in namespace:
-        append_path(scope,namespace[NAME_TAG])
-    else:
-        append_path(scope,scope.get(MODULE_INFO))
-    
-    for block in namespace[BLOCKS_VAR]:
-        for text in traverse_block_text(block,scope):
-            yield text
-    scope.exit() # exit namespace scope
+    with scope.inner() as scope:
+        increase_block_depth(scope) # used for external function call resolution
+
+        # update the path for this scope
+        if NAME_TAG in namespace:
+            append_path(scope,namespace[NAME_TAG])
+        else:
+            append_path(scope,scope.get(MODULE_INFO))
+        
+        for block in namespace[BLOCKS_VAR]:
+            for text in traverse_block_text(block,scope):
+                yield text
 
 def traverse_block_text(block,scope):
     if FUNC_VAR in block:
@@ -297,24 +296,23 @@ def traverse_function_text(func,scope):
         return
     
     # create an itermediate scope for path resolution
-    scope.enter() # update the path for this scope
-    append_path(scope,func[NAME_TAG])
-    update_tracking(scope,0) # rebase to 0 on function entry
-    
-    for text in traverse_scoped_text(func[TEXT_VAR],scope):
-        yield text
 
-    scope.exit()
+    with scope.inner() as scope:
+        append_path(scope,func[NAME_TAG])
+        update_tracking(scope,0) # rebase to 0 on function entry
+
+        for text in traverse_scoped_text(func[TEXT_VAR],scope):
+            yield text
 
 def traverse_scoped_text(inline,scope):
     if inline == None:
         return
     order = update_scope_order(scope)
-    scope.enter() # create a local scope
-    append_path(scope,order)
-    for text in traverse_unscoped_text(inline,scope):
-        yield text
-    scope.exit() # exit the local scope
+
+    with scope.inner() as scope:
+        append_path(scope,order)
+        for text in traverse_unscoped_text(inline,scope):
+            yield text
 
 def traverse_unscoped_text(inline,scope):
     # pp.pprint(inline)
@@ -838,6 +836,19 @@ class Scope:
             self.symbols[symbol].push(value)
             self.curr_symbols.add(symbol)
         return value
+
+    def unbind(self,symbol):
+        if symbol not in self.curr_symbols:
+            errstr = "Symbol {} not bound by current scope.".format(symbol)
+            raise KeyError(errstr)
+        self.symbols[symbol].pop()
+        self.curr_symbols.remove(symbol)
+
+    def partial(self,subset):
+        return ScopePartialContextManager(self,subset)
+
+    def inner(self):
+        return ScopeContextManager(self)
     
     def enter(self):
         self.defined.push(self.curr_symbols.copy())
@@ -851,6 +862,17 @@ class Scope:
         for symbol in self.curr_symbols:
             self.symbols[symbol].pop()
         self.curr_symbols = self.defined.pop()
+
+class ScopeContextManager:
+    def __init__(self,scope):
+        self.scope = scope
+
+    def __enter__(self):
+        self.scope.enter()
+        return self.scope
+
+    def __exit__(self,exc_type,exc_value,traceback):
+        self.scope.exit()
 
 class ScopeCopyContextManager:
     def __init__(self,scope,symbol):
@@ -866,6 +888,30 @@ class ScopeCopyContextManager:
     def __exit__(self,exc_type,exc_value,traceback):
         # bind the value back into scope
         self.scope.bind(self.symbol,self.hold)
+
+class ScopePartialContextManager:
+    def __init__(self,scope,subset):
+        self.scope = scope
+        self.subset = subset
+        self.rebind = set()
+        self.lock = dict()
+
+    def __enter__(self):
+        for symbol in self.subset:
+            if symbol in self.scope.curr_symbols:
+                self.scope.curr_symbols.remove(symbol)
+                self.rebind.add(symbol)
+            self.lock[symbol] = len(self.scope.symbols[symbol])
+            self.scope.bind(symbol,self.subset[symbol]) # rebind the subset
+        return self.scope
+
+    def __exit__(self,exc_type,exc_value,traceback):
+        for symbol in self.subset:
+            self.scope.unbind(symbol)
+            if self.lock[symbol] != len(self.scope.symbols[symbol]):
+                raise AssertionError("Improper subscope termination")
+        for symbol in self.rebind: # rebind any symbols that were removed
+            self.scope.curr_symbols.add(symbol)
 
 class CopyList(list):
     def copy(self):

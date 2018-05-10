@@ -82,6 +82,7 @@ test{
         }
         goodbye{
             ++++----
+            bind{ testing_keyword to _-_-_- }
         }
         some_more_assembly{
 
