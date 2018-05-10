@@ -51,6 +51,7 @@ DATA_ADDRESS_VAR= "data_address"
 
 GOTO_INNER_VAR  = "goto_statement"
 
+ASSERT_INNER_VAR = "assert_statement"
 
 ASSEMBLY_VAR    = "raw_assembly"
 MODIFIER_VAR    = "modifier"
@@ -83,6 +84,7 @@ SET_TAG     = "set"
 SCOPE_TAG   = "scope"
 REBASE_TAG  = "rebase"
 LOCK_TAG    = "lock"
+ASSERT_TAG = "assert"
 
 GOTO_TAG    = "goto"
 PUSH_TAG    = "push"
@@ -345,6 +347,8 @@ def process_inline_closure(closure,scope):
         process_goto_closure(closure,scope)
     elif CREATE_TAG in closure:
         process_create_closure(closure,scope)
+    elif ASSERT_TAG in closure:
+        process_assert_closure(closure,scope)
 
 def process_text_closure(closure,scope):
     # pp.pprint(closure)
@@ -583,7 +587,12 @@ def compute_value_cost(curr_addr,base_addr,target_value,source_addr,source_value
     return  to_cost + from_cost + adj_cost
 
 def process_assert_closure(closure,scope):
-    pass
+    statement = closure[ASSERT_INNER_VAR]
+    addr = int(statement[DATA_ADDRESS_VAR][NUMBER_TAG])
+    val = int(statement[NUMBER_TAG])
+    with scope.use(KNOWN_VALUE_INFO) as kv:
+        kv[addr] = val
+        # pp.pprint(kv)
       
 def resolve_keyword(closure,scope): # resolve a bound keyword into assembly
     # pp.pprint(closure)

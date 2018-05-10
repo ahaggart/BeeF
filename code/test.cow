@@ -60,9 +60,9 @@ test{
                     target2     +9
                     target3     +10
                 }
-                assert{ value {+3} +10 }
+                assert{ value {+2} 12 }
                 set{
-                    target      128
+                    target      12
                     {+2}        target2
                 }
             }
