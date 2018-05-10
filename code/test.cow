@@ -10,6 +10,7 @@ test{
             ><_^ ( +2 )
             hello ( bkw )
             bind{ testing_keyword to 
+                --
                 ^^__ 
                 ++-- 
                 >><< 
@@ -19,6 +20,7 @@ test{
                 rebase{ 0 }
                 goodbye
                 lock{
+                    ++ ++ ++
                     testing_keyword
                     +^+^_-_-
                     scope{

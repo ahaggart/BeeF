@@ -330,9 +330,11 @@ def traverse_unscoped_text(inline,scope):
                     yield txt
             elif LOCK_TAG in sub:
                 # maintain tracking
+                # locks do not create a new variable scope
+                # >> allow locks on bindings while still updating scope
                 # TODO: add VM locks to enforce
                 pos = get_tracked_pos(scope)
-                for txt in traverse_scoped_text(sub[TEXT_VAR],scope):
+                for txt in traverse_unscoped_text(sub[TEXT_VAR],scope):
                     yield txt
                 update_tracking(scope,pos)
             else:
@@ -413,13 +415,17 @@ def process_bind_closure(closure,scope):
         bind_module(scope,body[NAME_TAG])
         return
     
-    # inline binding
+    # inline binding    
     text = body[BIND_TEXT_VAR].copy()
 
     binding_text = text.pop(BINDING_TEXT_VAR)
     if binding_text == None:
         binding_text = []
     prefix = text # get whatever else is there and prepend to list
+    if TOKEN_VAR in prefix:
+        prefix = {TOKEN_VAR:prefix[TOKEN_VAR]}
+    else:
+        prefix = pack_keyword_closure({KEYWORD_VAR:prefix[KEYWORD_VAR]})
     binding_text.insert(0,prefix)
 
     # convert to the standard binding format
@@ -715,8 +721,8 @@ def track_loop_entry(scope):
 def track_loop_exit(scope): # pop the current tracking scope
     old = destroy_tracking_scope(scope)
 
-    # if tracking does not match or is invalid, nullify enclosing tracking
-    if old[ADDRESS_TAG] != get_tracked_pos(scope):
+    # if tracking does is invalid, nullify enclosing tracking
+    if old[ADDRESS_TAG] == None:
         invalidate_tracking(scope)
 
 def make_binding_var(binding,module=None):
