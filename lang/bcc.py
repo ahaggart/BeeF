@@ -84,12 +84,14 @@ SET_TAG     = "set"
 SCOPE_TAG   = "scope"
 REBASE_TAG  = "rebase"
 LOCK_TAG    = "lock"
-ASSERT_TAG = "assert"
+ASSERT_TAG  = "assert"
 
 GOTO_TAG    = "goto"
 PUSH_TAG    = "push"
 POP_TAG     = "pop"
 CREATE_TAG  = "create"
+
+VALUE_TAG = "value"
 
 ADDRESS_TAG = "address"
 CONSTANT_TAG= "constant"
@@ -310,6 +312,14 @@ def traverse_scoped_text(inline,scope):
     order = update_scope_order(scope)
     scope.enter() # create a local scope
     append_path(scope,order)
+    for text in traverse_unscoped_text(inline,scope):
+        yield text
+    scope.exit() # exit the local scope
+
+def traverse_unscoped_text(inline,scope):
+    # pp.pprint(inline)
+    if inline == None:
+        return
     for text in inline:
         if TOKEN_VAR in text:
             yield text
@@ -327,7 +337,6 @@ def traverse_scoped_text(inline,scope):
                 update_tracking(scope,pos)
             else:
                 yield sub
-    scope.exit() # exit the local scope
 
 # CLOSURE PROCESSING STUFF #####################################################
 
@@ -365,10 +374,11 @@ def process_text_closure(closure,scope):
         emit_raw_text(closure[ASSEMBLY_VAR],scope)
     elif BOUND_KEYWORD_VAR in closure: # resolve the keyword
         # resolve the keyword into assembly and swap the tags
-        closure[ASSEMBLY_VAR] = resolve_keyword(closure,scope)
-        closure[MODIFIER_VAR] = None
+        resolve_keyword(closure,scope)
 
 def emit_raw_text(text,scope):
+    if not text:
+        return
     with scope.use(TEXT_TARGET) as target:
         target.append(text)
     tracker = get_pos_tracker(scope)
@@ -587,13 +597,17 @@ def compute_value_cost(curr_addr,base_addr,target_value,source_addr,source_value
     return  to_cost + from_cost + adj_cost
 
 def process_assert_closure(closure,scope):
+    if VALUE_TAG in closure:
+        process_value_assertion(closure,scope)
+
+def process_value_assertion(closure,scope):
+    # TODO: add VM assertions to enforce this
     statement = closure[ASSERT_INNER_VAR]
     addr = int(statement[DATA_ADDRESS_VAR][NUMBER_TAG])
     val = int(statement[NUMBER_TAG])
     with scope.use(KNOWN_VALUE_INFO) as kv:
         kv[addr] = val
-        # pp.pprint(kv)
-      
+   
 def resolve_keyword(closure,scope): # resolve a bound keyword into assembly
     # pp.pprint(closure)
     keyword = closure[BOUND_KEYWORD_VAR]
@@ -603,7 +617,7 @@ def resolve_keyword(closure,scope): # resolve a bound keyword into assembly
     # grab the binding from the local scope
     binding = scope.get(make_binding_var(keyword))
 
-    # text = resolve_binding(binding,closure[MODIFIER_VAR],scope)
+    process_binding_text(binding,scope)
 
 def resolve_binding(closure,modifier,scope):
     raise NotImplementedError
@@ -611,8 +625,8 @@ def resolve_binding(closure,modifier,scope):
 
 def process_binding_text(closure,scope):
     # recursively resolve text in this binding
-    raise NotImplementedError
-    pass
+    for text in traverse_unscoped_text(closure[BINDING_TEXT_VAR],scope):
+        process_inline_closure(text,scope)
 
 # SCOPE MANAGEMENT HELPER FUNCTIONS ############################################
 
@@ -636,7 +650,25 @@ def add_global_binding(scope,binding):
         mapping[module_name].add(binding_name)
 
     binding_var = make_binding_var(binding_name,module_name)
-    return scope.bind(binding_var,binding)
+    return scope.bind(binding_var,pack_binding_text(binding))
+
+def pack_binding_text(binding):
+    # pack binding text as if it were normal inline text
+    # we can reuse processing functions on binding text this way
+    if binding[BINDING_TEXT_VAR] == None:
+        return binding
+    packed = []
+    for closure in binding[BINDING_TEXT_VAR]:
+        if KEYWORD_VAR in closure:
+            packed.append(pack_inline_closure(closure))
+        else:
+            packed.append(closure)
+    binding[BINDING_TEXT_VAR] = packed
+    return binding
+
+def pack_inline_closure(closure):
+    return { INLINE_VAR: closure }
+
 
 def append_path(scope,name):
     with scope.use(PATH_INFO) as path:

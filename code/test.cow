@@ -70,9 +70,13 @@ test{
     }
     bindings {
         hello{
-            ><>
+            ><> (2)
             <><
             ><
+            scope{
+                >> << ^^ __
+            }
+            goodbye
         }
         goodbye{
             ++++----
