@@ -137,7 +137,7 @@ def build(module,parser,path):
     scope.bind(MAPPING_INFO,dict())
     scope.bind(TEXT_TARGET,CopyList())
     scope.bind(PATH_INFO,CopyList())
-    scope.bind(TRACKING_INFO,Stack([make_pos_tracker(None)]))
+    scope.bind(TRACKING_INFO,Stack([make_pos_tracker()]))
 
     # populate the global scope with module bindings
     for binding in traverse_module_bindings(master_scope,scope):
@@ -333,6 +333,10 @@ def process_inline_closure(closure,scope):
         process_set_closure(closure,scope)
     elif REBASE_TAG in closure:
         process_rebase_closure(closure,scope)
+    elif GOTO_TAG in closure:
+        process_goto_closure(closure,scope)
+    elif CREATE_TAG in closure:
+        process_create_closure(closure,scope)
 
 def process_text_closure(closure,scope):
     # pp.pprint(closure)
@@ -346,13 +350,13 @@ def process_text_closure(closure,scope):
             closure[MODIFIER_VAR] = None # destroy the modifier
             # duplicate the token
             closure[ASSEMBLY_VAR] = closure[ASSEMBLY_VAR] * mod_val
-        process_raw_text(closure[ASSEMBLY_VAR],scope)
+        emit_raw_text(closure[ASSEMBLY_VAR],scope)
     elif BOUND_KEYWORD_VAR in closure: # resolve the keyword
         # resolve the keyword into assembly and swap the tags
         closure[ASSEMBLY_VAR] = resolve_keyword(closure,scope)
         closure[MODIFIER_VAR] = None
 
-def process_raw_text(text,scope):
+def emit_raw_text(text,scope):
     with scope.use(TEXT_TARGET) as target:
         target.append(text)
     tracker = get_pos_tracker(scope)
@@ -361,8 +365,10 @@ def process_raw_text(text,scope):
     for char in text:
         if tracker[ADDRESS_TAG] == None:
             break
-        if char in tracker:
-            tracker[char] = tracker[char] + 1
+        if char == RIGHT_INSTR:
+            tracker[ADDRESS_TAG] = tracker[ADDRESS_TAG] + 1
+        elif char == LEFT_INSTR:
+            tracker[ADDRESS_TAG] = tracker[ADDRESS_TAG] - 1
         elif char == CBF_INSTR:
             track_loop_entry(scope)
         elif char == ABR_INSTR:
@@ -411,6 +417,26 @@ def process_layout_closure(layout,scope):
     for entry in layout[LAYOUT_INNER_VAR]:
         bind_layout_info(scope,entry)
 
+def process_rebase_closure(closure,scope):
+    base = int(closure[NUMBER_TAG])
+    update_tracking(scope,base)
+
+def process_goto_closure(closure,scope):
+    curr_loc = get_tracked_pos(scope)
+    if curr_loc == None:
+        errstr = "Unable to resolve data head position for: {}".format(closure)
+        raise ValueError(errstr)
+    
+    inner = closure[GOTO_INNER_VAR]
+    if NAME_TAG in inner:
+        dest_loc = scope.get(make_layout_var(inner[NAME_TAG]))
+    else:
+        dest_loc = int(inner[NUMBER_TAG])
+    
+    adj = RIGHT_INSTR if curr_loc < dest_loc else LEFT_INSTR
+    text = adj * abs(curr_loc - dest_loc)
+    emit_raw_text(text,scope)
+
 def process_set_closure(closure,scope):
     statement_block = []
     for item in closure[SET_INNER_VAR]:
@@ -418,11 +444,8 @@ def process_set_closure(closure,scope):
     # reorder set statements and convert to GOTO and PUSH/POP actions
     optimized = optimize_statement_block(statement_block,scope)
 
-    closure[TEXT_VAR] = optimized
-
-def process_rebase_closure(closure,scope):
-    base = int(closure[NUMBER_TAG])
-    update_tracking(scope,base)
+    for block in optimized:
+        process_inline_closure(block,scope)
 
 def process_set_statement(pair,scope):
     source = pair[DATA_SOURCE_VAR]
@@ -496,6 +519,15 @@ class DataNode:
     
     def add(self,node):
         self.edges.append((node,abs(self.loc-node.loc)))
+
+# set the current location to a value
+# if nearby values are known, will optimize movement and value adjustment
+def process_create_closure(closure,scope):
+    # print("creating value: {}".format(closure[NUMBER_TAG]))
+    pass
+
+def process_assert_closure(closure,scope):
+    pass
       
 def resolve_keyword(closure,scope): # resolve a bound keyword into assembly
     # pp.pprint(closure)
@@ -556,31 +588,22 @@ def update_scope_order(scope):
     scope.bind(ORDER_INFO,order+1)
     return order
 
-def make_pos_tracker(addr):
-    return { RIGHT_INSTR:0, LEFT_INSTR:0, ADDRESS_TAG:addr }
+def make_pos_tracker(addr=None):
+    return { ADDRESS_TAG:addr }
 
 def get_pos_tracker(scope):
     return scope.get(TRACKING_INFO).peek()
 
 def update_tracking(scope,addr):
-    reset_tracking(scope,addr)
+    # print("Setting tracking to: {}".format(addr))
+    get_pos_tracker(scope)[ADDRESS_TAG] = addr
 
 def get_tracked_pos(scope):
     pos = get_pos_tracker(scope)
-    base = pos[ADDRESS_TAG]
-    resolved = (base + pos[RIGHT_INSTR] - pos[LEFT_INSTR])
-    reset_tracking(scope,resolved)
-    return resolved
-
-def reset_tracking(scope,addr=None):
-    # print("Resetting tracking to: {}".format(addr))
-    pos_tracker = get_pos_tracker(scope)
-    pos_tracker[RIGHT_INSTR] = 0
-    pos_tracker[LEFT_INSTR]  = 0
-    pos_tracker[ADDRESS_TAG] = addr
+    return pos[ADDRESS_TAG]
 
 def invalidate_tracking(scope):
-    reset_tracking(scope,None)
+    update_tracking(scope,None)
 
 def create_tracking_scope(scope):
     tracker = scope.get(TRACKING_INFO)
@@ -595,8 +618,8 @@ def track_loop_entry(scope):
 def track_loop_exit(scope): # pop the current tracking scope
     old = destroy_tracking_scope(scope)
 
-    # tracking was lost in old scope, invalidate new
-    if old[RIGHT_INSTR] != old[LEFT_INSTR] or old[ADDRESS_TAG] == None:
+    # if tracking does not match or is invalid, nullify enclosing tracking
+    if old[ADDRESS_TAG] != get_tracked_pos(scope):
         invalidate_tracking(scope)
 
 def make_binding_var(binding,module=None):
@@ -609,12 +632,12 @@ def make_layout_var(layout):
     return (LAYOUT_TAG,layout)
 
 def make_goto_closure(addr):
-    return pack_keyword_closure({
+    return {
         GOTO_TAG:GOTO_TAG,
         GOTO_INNER_VAR:{
             NUMBER_TAG:addr,
         }
-    })
+    }
 
 def make_assembly_closure(text):
     return {
@@ -625,10 +648,10 @@ def make_assembly_closure(text):
     }
 
 def make_create_closure(value):
-    return pack_keyword_closure({
+    return {
         CREATE_TAG:CREATE_TAG,
         NUMBER_TAG:value,
-    })
+    }
 
 def pack_keyword_closure(closure):
     return { INLINE_VAR:{ KEYWORD_VAR:closure } }

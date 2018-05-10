@@ -25,8 +25,18 @@ test{
                         super_deep_nesting
                     }
                     --++^^__
+                    goto{
+                        +3
+                    }
+                    goto{
+                        +1
+                    }
                     scope{
-                        << >>> <<>> [<>]
+                        << >>> <<>> [>]
+                    }
+                    rebase{0}
+                    goto{
+                        +1
                     }
                 }
             }
