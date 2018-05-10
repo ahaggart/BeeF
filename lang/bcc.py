@@ -67,6 +67,7 @@ MAPPING_INFO    = ("MAPPING","INFO")
 PATH_INFO       = ("PATH","INFO")
 ORDER_INFO      = ("ORDER","INFO")
 TRACKING_INFO   = ("TRACKING","INFO")
+KNOWN_VALUE_INFO= ("KNOWN_VALUES")
 
 TEXT_TARGET     = ("TEXT","TARGET")
 
@@ -101,6 +102,12 @@ CBF_INSTR   = "["
 ABR_INSTR   = "]"
 INC_INSTR   = "+"
 DEC_INSTR   = "-"
+
+ZERO_BINDING = "[-]"
+
+CELL_MAX = 255
+
+COMMENT_DELIM = "#"
 
 EXT = ".cow"
 
@@ -138,6 +145,7 @@ def build(module,parser,path):
     scope.bind(TEXT_TARGET,CopyList())
     scope.bind(PATH_INFO,CopyList())
     scope.bind(TRACKING_INFO,Stack([make_pos_tracker()]))
+    scope.bind(KNOWN_VALUE_INFO,{})
 
     # populate the global scope with module bindings
     for binding in traverse_module_bindings(master_scope,scope):
@@ -491,11 +499,12 @@ def optimize_statement_block(block,scope):
 
     block.reverse()
     for triple in block:
-        actions.append((GOTO_TAG,triple[1]))
+        actions.append((GOTO_TAG,triple[0]))
         if triple[2] == ADDRESS_TAG:
             actions.append((POP_TAG, triple[1]))    # pop the grabbed value
         else:
-            actions.append((CREATE_TAG, triple[0])) # create the source constant
+            # create the source constant
+            actions.append((CREATE_TAG, triple[0],triple[1])) 
     
     return expand_action_tags(actions,scope)
 
@@ -509,7 +518,7 @@ def expand_action_tags(actions,scope):
         elif action[0] == POP_TAG:
             expanded.append(make_assembly_closure(POP_INSTR))
         elif action[0] == CREATE_TAG:
-            expanded.append(make_create_closure(action[1]))
+            expanded.append(make_create_closure(action[1],action[2]))
     return expanded
 
 class DataNode:
@@ -523,8 +532,55 @@ class DataNode:
 # set the current location to a value
 # if nearby values are known, will optimize movement and value adjustment
 def process_create_closure(closure,scope):
-    # print("creating value: {}".format(closure[NUMBER_TAG]))
-    pass
+
+    # worst case: no assertions
+    # zero the current cell and increment/decrement it to desired value
+    # big-O cost: 255 + 127 = 372
+    # -> if a value is asserted somewhere, fetch it
+    # --> PUSH-POP costs 2, round trip => 185-cell search space
+    # -> inexact matches can be adjusted, add to cost
+    WORST_CASE_CREATE = 370
+    curr_addr = get_tracked_pos(scope)
+    addr = int(closure[DATA_ADDRESS_VAR][NUMBER_TAG])
+    target = int(closure[NUMBER_TAG])
+    # print("creating value: {} @ {}".format(target,addr))
+
+    cost_fn = lambda pair: compute_value_cost(  curr_addr,
+                                                addr,
+                                                target,
+                                                pair[0],
+                                                pair[1])
+
+    cost_cmp = lambda a,b: cost_fn(a) - cost_fn(b)
+
+    known_values = scope.get(KNOWN_VALUE_INFO).items()
+    best = sorted(known_values,cmp=cost_cmp)
+    if best:
+        best = best.pop()
+    else:
+        best = (curr_addr+1000,0) # make some garbage that will get rejected
+
+    if cost_fn(best) > WORST_CASE_CREATE:
+        actions = [
+            make_assembly_closure(ZERO_BINDING),
+            make_adjustment_text(0,target,INC_INSTR,DEC_INSTR,CELL_MAX)
+        ]
+    else:
+        actions = [
+            make_goto_closure(best[0]),
+            make_assembly_closure(PUSH_INSTR),
+            make_goto_closure(addr),
+            make_assembly_closure(POP_INSTR),
+            make_adjustment_text(best[1],target,INC_INSTR,DEC_INSTR,CELL_MAX)
+        ]
+    for action in actions:
+        process_inline_closure(action,scope)
+
+def compute_value_cost(curr_addr,base_addr,target_value,source_addr,source_value):
+    to_cost = abs(curr_addr - source_addr)
+    from_cost = abs(base_addr - source_addr)
+    adj_cost = abs(target_value - source_value)
+    return  to_cost + from_cost + adj_cost
 
 def process_assert_closure(closure,scope):
     pass
@@ -647,11 +703,29 @@ def make_assembly_closure(text):
         }
     }
 
-def make_create_closure(value):
+def make_create_closure(addr,value):
     return {
         CREATE_TAG:CREATE_TAG,
+        DATA_ADDRESS_VAR:{NUMBER_TAG:addr},
         NUMBER_TAG:value,
     }
+
+def make_adjustment_text(curr,target,up,down,wrap=None):
+    adj_amt = abs(curr-target)
+    adj = None
+    if wrap != None:
+        wrap_up = abs(curr - wrap + 1) + abs(target)
+        wrap_down = abs(target - wrap + 1) + abs(curr)
+        if wrap_up < adj_amt:
+            adj_amt = wrap_up
+            adj = up
+        elif wrap_down < adj_amt:
+            adj_amt = wrap_down
+            adj = down
+    
+    if adj == None:
+        adj = up if target > curr else down
+    return make_assembly_closure(adj*adj_amt)
 
 def pack_keyword_closure(closure):
     return { INLINE_VAR:{ KEYWORD_VAR:closure } }
@@ -791,6 +865,8 @@ class SourceReader:
         self.line = 0
         for line in self.file:
             for token in line.strip().split():
+                if token[0] == COMMENT_DELIM:
+                    break
                 yield token
             self.line = self.line + 1
 

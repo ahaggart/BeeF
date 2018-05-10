@@ -54,15 +54,15 @@ test{
                     }
                 }
                 bitwise_binding
-                bind{ local to  ><  }
-                layout{
-                    target      +8
+                bind{ local to  ><  } # some commented text
+                layout{ #some more commented text
+                    target      +4
                     target2     +9
                     target3     +10
                 }
-
+                assert{ value {+3} +10 }
                 set{
-                    target      +10
+                    target      128
                     {+2}        target2
                 }
             }

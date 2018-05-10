@@ -38,7 +38,7 @@
                             "set { set_statement }",
                             "goto { goto_statement }",
                             "rebase { number }",
-                            "create { number }",
+                            "create { data_address number }",
                             "assert { assert_statement }"
                         ],
         "call_closure":["call { call_path }"],
@@ -53,7 +53,7 @@
         "data_source":["name","number","data_address"],
         "data_address":["{ number }"],
         "goto_statement":["name","number"],
-        "assert_statement":["value number"]
+        "assert_statement":["value data_address number"]
     
     },
     "start":"module_closure"
