@@ -192,6 +192,8 @@ def build(module,parser,path):
 
     pp.pprint(dep_table)
 
+    # pp.pprint(build_from_table(text_table["test"],"function"))
+
     # 4. Build namespace tables for each module
     # 5. Build master namespace table
     # 6. Resolve soft links into table indices
@@ -324,6 +326,17 @@ def build_dependency_table(text_table,scope):
                 raise path_error
             table_insert_list(dep_table,local_scope+[func_name],ref[1])
     return dep_table
+
+def build_from_table(table,entry,target=[]):
+    if target == None:
+        target = []
+    text = table[entry][DATA_TAG]
+    for token in text:
+        if token in table[entry]:
+            build_from_table(table[entry],token,target)
+        else:
+            target.append(token)
+    return target
 
 
 # RECURSIVE TREE TRAVERSAL AND SCOPE MANAGMENT #################################
