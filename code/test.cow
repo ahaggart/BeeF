@@ -1,6 +1,8 @@
 test{ 
     preamble{
-
+        ++ ++ ++
+        some_more_assembly
+        call{ function }
     }
     depends{
         bitwise2

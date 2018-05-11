@@ -81,6 +81,13 @@ TEXT_TARGET     = ("TEXT","TARGET")
 REF_TABLE       = ("REF","TABLE")
 FUNC_TABLE      = ("FUNCTION","TABLE")
 
+TREE_DATA       = "$" # use illegal chars to avoid collisions
+DEP_COUNTER     = "#"
+PATH_DATA       = "%"
+
+PREAMBLE_DATA   = "$PREAMBLE$"
+POSTAMBLE_DATA  = "$POSTAMBLE$"
+
 # TAGS
 # important grammar terminals and generics
 NAME_TAG    = 'name'
@@ -174,11 +181,13 @@ def build(module,parser,path):
     # 2. Resolve inline text
     #       a. Resolve bindings and modifier applications
     #       b. build a text table for code structuring
+    #       c. wrap functions in counting block structure
 
     # in-order module code traversal
     for closure in traverse_module_text(master_scope,scope):
         process_inline_closure(closure,scope)
-    
+
+    build_preamble(module,scope)
 
     pp.pprint(text_table)
 
@@ -199,6 +208,7 @@ def build(module,parser,path):
     # 6. Resolve soft links into table indices
     # 7. Wrap namespace table entries in counting block structure
     # 8. Build preamble and postamble text
+
     scope.exit()
     return
 
@@ -264,15 +274,29 @@ def table_insert(table,path,data):
     leaf = table_index(table,path)
     if leaf == None:
         return
-    leaf[DATA_TAG] = data
+    leaf[TREE_DATA] = data
 
 def table_insert_list(table,path,data):
     leaf = table_index(table,path)
     if leaf == None:
         return
-    if DATA_TAG not in leaf:
-        leaf[DATA_TAG] = []
-    leaf[DATA_TAG].append(data)
+    if TREE_DATA not in leaf:
+        leaf[TREE_DATA] = []
+    leaf[TREE_DATA].append(data)
+
+def table_get(table,path,default=None):
+    leaf = table_index(table,path)
+    if TREE_DATA not in leaf:
+        return default
+    return leaf[TREE_DATA]
+
+def table_transform(table,path,func,default):
+    leaf = table_index(table,path)
+    if TREE_DATA not in leaf:
+        data = default
+    else:
+        data = leaf[TREE_DATA]
+    leaf[TREE_DATA] = func(data)
 
 def table_index(table,path):
     curr = table
@@ -308,29 +332,53 @@ def extract_path(path):
 
 def build_dependency_table(text_table,scope):
     dep_table = {}
+    inc_score = lambda s: s+1
+    dec_score = lambda s: s-1
+
     for ref in scope.get(REF_TABLE):
         local_scope,func_name = extract_path(ref[0])
         call_path = ref[1][:]
         first = call_path.pop(0)
         path_error = KeyError("Could not find function for path: {}".format(ref[1]))
         local_path = local_scope+[first]
+        full_path = local_scope+[func_name]
         if table_check(text_table,local_path): # local scope
             if call_path:
                 local_path = local_path+call_path
                 if not table_check(text_table,local_path):
                     raise path_error
-            table_insert_list(dep_table,local_scope+[func_name],local_path)
+            else:
+                # track net reference direction (incoming/outgoing) for table
+                # order optimization 
+                table_transform(dep_table,make_score_path(full_path),dec_score,0)
+                table_transform(dep_table,make_score_path(local_path),inc_score,0)
+
+            table_insert_list(dep_table,full_path,local_path)
+
         elif call_path and first in text_table: # global scope
             inner = call_path.pop()
             if inner not in text_table[first]:
                 raise path_error
-            table_insert_list(dep_table,local_scope+[func_name],ref[1])
+            table_insert_list(dep_table,full_path,ref[1])
+        
+        # insert the path to the function call in the text table
+        # this will allow us to directly inject function call text later
+        table_insert_list(dep_table,make_path_path(full_path),ref[0])
     return dep_table
+
+def build_call_table(dep_table): # build function call table from dep table
+    pass
+
+def make_score_path(path):
+    return path + [DEP_COUNTER]
+
+def make_path_path(path):
+    return path + [PATH_DATA]
 
 def build_from_table(table,entry,target=[]):
     if target == None:
         target = []
-    text = table[entry][DATA_TAG]
+    text = table[entry][TREE_DATA]
     for token in text:
         if token in table[entry]:
             build_from_table(table[entry],token,target)
@@ -338,6 +386,19 @@ def build_from_table(table,entry,target=[]):
             target.append(token)
     return target
 
+def build_preamble(module,scope):
+    # create a fake environment to evaluate the preamble in
+    with scope.inner() as scope:
+        # set things up as if we were in the base namespace
+        bind_current_module(scope,module)  
+        with scope.use(PATH_INFO) as path:
+            path.append(module[NAME_TAG])
+            path.append(PREAMBLE_DATA)
+
+        scope.bind(ORDER_INFO,0)   
+        preamble = module[PREAMBLE_VAR]
+        for inline in traverse_unscoped_text(preamble[TEXT_VAR],scope):
+            process_inline_closure(inline,scope)
 
 # RECURSIVE TREE TRAVERSAL AND SCOPE MANAGMENT #################################
 
@@ -375,15 +436,10 @@ def traverse_namespace_text(namespace,scope):
             append_path(scope,namespace[NAME_TAG])
         else:
             append_path(scope,scope.get(MODULE_INFO))
-
-        update_tracking(scope,0)
-        emit_raw_text(COUNTING_BLOCK_HEADER,scope)
         
         for block in namespace[BLOCKS_VAR]:
             for text in traverse_block_text(block,scope):
                 yield text
-
-        emit_raw_text(COUNTING_BLOCK_FOOTER,scope)
 
 
 def traverse_block_text(block,scope):
@@ -396,10 +452,9 @@ def traverse_block_text(block,scope):
 
 def traverse_function_text(func,scope):    
     # create an itermediate scope for path resolution
-    with scope.use(TEXT_TARGET) as target:
-        target.append(func[NAME_TAG])
     with scope.inner() as scope:
         append_path(scope,func[NAME_TAG])
+        update_tracking(scope,0) # create a tracking scope
         emit_raw_text(COUNTING_BLOCK_HEADER,scope)
         update_tracking(scope,0) # rebase to 0 on function entry
         

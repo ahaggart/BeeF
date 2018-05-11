@@ -5,6 +5,10 @@ bitwise2{
     namespace{
         function{
             >><< >>+-+-<< >><<
+            call{function2}
+        }
+        function2{
+
         }
     }
     bindings{
