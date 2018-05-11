@@ -61,6 +61,9 @@ ASSEMBLY_VAR    = "raw_assembly"
 MODIFIER_VAR    = "modifier"
 MODIFIER_DEC_VAR= "modifier_declaration"
 
+CALLING_VAR    = "call_closure"
+CALL_PATH_VAR  = "call_path"
+
 KEYWORD_TERM    = "keyword"
 
 # SCOPE METADATA
@@ -75,6 +78,8 @@ TRACKING_INFO   = ("TRACKING","INFO")
 KNOWN_VALUE_INFO= ("KNOWN_VALUES")
 
 TEXT_TARGET     = ("TEXT","TARGET")
+REF_TABLE       = ("REF","TABLE")
+FUNC_TABLE      = ("FUNCTION","TABLE")
 
 # TAGS
 # important grammar terminals and generics
@@ -115,6 +120,9 @@ DEC_INSTR   = "-"
 
 ZERO_BINDING = "[-]"
 
+COUNTING_BLOCK_HEADER = "^[_-^>^[-]+^<[_[-]^]_>_<[_>"
+COUNTING_BLOCK_FOOTER = "<[-]^]]_"
+
 CELL_MAX = 255
 
 TOKEN_CHAR_REGEX = "([{},()])"
@@ -136,12 +144,11 @@ def build(module,parser,path):
     # should only contain assembly and function call prototypes
     text_table = {}
 
+    # use a table to hold staged function calls
+    call_table = []
+
     # when a scope exits, update the text table
     target_grabber= lambda image: update_text_table(text_table,image)
-
-    # 2. Resolve inline text
-    #       a. Resolve bindings and modifier applications
-    #       b. Resolve non-call inline closures
 
     # use a Scope object for managing variable scope
     # object will mutate with each closure yielded by generator,
@@ -151,32 +158,46 @@ def build(module,parser,path):
     scope.enter() # create a top level scope for bindings
     set_block_depth(scope,0)
 
-    # add metadata for keywords that are accessible from scope
+    # add metadata bindings for processing
     scope.bind(KEYWORD_INFO,set())
     scope.bind(MAPPING_INFO,dict())
     scope.bind(TEXT_TARGET,CopyList())
     scope.bind(PATH_INFO,CopyList())
     scope.bind(TRACKING_INFO,Stack([make_pos_tracker()]))
     scope.bind(KNOWN_VALUE_INFO,{})
+    scope.bind(REF_TABLE,call_table)
 
     # populate the global scope with module bindings
     for binding in traverse_module_bindings(master_scope,scope):
         add_global_binding(scope,binding[BINDING_BLOCK_VAR])
 
+    # 2. Resolve inline text
+    #       a. Resolve bindings and modifier applications
+    #       b. build a text table for code structuring
+
     # in-order module code traversal
     for closure in traverse_module_text(master_scope,scope):
         process_inline_closure(closure,scope)
     
-    scope.exit()
 
     pp.pprint(text_table)
 
     # 3. Create soft links between dependent code and depended module
+    #       a. register function calls with a path to the calling text
+
+    # iterate over the ref table
+    # check that refs point to valid functions
+    # build a dependency "graph" for table optimization
+    dep_table = build_dependency_table(text_table,scope)
+
+    pp.pprint(dep_table)
+
     # 4. Build namespace tables for each module
     # 5. Build master namespace table
     # 6. Resolve soft links into table indices
     # 7. Wrap namespace table entries in counting block structure
     # 8. Build preamble and postamble text
+    scope.exit()
     return
 
 # HIGH LEVEL HELPER FUNCTIONS ##################################################
@@ -238,17 +259,72 @@ def update_text_table(table,image):
     table_insert(table,image[PATH_INFO],image[TEXT_TARGET])
 
 def table_insert(table,path,data):
+    leaf = table_index(table,path)
+    if leaf == None:
+        return
+    leaf[DATA_TAG] = data
+
+def table_insert_list(table,path,data):
+    leaf = table_index(table,path)
+    if leaf == None:
+        return
+    if DATA_TAG not in leaf:
+        leaf[DATA_TAG] = []
+    leaf[DATA_TAG].append(data)
+
+def table_index(table,path):
     curr = table
     path = path[:]
     if not path:
-        # raise ValueError("Invalid path: {}".format(path))
         return # fail quietly
     while path:
         i = path.pop(0)
         if i not in curr:
             curr[i] = {}
         curr = curr[i]
-    curr[DATA_TAG] = data
+    return curr
+
+def table_check(table,path):
+    path = path[:]
+    if not path:
+        return False
+    while path:
+        table = table.get(path.pop(0),None)
+        if not table:
+            return False
+    return True
+
+def extract_path(path):
+    path = path[:]
+    while path:
+        node = path.pop()
+        try: # loop until we hit a non-numeric entry
+            int(node)
+        except:
+            break
+    return path,node
+
+def build_dependency_table(text_table,scope):
+    dep_table = {}
+    for ref in scope.get(REF_TABLE):
+        local_scope,func_name = extract_path(ref[0])
+        call_path = ref[1][:]
+        first = call_path.pop(0)
+        path_error = KeyError("Could not find function for path: {}".format(ref[1]))
+        local_path = local_scope+[first]
+        if table_check(text_table,local_path): # local scope
+            if call_path:
+                local_path = local_path+call_path
+                if not table_check(text_table,local_path):
+                    raise path_error
+            table_insert_list(dep_table,local_scope+[func_name],local_path)
+        elif call_path and first in text_table: # global scope
+            inner = call_path.pop()
+            if inner not in text_table[first]:
+                raise path_error
+            table_insert_list(dep_table,local_scope+[func_name],ref[1])
+    return dep_table
+
 
 # RECURSIVE TREE TRAVERSAL AND SCOPE MANAGMENT #################################
 
@@ -286,10 +362,16 @@ def traverse_namespace_text(namespace,scope):
             append_path(scope,namespace[NAME_TAG])
         else:
             append_path(scope,scope.get(MODULE_INFO))
+
+        update_tracking(scope,0)
+        emit_raw_text(COUNTING_BLOCK_HEADER,scope)
         
         for block in namespace[BLOCKS_VAR]:
             for text in traverse_block_text(block,scope):
                 yield text
+
+        emit_raw_text(COUNTING_BLOCK_FOOTER,scope)
+
 
 def traverse_block_text(block,scope):
     if FUNC_VAR in block:
@@ -299,18 +381,20 @@ def traverse_block_text(block,scope):
         for text in traverse_namespace_text(block[NEST_VAR],scope):
             yield text
 
-def traverse_function_text(func,scope):
-    if func[TEXT_VAR] == None:
-        return
-    
+def traverse_function_text(func,scope):    
     # create an itermediate scope for path resolution
-
+    with scope.use(TEXT_TARGET) as target:
+        target.append(func[NAME_TAG])
     with scope.inner() as scope:
         append_path(scope,func[NAME_TAG])
+        emit_raw_text(COUNTING_BLOCK_HEADER,scope)
         update_tracking(scope,0) # rebase to 0 on function entry
+        
+        if func[TEXT_VAR] != None:
+            for text in traverse_scoped_text(func[TEXT_VAR],scope):
+                yield text
+        emit_raw_text(COUNTING_BLOCK_FOOTER,scope)
 
-        for text in traverse_scoped_text(func[TEXT_VAR],scope):
-            yield text
 
 def traverse_scoped_text(inline,scope):
     if inline == None:
@@ -329,22 +413,26 @@ def traverse_unscoped_text(inline,scope):
     for text in inline:
         if TOKEN_VAR in text:
             yield text
-        elif INLINE_VAR in text and KEYWORD_VAR in text[INLINE_VAR]:
-            sub = text[INLINE_VAR][KEYWORD_VAR]
-            if SCOPE_TAG in sub:
-                for txt in traverse_scoped_text(sub[TEXT_VAR],scope):
-                    yield txt
-            elif LOCK_TAG in sub:
-                # maintain tracking
-                # locks do not create a new variable scope
-                # >> allow locks on bindings while still updating scope
-                # TODO: add VM locks to enforce
-                pos = get_tracked_pos(scope)
-                for txt in traverse_unscoped_text(sub[TEXT_VAR],scope):
-                    yield txt
-                update_tracking(scope,pos)
-            else:
-                yield sub
+        elif INLINE_VAR in text:
+            if KEYWORD_VAR in text[INLINE_VAR]:
+                sub = text[INLINE_VAR][KEYWORD_VAR]
+                if SCOPE_TAG in sub:
+                    for txt in traverse_scoped_text(sub[TEXT_VAR],scope):
+                        yield txt
+                elif LOCK_TAG in sub:
+                    # maintain tracking
+                    # locks do not create a new variable scope
+                    # >> allow locks on bindings while still updating scope
+                    # TODO: add VM locks to enforce
+                    pos = get_tracked_pos(scope)
+                    for txt in traverse_unscoped_text(sub[TEXT_VAR],scope):
+                        yield txt
+                    update_tracking(scope,pos)
+                else:
+                    yield sub
+            else: # call closure
+                call = text[INLINE_VAR][CALLING_VAR]
+                yield call
 
 # CLOSURE PROCESSING STUFF #####################################################
 
@@ -366,6 +454,8 @@ def process_inline_closure(closure,scope):
         process_create_closure(closure,scope)
     elif ASSERT_TAG in closure:
         process_assert_closure(closure,scope)
+    else: # call closure
+        process_call_closure(closure,scope)
 
 def process_text_closure(closure,scope):
     # pp.pprint(closure)
@@ -384,9 +474,6 @@ def process_text_closure(closure,scope):
                     modifier))
             else:
                 mod_val = int(modifier[NUMBER_TAG])
-            # closure[MODIFIER_VAR] = None # destroy the modifier
-            # duplicate the token
-            # closure[ASSEMBLY_VAR] = closure[ASSEMBLY_VAR] * mod_val
             assembly = closure[ASSEMBLY_VAR] * mod_val
         emit_raw_text(assembly,scope)
     elif BOUND_KEYWORD_VAR in closure: # resolve the keyword
@@ -726,6 +813,19 @@ def process_binding_text(closure,scope):
     # recursively resolve text in this binding
     for text in traverse_unscoped_text(closure[BINDING_TEXT_VAR],scope):
         process_inline_closure(text,scope)
+
+def process_call_closure(call,scope):
+    errstr = "expected a call closure, got: {}".format(call)
+    assert CALL_PATH_VAR in call, errstr
+    path = call[CALL_PATH_VAR][NAME_TAG]
+    
+    # insert a placeholder for the function call
+    # add the call and path to the global list
+    order = update_scope_order(scope)
+    with scope.inner() as scope:
+        append_path(scope,order)
+        path_list = path if path.__class__.__name__ == "list" else [path]
+        scope.get(REF_TABLE).append((scope.get(PATH_INFO),path_list))
 
 # SCOPE MANAGEMENT HELPER FUNCTIONS ############################################
 
