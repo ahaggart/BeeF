@@ -201,9 +201,21 @@ def build(module,parser,path):
 
     pp.pprint(dep_table)
 
-    # pp.pprint(build_from_table(text_table["test"],"function"))
-
     # 4. Build namespace tables for each module
+    #       a. collect all referenced functions
+    #       b. order functions which share a scope
+
+    preamble_path = [module[NAME_TAG],PREAMBLE_DATA]
+    depended = collect_function_dependencies(preamble_path,dep_table)
+
+    pp.pprint(depended)
+
+    path_table,base_table = resolve_table_ordering(depended,dep_table)
+
+    pp.pprint(path_table)
+
+    pp.pprint(base_table)
+
     # 5. Build master namespace table
     # 6. Resolve soft links into table indices
     # 7. Wrap namespace table entries in counting block structure
@@ -360,6 +372,8 @@ def build_dependency_table(text_table,scope):
             if inner not in text_table[first]:
                 raise path_error
             table_insert_list(dep_table,full_path,ref[1])
+        else:
+            raise path_error
         
         # insert the path to the function call in the text table
         # this will allow us to directly inject function call text later
@@ -375,7 +389,7 @@ def make_score_path(path):
 def make_path_path(path):
     return path + [PATH_DATA]
 
-def build_from_table(table,entry,target=[]):
+def build_from_table(table,entry,target=None):
     if target == None:
         target = []
     text = table[entry][TREE_DATA]
@@ -399,6 +413,89 @@ def build_preamble(module,scope):
         preamble = module[PREAMBLE_VAR]
         for inline in traverse_unscoped_text(preamble[TEXT_VAR],scope):
             process_inline_closure(inline,scope)
+
+def collect_function_dependencies(entry,table,acc=None):
+    if acc == None:
+        acc = dict()
+    leaf = table_index(table,entry)
+    if TREE_DATA not in leaf:
+        return
+    for i in range(0,len(leaf[TREE_DATA])):
+        dep = leaf[TREE_DATA][i]
+        full_path = leaf[PATH_DATA][TREE_DATA][i]
+        dep_tuple = tuple(dep)
+        if dep_tuple not in acc:
+            acc[dep_tuple] = []
+            collect_function_dependencies(dep,table,acc)
+        acc[dep_tuple].append(full_path)
+    return acc
+
+def resolve_table_ordering(dep_map,dep_table):
+    # resolve path fragments in to table indices
+    fragment_map = {}
+    for path in dep_map:
+        fragment = []
+        for node in path:
+            if not fragment:
+                fragment.append(node)
+                continue
+            frag_key = tuple(fragment)
+            fragment.append(node)
+            if frag_key not in fragment_map:
+                fragment_map[frag_key] = []
+            score = table_get(dep_table,make_score_path(fragment),None)
+            ascending_insert(fragment_map[frag_key],node,score)
+
+    len_cmp = lambda a,b:len(a)-len(b)
+    sorted_fragment_keys = sorted(list(fragment_map.keys()),len_cmp)
+
+    fragment_order = {}
+    module_count = 0
+    base_table = []
+    for frag in sorted_fragment_keys:
+        if len(frag) == 1 and frag not in fragment_order:
+            fragment_order[frag] = len(base_table)
+            base_table.append([])
+        curr_table = base_table
+        path = []
+        for i in range(0,len(frag)):
+            path.append(frag[i])
+            curr_table = curr_table[fragment_order[tuple(path)]]
+        
+        for item in fragment_map[frag]:
+            full_path = tuple(path+[item[0]])
+            if full_path not in fragment_order:
+                fragment_order[full_path] = len(curr_table)
+                curr_table.append([])
+
+    path_table = {}
+    for path in dep_map:
+        curr_table = base_table
+        frag = []
+        call_path = []
+        for node in path:
+            frag.append(node)
+            idx = fragment_order[tuple(frag)]
+            call_path.append(idx)
+            curr_table = curr_table[idx]
+        
+        path_table[path] = call_path
+        # curr_table.append('x')
+
+    return path_table,base_table
+
+def ascending_insert(table,item,score):
+    if score == None:
+        table.append((item,None))
+        return len(table) - 1
+
+    for i in range(0,len(table)):
+        if table[i][1] == None or score < table[i][1]:
+            table.insert(i,(item,score))
+            return i
+
+    table.append((item,score))
+    return len(table) - 1
 
 # RECURSIVE TREE TRAVERSAL AND SCOPE MANAGMENT #################################
 

@@ -81,6 +81,13 @@ test{
                     target      12
                     {+2}        target2
                 }
+                call{double_nesting double_nested_function}
+            }
+            namespace double_nesting{
+                double_nested_function{
+                    ++ -- ++ -- ++ --
+                    call{bitwise2 function}
+                }
             }
         }
     }
