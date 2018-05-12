@@ -217,6 +217,25 @@ def build(module,parser,path):
     pp.pprint(base_table)
 
     # 5. Build master namespace table
+    for block in depended:
+        depending = depended[block]
+        for dep in depending:
+            dep_path,node = extract_path(dep)
+            dep_path.append(node)
+            if dep_path[0] != block[0]:
+                # cross-module dependency
+                # print("{} vs {}".format(dep,block[0]))
+                call_stack = make_exit_stack(dep_path,block,path_table)
+            else:
+                call_stack = make_local_stack(dep_path,block,path_table)
+            call_stack.insert(0,0)
+            # print("{} -> {}".format(dep,block))
+            # print(path_table[block])
+            # print(call_stack)
+
+            # resolve the call stack to assembly and inject it
+            # remove the leading zero from preamble call
+
     # 6. Resolve soft links into table indices
     # 7. Wrap namespace table entries in counting block structure
     # 8. Build preamble and postamble text
@@ -496,6 +515,21 @@ def ascending_insert(table,item,score):
 
     table.append((item,score))
     return len(table) - 1
+
+def make_local_stack(path,block,path_table):
+    call_path = []
+    resolved_path = path_table[block]
+    for i in range(0,len(block)):
+        if path[i] != block[i]:
+            break
+    while i < len(resolved_path):
+        call_path.append(resolved_path[i]+1)
+        i = i + 1
+    return call_path
+
+def make_exit_stack(path,block,path_table):
+    exit_stack = [0]*(len(path)-1)
+    return exit_stack + make_local_stack(path,block,path_table)
 
 # RECURSIVE TREE TRAVERSAL AND SCOPE MANAGMENT #################################
 
