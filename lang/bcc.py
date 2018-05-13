@@ -81,6 +81,8 @@ TEXT_TARGET     = ("TEXT","TARGET")
 REF_TABLE       = ("REF","TABLE")
 FUNC_TABLE      = ("FUNCTION","TABLE")
 
+SCOPE_CACHE     = ("SCOPE","CACHE")
+
 TREE_DATA       = "$" # use illegal chars to avoid collisions
 DEP_COUNTER     = "#"
 PATH_DATA       = "%"
@@ -161,7 +163,7 @@ def build(module,parser,path):
     # object will mutate with each closure yielded by generator,
     # and will represent the variable scope of the closure
     
-    scope = Scope(target_grabber)
+    scope = Scope(image_hook=target_grabber)
     scope.enter() # create a top level scope for bindings
     set_block_depth(scope,0)
 
@@ -173,6 +175,7 @@ def build(module,parser,path):
     scope.bind(TRACKING_INFO,Stack([make_pos_tracker()]))
     scope.bind(KNOWN_VALUE_INFO,{})
     scope.bind(REF_TABLE,call_table)
+    scope.bind(SCOPE_CACHE,{})
 
     # populate the global scope with module bindings
     for binding in traverse_module_bindings(master_scope,scope):
@@ -199,46 +202,32 @@ def build(module,parser,path):
     # build a dependency "graph" for table optimization
     dep_table = build_dependency_table(text_table,scope)
 
-    pp.pprint(dep_table)
-
     # 4. Build namespace tables for each module
     #       a. collect all referenced functions
     #       b. order functions which share a scope
+    # 5. Build master namespace table
 
     preamble_path = [module[NAME_TAG],PREAMBLE_DATA]
     depended = collect_function_dependencies(preamble_path,dep_table)
 
     pp.pprint(depended)
 
-    path_table,base_table = resolve_table_ordering(depended,dep_table)
-
-    pp.pprint(path_table)
-
-    pp.pprint(base_table)
-
-    # 5. Build master namespace table
-    for block in depended:
-        depending = depended[block]
-        for dep in depending:
-            dep_path,node = extract_path(dep)
-            dep_path.append(node)
-            if dep_path[0] != block[0]:
-                # cross-module dependency
-                # print("{} vs {}".format(dep,block[0]))
-                call_stack = make_exit_stack(dep_path,block,path_table)
-            else:
-                call_stack = make_local_stack(dep_path,block,path_table)
-            call_stack.insert(0,0)
-            # print("{} -> {}".format(dep,block))
-            # print(path_table[block])
-            # print(call_stack)
-
-            # resolve the call stack to assembly and inject it
-            # remove the leading zero from preamble call
-
     # 6. Resolve soft links into table indices
-    # 7. Wrap namespace table entries in counting block structure
-    # 8. Build preamble and postamble text
+    path_table,base_table,order_table = resolve_table_ordering(depended,dep_table)
+
+    cache = scope.get(SCOPE_CACHE)
+    for call_info in build_call_stacks(depended,path_table):
+        call_stack = call_info[0]
+        call_loc   = call_info[1]
+        insert_function_call(text_table,call_stack,call_loc,cache)
+
+    pp.pprint(text_table)
+
+    # build functions into base table
+    build_master_table(text_table,base_table,depended,order_table)
+
+    # 8. Wrap namespace table entries in counting block structure
+    # 9. Build preamble and postamble text
 
     scope.exit()
     return
@@ -501,7 +490,7 @@ def resolve_table_ordering(dep_map,dep_table):
         path_table[path] = call_path
         # curr_table.append('x')
 
-    return path_table,base_table
+    return path_table,base_table,fragment_order
 
 def ascending_insert(table,item,score):
     if score == None:
@@ -530,6 +519,67 @@ def make_local_stack(path,block,path_table):
 def make_exit_stack(path,block,path_table):
     exit_stack = [0]*(len(path)-1)
     return exit_stack + make_local_stack(path,block,path_table)
+
+def build_call_stacks(depended,path_table):
+    for block in depended:
+        depending = depended[block]
+        for dep in depending:
+            dep_path,node = extract_path(dep)
+            dep_path.append(node)
+            if dep_path[0] != block[0]:
+                # cross-module dependency
+                # print("{} vs {}".format(dep,block[0]))
+                call_stack = make_exit_stack(dep_path,block,path_table)
+            else:
+                call_stack = make_local_stack(dep_path,block,path_table)
+            call_stack.insert(0,0)
+            # print("{} -> {}".format(dep,block))
+            # print(path_table[block])
+            # print(call_stack)
+
+            # resolve the call stack to assembly and inject it
+            # remove the leading zero from preamble call
+            yield (call_stack,dep)
+
+def insert_function_call(text_table,call_stack,call_path,cache):
+    # build a scope from the cached image
+    scope = Scope(image=cache[tuple(call_path)])
+
+    if call_path[1] == PREAMBLE_DATA: # pop the scope return from preamble call
+        call_stack.pop(0)
+
+    text = compile_call_stack(call_stack,scope)
+    target = cache[tuple(call_path)][TEXT_TARGET] # direct ref to the text table
+    target.extend(text)
+    target.append("$$$")
+
+def compile_call_stack(stack,scope):
+    # cached scope allows us to use goto, create, and assembly closures
+    # to build in-scope optimized call routines using assertions
+    addr = get_tracked_pos(scope)
+    actions = []
+    actions.append(make_goto_closure(addr-1))
+    for value in stack:
+        actions.append(make_create_closure(addr-1,value))
+        actions.append(make_assembly_closure(PUSH_INSTR))
+    actions.append(make_goto_closure(addr))
+
+    for action in actions:
+        process_inline_closure(action,scope)
+
+    return scope.get(TEXT_TARGET)
+
+def build_master_table(text_table,base_table,dep_table,order_table):
+    pp.pprint(order_table)
+    def order_fn(path):
+        return order_table[path]
+    def order_cmp(a,b):
+        return order_fn(b) - order_fn(a)
+
+    resolve_list = sorted(dep_table.keys(),order_cmp)
+
+    for fn in resolve_list:
+        pass
 
 # RECURSIVE TREE TRAVERSAL AND SCOPE MANAGMENT #################################
 
@@ -586,13 +636,13 @@ def traverse_function_text(func,scope):
     with scope.inner() as scope:
         append_path(scope,func[NAME_TAG])
         update_tracking(scope,0) # create a tracking scope
-        emit_raw_text(COUNTING_BLOCK_HEADER,scope)
+        # emit_raw_text(COUNTING_BLOCK_HEADER,scope)
         update_tracking(scope,0) # rebase to 0 on function entry
         
         if func[TEXT_VAR] != None:
             for text in traverse_scoped_text(func[TEXT_VAR],scope):
                 yield text
-        emit_raw_text(COUNTING_BLOCK_FOOTER,scope)
+        # emit_raw_text(COUNTING_BLOCK_FOOTER,scope)
 
 
 def traverse_scoped_text(inline,scope):
@@ -675,7 +725,7 @@ def process_text_closure(closure,scope):
                 mod_val = int(modifier[NUMBER_TAG])
             assembly = closure[ASSEMBLY_VAR] * mod_val
         emit_raw_text(assembly,scope)
-    elif BOUND_KEYWORD_VAR in closure: # resolve the keyword
+    else: # resolve the keyword
         # resolve the keyword into assembly and swap the tags
         process_bound_keyword(closure,scope)
 
@@ -875,7 +925,7 @@ def process_create_closure(closure,scope):
     cost_cmp = lambda a,b: cost_fn(a) - cost_fn(b)
 
     known_values = scope.get(KNOWN_VALUE_INFO).items()
-    best = sorted(known_values,cmp=cost_cmp)
+    best = sorted(known_values,cmp=cost_cmp,reverse=True)
     if best:
         best = best.pop()
     else:
@@ -883,6 +933,7 @@ def process_create_closure(closure,scope):
 
     if cost_fn(best) > WORST_CASE_CREATE:
         actions = [
+            make_goto_closure(addr),
             make_assembly_closure(ZERO_BINDING),
             make_adjustment_text(0,target,INC_INSTR,DEC_INSTR,CELL_MAX)
         ]
@@ -894,6 +945,8 @@ def process_create_closure(closure,scope):
             make_assembly_closure(POP_INSTR),
             make_adjustment_text(best[1],target,INC_INSTR,DEC_INSTR,CELL_MAX)
         ]
+    actions.append(make_assert_closure(addr,target))
+    actions.append(make_goto_closure(curr_addr))
     for action in actions:
         process_inline_closure(action,scope)
 
@@ -904,7 +957,7 @@ def compute_value_cost(curr_addr,base_addr,target_value,source_addr,source_value
     return  to_cost + from_cost + adj_cost
 
 def process_assert_closure(closure,scope):
-    if VALUE_TAG in closure:
+    if VALUE_TAG in closure[ASSERT_INNER_VAR]:
         process_value_assertion(closure,scope)
 
 def process_value_assertion(closure,scope):
@@ -1025,6 +1078,7 @@ def process_call_closure(call,scope):
         append_path(scope,order)
         path_list = path if path.__class__.__name__ == "list" else [path]
         scope.get(REF_TABLE).append((scope.get(PATH_INFO),path_list))
+        scope.get(SCOPE_CACHE)[tuple(scope.get(PATH_INFO))] = scope.snapshot()
 
 # SCOPE MANAGEMENT HELPER FUNCTIONS ############################################
 
@@ -1166,6 +1220,18 @@ def make_create_closure(addr,value):
         NUMBER_TAG:value,
     }
 
+def make_assert_closure(addr,value):
+    return {
+        ASSERT_TAG:ASSERT_TAG,
+        ASSERT_INNER_VAR:{
+            DATA_ADDRESS_VAR:{
+                NUMBER_TAG:addr,
+            },
+            NUMBER_TAG:value,
+            VALUE_TAG:VALUE_TAG,
+        }
+    }
+
 def make_adjustment_text(curr,target,up,down,wrap=None):
     adj_amt = abs(curr-target)
     adj = None
@@ -1264,11 +1330,15 @@ def build_modifier_chain(modifiers):
 # HELPER CLASSES ###############################################################
 
 class Scope:
-    def __init__(self,image_hook=None):
+    def __init__(self,image=None,image_hook=None):
         self.defined = Stack()
         self.curr_symbols = set()
         self.symbols = {}
-        self.image_hook = image_hook
+        self.image_hook = image_hook    
+
+        if image:
+            self.enter() # create the base scope automatically
+            self.bind_image(image)
 
     def __str__(self):
         return pp.pformat(self.snapshot())
@@ -1310,6 +1380,10 @@ class Scope:
 
     def partial(self,subset):
         return ScopePartialContextManager(self,subset)
+
+    def bind_image(self,image):
+        for symbol in image:
+            self.bind(symbol,image[symbol])
 
     def inner(self):
         return ScopeContextManager(self)
