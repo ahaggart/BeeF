@@ -224,7 +224,7 @@ def build(module,parser,path):
     pp.pprint(text_table)
 
     # build functions into base table
-    build_master_table(text_table,base_table,depended,order_table)
+    master_table =build_master_table(text_table,base_table,depended,order_table)
 
     # 8. Wrap namespace table entries in counting block structure
     # 9. Build preamble and postamble text
@@ -396,6 +396,13 @@ def make_score_path(path):
 
 def make_path_path(path):
     return path + [PATH_DATA]
+
+def build_from_table_path(table,path):
+    for node in path:
+        name = node
+        enc_table = table
+        table = table[node]
+    return build_from_table(enc_table,name)
 
 def build_from_table(table,entry,target=None):
     if target == None:
@@ -569,17 +576,25 @@ def compile_call_stack(stack,scope):
 
     return scope.get(TEXT_TARGET)
 
-def build_master_table(text_table,base_table,dep_table,order_table):
-    pp.pprint(order_table)
+def build_master_table(text_table,base_table,depending,order_table):
     def order_fn(path):
         return order_table[path]
     def order_cmp(a,b):
         return order_fn(b) - order_fn(a)
 
-    resolve_list = sorted(dep_table.keys(),order_cmp)
+    resolve_list = sorted(depending.keys(),order_cmp)
 
     for fn in resolve_list:
-        pass
+        fragment = []
+        curr_table = base_table
+        for node in fn:
+            fragment.append(node)
+            fkey = tuple(fragment)
+            curr_table = curr_table[order_table[fkey]]
+        curr_table.append(fn[-1])
+        curr_table.extend(build_from_table_path(text_table,fn))
+    
+    return base_table
 
 # RECURSIVE TREE TRAVERSAL AND SCOPE MANAGMENT #################################
 
