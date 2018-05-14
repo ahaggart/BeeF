@@ -2,14 +2,10 @@ module TestBench();
 
 logic clk, reset, done;
 
-top_level processor(
-	.clk(clk),
-	.reset(reset),
-	.done(done)
-);
-
 initial begin
-
+	clk = 0;
+	reset = 0;
+	done = 1;
 end
 
 always begin

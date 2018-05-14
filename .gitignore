@@ -4,6 +4,9 @@
 emulator/build/*
 .vscode/*
 
+*.bak
+processor/work/*
+
 # Compiled Object files
 *.slo
 *.lo

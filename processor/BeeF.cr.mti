@@ -1,0 +1,150 @@
+Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/top_level.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/top_level.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling module top_level
+
+Top level modules:
+	top_level
+
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/reg_ctrl.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/reg_ctrl.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling package reg_ctrl_sv_unit
+-- Importing package definitions
+-- Compiling module reg_ctrl
+
+Top level modules:
+	reg_ctrl
+
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/branch_ctrl.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/branch_ctrl.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling package branch_ctrl_sv_unit
+-- Importing package definitions
+-- Compiling module branch_ctrl
+
+Top level modules:
+	branch_ctrl
+
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/mem_ctrl.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/mem_ctrl.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling package mem_ctrl_sv_unit
+-- Importing package definitions
+-- Compiling module reg_ctrl
+
+Top level modules:
+	reg_ctrl
+
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/definitions.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/definitions.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling package definitions
+
+Top level modules:
+	--none--
+
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/stack.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/stack.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling module stack
+
+Top level modules:
+	stack
+
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/four_one_mux.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/four_one_mux.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling module four_one_mux
+
+Top level modules:
+	four_one_mux
+
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/branch_logic_ctrl.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/branch_logic_ctrl.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling module branch_logic_ctrl
+
+Top level modules:
+	branch_logic_ctrl
+
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/pc_ctrl.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/pc_ctrl.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling package pc_ctrl_sv_unit
+-- Importing package definitions
+-- Compiling module pc_ctrl
+
+Top level modules:
+	pc_ctrl
+
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/cache_ctrl.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/cache_ctrl.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling package cache_ctrl_sv_unit
+-- Importing package definitions
+-- Compiling module cache_ctrl
+
+Top level modules:
+	cache_ctrl
+
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/data_mem.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/data_mem.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling module data_mem
+
+Top level modules:
+	data_mem
+
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/alu.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/alu.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling package alu_sv_unit
+-- Importing package definitions
+-- Compiling module alu
+
+Top level modules:
+	alu
+
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/stack_ctrl.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/stack_ctrl.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling package stack_ctrl_sv_unit
+-- Importing package definitions
+-- Compiling module stack_ctrl
+
+Top level modules:
+	stack_ctrl
+
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/InstROM.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/InstROM.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling module InstROM
+
+Top level modules:
+	InstROM
+
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/two_one_mux.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/two_one_mux.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling module two_one_mux
+
+Top level modules:
+	two_one_mux
+
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/reg_file.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/reg_file.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling module reg_file
+
+Top level modules:
+	reg_file
+
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/head_ctrl.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/head_ctrl.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling package head_ctrl_sv_unit
+-- Importing package definitions
+-- Compiling module head_ctrl
+
+Top level modules:
+	head_ctrl
+
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/alu_ctrl.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/alu_ctrl.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling module alu_ctrl
+
+Top level modules:
+	alu_ctrl
+
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/single_reg.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/single_reg.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling module single_reg
+
+Top level modules:
+	single_reg
+
+} {} {}}
