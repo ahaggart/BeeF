@@ -1,86 +1,113 @@
-
+import definitions::*;
 module top_level(
 	input clk,
 	      reset,
 	output logic done
 );
 
-logic Halt;
-logic [7:0] PC;			//how big is our PC????
-logic [7:0] PCIncremented;	//after incrementing PC
-logic [7:0] PCSelected;		//PC after mux picks source
+op_code instruction;
 
-wire bubble;
-	
-logic [8:0] Instruction; 	//machine code
-logic [7:0] alu_operand;
-logic [7:0] alu_result_o;
-logic overflow_o;
+CONTROL acc_write, stack_write, head_write, branch_write;
+CONTROL mem_write, mem_read, mem_force, pc_write, load_pc, store_pc;
+CONTROL bubble;
 
-logic [7:0] memDataOut;		//data memory read output
-logic [7:0] memAddress;        //data memory write access location
+MEM_OP mem_op;
+MEM_SRC mem_src;
+MEM_ADDR mem_addr;
 
-InstROM #(.IW(16)) im1(
-	.InstAddress (PC),
-	.Instruction (Instruction)
-);
+ALU_OP alu_op;
+ALU_SRC alu_src;
 
-wire pc_enable;
-wire pc_src;
+ACC_SRC acc_src;
 
-wire alu_op;
+PC_SRC pc_src;
 
-wire [15:0] pc;
-wire [7:0] reg_value;
-wire branch_searching;
+BYTE alu_out, acc_out, stack_out, head_out, cache_out, loader_out;
 
-alu_ctrl register_manager(
+BYTE mem_in, mem_out;
+
+control_unit control(
 	.clk(clk),
-	.Instruction(Instruction),
-	.alu_result(alu_result_o),
-	.alu_operand(alu_i),
+	.instruction(instruction),
+
+	.acc_write(acc_write),
+	.acc_src(acc_src),
+	.stack_write(stack_write),
+	.head_write(head_write),
+	.cache_write(cache_write),
+	.pc_write(pc_write),
+	.pc_src(pc_src),
+	.mem_op(mem_op),
+	.mem_addr(mem_addr),
+	.mem_src(mem_src),
 	.alu_op(alu_op),
-	.reg_value(reg_value),
-	.mem_ptr(memAddress),
-	.searching(branch_searching)
+
+	.mem_force(mem_force),
+	.load_pc(load_pc),
+	.store_pc(store_pc),
+	.bubble(bubble)
 );
 
-pc_ctrl pc_controller(
+fetch_unit fetch(
 	.clk(clk),
-	.instruction(Instruction),
-	.write_src(pc_src),
-	.write_enable(pc_enable),
-	.bubble(pop_bubble),
-	.pc(pc)
+	.pc_src(pc_src),
+	.bubble(bubble),
+	.pc_load(load_pc),
+	.pc_store(store_pc),
+	.mem_out(mem_out),
+
+	.mem_in(loader_out),
+	.instruction(instruction)
 );
 
-alu alu_main(
-	.alu_data_i 	(alu_i),
-	.op_i		(alu_op),
-	.alu_result_o	(alu_result_o  )
+mem_unit data_memory(
+	.mem_op(mem_op),
+	.mem_force(mem_force),
+	.alu_out(alu_out),
+	.acc_out(acc_out),
+	.stack_out(stack_out),
+	.head_out(head_out),
+	.cache_out(cache_out),
+	.loader_out(loader_out),
+
+	.mem_out(mem_out)
 );
 
-wire delay_mem_op;
-wire mem_override;
+alu_unit alu(
+	.alu_op(alu_op),
+	.alu_src(alu_src),
+	.acc_out(acc_out),
+	.stack_out(stack_out),
+	.head_out(head_out),
+	.cache_out(cache_out),
 
-instruction_fetch fetch(
-	.clk(clk),
-	.delay(mem_stall),
-	.delayed_op(stall_type),
-	.searching(branch_searching),
-	.pc(pc),
-	.instruction(Instruction),
-	.delay_op(delay_mem_op),
-	.delayed(mem_override)
+	.alu_out(alu_out)
 );
 
-mem_ctrl mem_controller(
-	.instruction(Instruction),
-	.override(mem_override),
-	.force_write(delay_mem_op),
-	.alu_result(alu_result_o),
-	.reg_value(reg_value),
-	.pc(pc)
+control_register stack(
+	.in_data(alu_out),
+	.enable(stack_write),
+	.out_data(stack_out)
 );
 
+control_register head(
+	.in_data(alu_out),
+	.enable(head_write),
+	.out_data(head_out)
+);
+
+control_register cache(
+	.in_data(alu_out),
+	.enable(cache_write),
+	.out_data(cache_out)
+);
+
+acc_unit acc(
+	.acc_write(acc_write),
+	.acc_src(acc_src),
+	.alu_out(alu_out),
+	.mem_out(mem_out),
+
+	.acc_out(acc_out)
+);
 endmodule

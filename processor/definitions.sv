@@ -12,5 +12,69 @@ typedef enum logic[8:0] {
   CBB = 9'b100110111,
   POP = 9'b100001101
 } op_code;
+
+typedef enum logic[1:0]{
+  ALU_FROM_ACC    = 2'b00,
+  ALU_FROM_STACK  = 2'b01,
+  ALU_FROM_HEAD   = 2'b10,
+  ALU_FROM_CACHE  = 2'b11
+} ALU_SRC;
+
+typedef enum logic[1:0]{
+  ADDR_FROM_HEAD   = 2'b00,
+  ADDR_FROM_STACK  = 2'b01,
+  ADDR_FROM_CACHE  = 2'b10,
+  ADDR_FROM_ALU    = 2'b11
+} MEM_ADDR;
+
+typedef enum logic[1:0]{
+  MEM_FROM_ACC    = 2'b00,
+  MEM_FROM_ALU    = 2'b01,
+  MEM_FROM_PC     = 2'b10
+} MEM_SRC;
+
+typedef enum logic{
+  ACC_FROM_ALU    = 1'b0,
+  ACC_FROM_MEM    = 1'b1
+} ACC_SRC;
+
+typedef enum logic{
+  ALU_INC   = 1'b0,
+  ALU_DEC   = 1'b1
+} ALU_OP;
+
+typedef enum logic{
+  ENABLE    = 1'b1,
+  DISABLE   = 0
+} CONTROL;
+
+typedef enum logic{
+  MEM_READ  = 1'b0,
+  MEM_WRITE = 1'b1
+} MEM_OP;
+
+typedef enum logic{
+  PC_INCREMENTED  = 1'b0,
+  PC_LOADED       = 1'b1
+} PC_SRC;
+
+typedef enum logic [1:0]{
+  NORMAL_STATE  = 2'b00,
+  LOADING_1     = 2'b01,
+  LOADING_2     = 2'b10,
+  POPPING       = 2'b11
+} STATE;
+
+typedef enum logic [1:0]{
+  WRITE_PC    = 2'b00,
+  READ_PC     = 2'b01,
+  WRITE_POP   = 2'b10,
+  SEARCH_PC   = 2'b11
+} STALL_STATE;
+
+typedef logic[15:0] PROGRAM_COUNTER;
+typedef logic[7:0] PC_HALF;
+
+typedef logic[7:0] BYTE;
 	 
 endpackage // defintions
