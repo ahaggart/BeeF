@@ -1,10 +1,10 @@
-module four_one_mux(
-	input [1:0] selector,
-	input [7:0] indata1,	
-        input [7:0] indata2,
-	input [7:0] indata3,
-	input [7:0] indata4,
-	output logic [7:0] outdata
+module four_one_mux#(parameter width=8)(
+	input  logic [1:0] selector,
+	input  logic [width-1:0] indata1,	
+    input  logic [width-1:0] indata2,
+	input  logic [width-1:0] indata3,
+	input  logic [width-1:0] indata4,
+	output logic [width-1:0] outdata
 );
 
 always_comb

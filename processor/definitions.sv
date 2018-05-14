@@ -58,19 +58,32 @@ typedef enum logic{
   PC_LOADED       = 1'b1
 } PC_SRC;
 
-typedef enum logic [1:0]{
-  NORMAL_STATE  = 2'b00,
-  LOADING_1     = 2'b01,
-  LOADING_2     = 2'b10,
-  POPPING       = 2'b11
+typedef enum logic [2:0]{
+  CORE_S        = 3'b000,
+  BRANCH_S      = 3'b001,
+  CACHE_LOAD_S  = 3'b010,
+  CACHE_SAVE_S  = 3'b011,
+  POP_WRITE_S   = 3'b100
 } STATE;
 
-typedef enum logic [1:0]{
-  WRITE_PC    = 2'b00,
-  READ_PC     = 2'b01,
-  WRITE_POP   = 2'b10,
-  SEARCH_PC   = 2'b11
-} STALL_STATE;
+typedef struct packed{
+  CONTROL acc_write; 
+  ACC_SRC acc_src;  
+  CONTROL stack_write;
+  CONTROL head_write;
+  CONTROL cache_write;
+  CONTROL pc_write;
+  PC_SRC pc_src;
+  MEM_OP mem_op;
+  MEM_ADDR mem_addr;
+  MEM_SRC mem_src;
+  ALU_OP alu_op;
+  CONTROL loader_select;
+
+  STATE state;
+} control_bundle_s;
+
+typedef logic[$bits(control_bundle_s):0] control_bundle_f;
 
 typedef logic[15:0] PROGRAM_COUNTER;
 typedef logic[7:0] PC_HALF;

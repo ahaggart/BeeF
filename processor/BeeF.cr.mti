@@ -1,4 +1,13 @@
-Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/TestBench.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/TestBench.sv
+fetch_unit.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/fetch_unit.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling package fetch_unit_sv_unit
+-- Importing package definitions
+-- Compiling module fetch_unit
+
+Top level modules:
+	fetch_unit
+
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/TestBench.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/TestBench.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
 -- Compiling package TestBench_sv_unit
 -- Importing package definitions
@@ -6,6 +15,15 @@ Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 
 
 Top level modules:
 	TestBench
+
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/top_level.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/top_level.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling package top_level_sv_unit
+-- Importing package definitions
+-- Compiling module top_level
+
+Top level modules:
+	top_level
 
 } {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/branch_ctrl.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/branch_ctrl.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
@@ -43,6 +61,13 @@ Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 
 Top level modules:
 	acc_unit
 
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/four_one_mux.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/four_one_mux.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling module four_one_mux
+
+Top level modules:
+	four_one_mux
+
 } {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/stack.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/stack.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
 -- Compiling module stack
@@ -50,12 +75,12 @@ Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 
 Top level modules:
 	stack
 
-} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/four_one_mux.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/four_one_mux.sv
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/branch_logic_ctrl.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/branch_logic_ctrl.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
--- Compiling module four_one_mux
+-- Compiling module branch_logic_ctrl
 
 Top level modules:
-	four_one_mux
+	branch_logic_ctrl
 
 } {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/pc_ctrl.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/pc_ctrl.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
@@ -66,21 +91,21 @@ Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 
 Top level modules:
 	pc_ctrl
 
-} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/branch_logic_ctrl.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/branch_logic_ctrl.sv
+} {} {}} state_unit.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/state_unit.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
--- Compiling module branch_logic_ctrl
-
-Top level modules:
-	branch_logic_ctrl
-
-} {} {}} alu_unit.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/alu_unit.sv
-Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
--- Compiling package alu_unit_sv_unit
+-- Compiling package state_unit_sv_unit
 -- Importing package definitions
--- Compiling module alu_unit
+-- Compiling module state_unit
 
 Top level modules:
-	alu_unit
+	state_unit
+
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/data_mem.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/data_mem.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling module data_mem
+
+Top level modules:
+	data_mem
 
 } {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/cache_ctrl.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/cache_ctrl.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
@@ -91,12 +116,14 @@ Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 
 Top level modules:
 	cache_ctrl
 
-} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/data_mem.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/data_mem.sv
+} {} {}} alu_unit.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/alu_unit.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
--- Compiling module data_mem
+-- Compiling package alu_unit_sv_unit
+-- Importing package definitions
+-- Compiling module alu_unit
 
 Top level modules:
-	data_mem
+	alu_unit
 
 } {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/stack_ctrl.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/stack_ctrl.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015

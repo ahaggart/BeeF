@@ -5,22 +5,26 @@ logic clk, reset, done;
 
 op_code instruction;
 
-logic [7:0] alu_result;
-wire [15:0] pc;
+MEM_OP mem_op;
+BYTE alu_out, acc_out, stack_out, head_out, cache_out, loader_out;
+MEM_SRC mem_src;
+MEM_ADDR mem_addr;
+BYTE mem_out;
 
-// module pc_ctrl#(parameter PCWidth=16)(
-// 	input clk,
-// 	input [8:0] instruction,
-// 	input [7:0] mem_read,
-// 	output logic write_src,
-// 	output [PCWidth-1:0] pc
-// );
-
-pc_ctrl pc_test(
+mem_unit mem_test(
 	.clk(clk),
-	.instruction(instruction),
-	.mem_read(alu_result),
-	.pc(pc)
+	.mem_op(mem_op),
+	.alu_out(alu_out),
+	.acc_out(acc_out),
+	.stack_out(stack_out),
+	.head_out(head_out),
+	.cache_out(cache_out),
+	.loader_out(loader_out),
+
+	.mem_src(mem_src),
+	.mem_addr(mem_addr),
+
+	.mem_out(mem_out)
 );
 
 initial begin
@@ -29,15 +33,20 @@ initial begin
 	done = 0;
 
 	instruction = NOP;
-	alu_result = 8'hBF;
+	acc_out		= 8'hA0;
+	alu_out 	= 8'hA1;
+	stack_out 	= 8'hA2;
+	head_out 	= 8'hA3;
+	cache_out 	= 8'hA4;
+	loader_out 	= 8'hA5;
 
-	#10 instruction = CBF;
-	#10 alu_result = 8'hEF;
-	#10 instruction = NOP;
-	#10 instruction = CBB;
-	#10 instruction = NOP;
-	#10 instruction = CBF;
+	mem_op		= MEM_WRITE;
+	mem_src 	= MEM_FROM_ACC;
+	mem_addr 	= ADDR_FROM_HEAD;
 
+	#15 mem_op = MEM_READ;
+	#15 mem_op = MEM_WRITE;
+		mem_src = MEM_FROM_ALU;
 end
 
 always begin

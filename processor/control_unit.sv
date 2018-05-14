@@ -2,6 +2,7 @@ import definitions::*;
 module control_unit(
     input clk,
     input op_code instruction,
+    input STATE state_in,
     output CONTROL acc_write,
     output ACC_SRC acc_src,
     output CONTROL stack_write,
@@ -13,163 +14,63 @@ module control_unit(
     output MEM_ADDR mem_addr,
     output MEM_SRC mem_src,
     output ALU_OP alu_op,
+    output CONTROL loader_select,
 
-    output CONTROL load_pc,
-    output CONTROL store_pc,
-    output CONTROL bubble
+    output STATE state_out
 );
 
-wire stalling;
-ALU_OP      stall_alu_op;
-MEM_ADDR    stall_mem_addr;
-MEM_OP      stall_mem_op;
-MEM_SRC     stall_mem_src;
+control_bundle_s bundle;
+control_bundle_f flat;
+assign bundle = control_bundle_s'(flat);
 
-CONTROL stall_enter;
-STALL_STATE stall_type;
+assign acc_write    = bundle.acc_write;
+assign acc_src      = bundle.acc_src;
+assign stack_write  = bundle.stack_write;
+assign head_write   = bundle.head_write;
+assign cache_write  = bundle.cache_write;
+assign pc_write     = bundle.pc_write;
+assign pc_src       = bundle.pc_src;
+assign mem_op       = bundle.mem_op;
+assign mem_addr     = bundle.mem_addr;
+assign mem_src      = bundle.mem_src;
+assign alu_op       = bundle.alu_op;
+assign state_out    = bundle.state;
+assign loader_select= bundle.loader_select;
 
-stall_unit stall(
-    .clk(clk),
-    .instruction(instruction),
-    .enter(stall_enter),
-    .starting(stall_type),
-    .alu_out(alu_out),
+control_bundle_f    core_controls, branch_controls,
+                    load_controls, save_controls, 
+                    pop_controls;
 
-    .alu_in(alu_in),
-
-    .alu_op(stall_alu_op),
-    .mem_op(stall_mem_op),
-    .mem_addr(stall_mem_addr),
-    .mem_src(stall_mem_src),
-
-    .stalling(stalling)
+core_control core(
+    .instruction    (instruction),
+    .controls       (core_controls)    
 );
 
-always @ (posedge clk) begin
-    if(stalling) begin
-            acc_write   <= DISABLE;
-            stack_write <= DISABLE;
-            head_write  <= DISABLE;
-            cache_write <= DISABLE;
-            acc_src     <= ACC_FROM_ALU;
+branch_control branch(
+    .instruction    (instruction),
+    .controls       (branch_controls)
+);
 
-            mem_op      <= stall_mem_op;
-            alu_op      <= stall_alu_op;
-            mem_addr    <= stall_mem_addr;
-            mem_src     <= stall_mem_src;
-    end
-    else begin
-    case(instruction)
-        INC: begin
-            acc_write   <= ENABLE;
-            stack_write <= DISABLE;
-            head_write  <= DISABLE;
-            cache_write <= DISABLE;
-            mem_op      <= MEM_WRITE;
-            alu_op      <= ALU_INC;
+// load_control load(
 
-            acc_src     <= ACC_FROM_ALU;
-            mem_src     <= MEM_FROM_ALU;
-            mem_addr    <= ADDR_FROM_HEAD;
-        end
-        DEC: begin
-            acc_write   <= ENABLE;
-            stack_write <= DISABLE;
-            head_write  <= DISABLE;
-            cache_write <= DISABLE;
-            mem_op      <= MEM_WRITE;
-            alu_op      <= ALU_DEC;
+// );
 
-            acc_src     <= ACC_FROM_ALU;
-            mem_src     <= MEM_FROM_ALU;
-            mem_addr    <= ADDR_FROM_HEAD;
-        end
-        PSH: begin
-            acc_write   <= DISABLE;
-            stack_write <= ENABLE;
-            head_write  <= DISABLE;
-            cache_write <= DISABLE;
-            mem_op      <= MEM_WRITE;
-            alu_op      <= ALU_INC;
+// save_control save(
 
-            acc_src     <= ACC_FROM_ALU;
-            mem_src     <= MEM_FROM_ACC;
-            mem_addr    <= ADDR_FROM_HEAD;
-        end
-        POP: begin
-            acc_write   <= ENABLE;
-            stack_write <= ENABLE;
-            head_write  <= DISABLE;
-            cache_write <= DISABLE;
-            mem_op      <= MEM_READ;
-            alu_op      <= ALU_DEC;
+// );
 
-            acc_src     <= ACC_FROM_MEM;
-            mem_src     <= MEM_FROM_ALU;
-            mem_addr    <= ADDR_FROM_STACK;
-        end
-        MVR: begin
-            acc_write   <= ENABLE;
-            stack_write <= DISABLE;
-            head_write  <= ENABLE;
-            cache_write <= DISABLE;
-            mem_op      <= MEM_READ;
-            alu_op      <= ALU_INC;
+// pop_control pop(
 
-            acc_src     <= ACC_FROM_MEM;
-            mem_src     <= MEM_FROM_ALU; //dont care
-            mem_addr    <= ADDR_FROM_ALU;
-        end
-        MVL: begin
-            acc_write   <= ENABLE;
-            stack_write <= DISABLE;
-            head_write  <= ENABLE;
-            cache_write <= DISABLE;
-            mem_op      <= MEM_READ;
-            alu_op      <= ALU_DEC;
+// );
 
-            acc_src     <= ACC_FROM_MEM;
-            mem_src     <= MEM_FROM_ALU; //dont care
-            mem_addr    <= ADDR_FROM_ALU;
-        end
-        CBF: begin
-            acc_write   <= DISABLE;
-            stack_write <= DISABLE;
-            head_write  <= DISABLE;
-            cache_write <= ENABLE;
-            mem_op      <= MEM_WRITE;
-            alu_op      <= ALU_INC;
-
-            acc_src     <= ACC_FROM_MEM; //dont care
-            mem_src     <= MEM_FROM_PC; //dont care
-            mem_addr    <= ADDR_FROM_CACHE;
-        end
-        CBB: begin
-            acc_write   <= DISABLE;
-            stack_write <= DISABLE;
-            head_write  <= DISABLE;
-            cache_write <= ENABLE;
-            mem_op      <= MEM_READ;
-            alu_op      <= ALU_DEC;
-
-            acc_src     <= ACC_FROM_MEM; //dont care
-            mem_src     <= MEM_FROM_PC; //dont care
-            mem_addr    <= ADDR_FROM_CACHE;
-        end
-        default: begin //NOP
-            acc_write   <= DISABLE;
-            stack_write <= DISABLE;
-            head_write  <= DISABLE;
-            cache_write <= DISABLE;
-            mem_op      <= MEM_READ;
-            alu_op      <= ALU_INC;
-
-            acc_src     <= ACC_FROM_ALU;
-            mem_src     <= MEM_FROM_ACC;
-            mem_addr    <= ADDR_FROM_HEAD;
-        end
+always_comb begin
+    case(state_in)
+        BRANCH_S:       flat    <= branch_controls;
+        CACHE_LOAD_S:   flat    <= load_controls;
+        CACHE_SAVE_S:   flat    <= save_controls;
+        POP_WRITE_S:    flat    <= pop_controls;
+        default:        flat    <= core_controls;
     endcase
-    end
 end
 
 endmodule
