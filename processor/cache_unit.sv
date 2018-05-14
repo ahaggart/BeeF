@@ -14,7 +14,7 @@ module cache_unit(
 BYTE pc_upper, pc_lower;
 BYTE load_upper, load_lower;
 
-assign load_out = {load_upper,load_lower};
+assign load_out = {load_upper,mem_out};
 assign pc_upper = pc[15:8];
 assign pc_lower = pc[ 7:0];
 
@@ -25,14 +25,14 @@ assign select_lower = CONTROL'(~select_upper);
 control_register upper(
 	.in_data(mem_out),
 	.enable(select_upper),
-	.out_data(pc_upper)
+	.out_data(load_upper)
 );
 
-control_register lower(
-	.in_data(mem_out),
-	.enable(select_lower),
-	.out_data(pc_lower)
-);
+// control_register lower(
+// 	.in_data(mem_out),
+// 	.enable(select_lower),
+// 	.out_data(load_lower)
+// );
 
 control_register cache(
 	.in_data(alu_out),
@@ -40,10 +40,22 @@ control_register cache(
 	.out_data(cache_out)
 );
 
+// control_register save_upper(
+//     .in_data(pc_upper),
+//     .enable(cache_write), 
+//     .out_data(cached_upper)
+// );
+
+control_register save_lower(
+    .in_data(pc_lower),
+    .enable(cache_write), //save half of current pc whenever the cache unit is used
+    .out_data(cached_lower)
+);
+
 two_one_mux save(
     .selector(loader_select),
-    .indata0(pc_lower),
-    .indata1(pc_upper),
+    .indata0(pc_upper),
+    .indata1(cached_lower),
     .outdata(save_out)
 );
 
