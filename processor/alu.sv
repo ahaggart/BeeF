@@ -9,10 +9,10 @@
 // Includes new enum op_mnemonic to make instructions appear literally on waveform.
 import definitions::*;
 
-module alu (
-	input  [7:0]       alu_data_i ,	 // operand 
+module alu#(parameter width=8) (
+	input  [width-1:0]       alu_data_i ,	 // operand 
         input op_i,			 // increment or decrement
-	output logic [7:0] alu_result_o	 // result
+	output logic [width-1:0] alu_result_o	 // result
 );
 
 //op_code    op3; 	                     // type is op_code, as defined
@@ -25,8 +25,8 @@ always_comb								  // no registers, no clocks
   case (op_i)   						     
 	//INC: {ov_o, result_o} = r_i + 9'b1;
 	//DEC: {ov_o, result_o} = r_i - 9'b1;
-	0: alu_result_o = alu_data_i + 9'b1; //INC
-	1: alu_result_o = alu_data_i - 9'b1; //DEC
+	0: alu_result_o = alu_data_i + 1'b1; //INC
+	1: alu_result_o = alu_data_i - 1'b1; //DEC
     endcase
   end
 

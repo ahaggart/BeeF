@@ -1,13 +1,13 @@
-module single_reg (
+module single_reg#(parameter width=8) (
 	input clk,
 	input regReadEnable,
 	input regWriteEnable,
-	input [7:0] regWriteData,
-	output logic [7:0] regReadData
+	input [width-1:0] regWriteData,
+	output logic [width-1:0] regReadData
 );
 
 //declare memory/reg file array itself
-logic [7:0] RF [1]; //RF [NUM REGS]
+logic [width-1:0] RF [1]; //RF [NUM REGS]
 
 assign regReadData = RF[0];
 

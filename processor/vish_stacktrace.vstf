@@ -7,3 +7,48 @@
 # Platform = win32pe
 
 Exception c0000005 has occurred at address 1007698f. Traceback:
+# Current time Sun May 13 21:42:29 2018
+# ModelSim PE Student Edition Stack Trace
+# Program = vish
+# Id = "10.4a"
+# Version = "2015.03"
+# Date = "Apr  7 2015"
+# Platform = win32pe
+
+Exception c0000005 has occurred at address 0059afd9. Traceback:
+# Current time Sun May 13 21:53:03 2018
+# ModelSim PE Student Edition Stack Trace
+# Program = vish
+# Id = "10.4a"
+# Version = "2015.03"
+# Date = "Apr  7 2015"
+# Platform = win32pe
+
+Exception c0000005 has occurred at address 0059afd9. Traceback:
+# Current time Sun May 13 21:54:13 2018
+# ModelSim PE Student Edition Stack Trace
+# Program = vish
+# Id = "10.4a"
+# Version = "2015.03"
+# Date = "Apr  7 2015"
+# Platform = win32pe
+
+Exception c0000005 has occurred at address 102f988c. Traceback:
+# Current time Sun May 13 21:57:22 2018
+# ModelSim PE Student Edition Stack Trace
+# Program = vish
+# Id = "10.4a"
+# Version = "2015.03"
+# Date = "Apr  7 2015"
+# Platform = win32pe
+
+Exception c0000005 has occurred at address 0059afd9. Traceback:
+# Current time Sun May 13 23:15:28 2018
+# ModelSim PE Student Edition Stack Trace
+# Program = vish
+# Id = "10.4a"
+# Version = "2015.03"
+# Date = "Apr  7 2015"
+# Platform = win32pe
+
+Exception c0000005 has occurred at address 0059afd9. Traceback:

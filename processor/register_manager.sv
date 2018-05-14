@@ -1,21 +1,25 @@
-module alu_ctrl#(parameter PCWidth=16)(
+module register_manager#(parameter PCWidth=16)(
 	input clk,
 	input [8:0] Instruction,
 	input [PCWidth-1:0] alu_result,
 	output wire [PCWidth-1:0] alu_operand,
 	output wire alu_op,
+	output wire reg_value,
+	output wire branch_searching,
 	output wire [7:0] mem_ptr
 );
 logic [7:0] alu_i;
 logic [7:0] cacheptr, 		//out from resgister file
             stackptr,
-	    headptr;
+	    	headptr;
 
 wire cache_enable;
 wire branch_ctrl_op;
 wire pop_bubble;
 wire branch_tracking;
-wire branch_searching;
+logic [7:0] working_value;
+
+assign reg_value = working_value;
 
 two_one_mux#(.width(1)) op_mux(
 	.selector(searching),
@@ -36,75 +40,48 @@ branch_ctrl#(.PCWidth(PCWidth)) branch_controller(
 );
 
 cache_ctrl cache_controller(
+	.clk(clk),
 	.instruction(Instruction),
-	.write_enable(cache_enable)
-);
-
-single_reg cache(
-	.clk		(clk	),
-	.regReadEnable	(1'b1	),		//always reading
-	.regWriteEnable	(cache_enable),
-	.regWriteData	(alu_result_o),
-	.regReadData	(cacheptr    )
+	.alu_result(alu_result),
+	.cache_ptr(cacheptr)
 );
 
 wire stack_enable;
 
 stack_ctrl stack_controller(
+	.clk(clk),
 	.instruction(Instruction),
-	.write_enable(stack_enable)
-);
-
-single_reg stack(
-	.clk		(clk	),
-	.regReadEnable	(1'b1	),		//always reading
-	.regWriteEnable	(stack_enable),
-	.regWriteData	(alu_result_o),
-	.regReadData	(stackptr)
+	.alu_result(alu_result),
+	.stack_ptr(stackptr)
 );
 
 wire head_enable;
 
 head_ctrl head_controller(
+	.clk(clk),
 	.instruction(Instruction),
-	.write_enable(head_enable)
+	.alu_result(alu_result),
+	.head_ptr(headptr)
 );
-
-single_reg head(
-	.clk		(clk	),
-	.regReadEnable	(1'b1	),		//always reading
-	.regWriteEnable	(head_enable),
-	.regWriteData	(alu_result_o),
-	.regReadData	(headptr)
-);
-
-wire working_src;
-wire working_enable;
-wire [7:0] working_input; //no name register input data
 
 reg_ctrl reg_controller(
+	.clk(clk),
 	.instruction(Instruction),
-	.write_src(working_src),
-	.write_enable(working_enable)
+	.alu_result(alu_result),
+	.mem_value(mem_read),
+	.reg_value(working_value)
 );
 
-two_one_mux working_src_mux(
-	.selector	(working_src),			//what picks the source??????????????????????????????
-	.indata0	(alu_result_o   ),
-	.indata1	(memDataOut     ),
-	.outdata	(working_input)
-);
+wire alu_src, address_src;
 
-single_reg working(
-	.clk		(clk	),
-	.regReadEnable	(1'b1	),		//always reading
-	.regWriteEnable	(working_enable),
-	.regWriteData	(working_input),
-	.regReadData	(working_value)
+instruction_decode decode(
+	.instruction(Instruction),
+	.address_select(address_src),
+	.alu_select(alu_src)
 );
 
 four_one_mux alu_mux(	
-	.selector	(Instruction[2:1]),
+	.selector	(alu_src),
 	.indata1	(working_value ),
 	.indata2	(headptr  ),
 	.indata3	(stackptr ),
@@ -114,13 +91,13 @@ four_one_mux alu_mux(
 
 two_one_mux#(.width(PCWidth)) alu_mux_2(
 	.selector(branch_searching),
-	.indata0({0,alu_i}),
+	.indata0({{PCWidth-1{1'b0}},alu_i}),
 	.indata1(branch_tracking),
 	.outdata(alu_operand)
 );
 
 four_one_mux address_mux(	
-	.selector	(Instruction[4:3]),
+	.selector	(address_src),
 	.indata1	(headptr 	),
 	.indata2	(stackptr	),
 	.indata3	(cacheptr	),
