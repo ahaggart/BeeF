@@ -45,7 +45,7 @@ data_mem dm1(
     .memAddress (address 		),
    	.ReadMem    (read_enable	),   	// mem read always on		
    	.WriteMem   (write_enable	),	// write on or off
-   	.DataIn     (mem_in 		), 	 	//data to write		
-   	.DataOut    (mem_out		)    	//read result
+   	.memDataIn  (mem_in 		), 	 	//data to write		
+   	.memDataOut (mem_out		)    	//read result
 );
 endmodule 

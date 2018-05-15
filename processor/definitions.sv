@@ -33,9 +33,11 @@ typedef enum logic[1:0]{
   MEM_FROM_PC     = 2'b10
 } MEM_SRC;
 
-typedef enum logic{
-  ACC_FROM_ALU    = 1'b0,
-  ACC_FROM_MEM    = 1'b1
+typedef enum logic[1:0]{
+  ACC_ZERO        = 2'b00,
+  ACC_FROM_ALU    = 2'b01,
+  ACC_FROM_MEM    = 2'b10,
+  ACC_ONE         = 2'b11
 } ACC_SRC;
 
 typedef enum logic{
@@ -78,6 +80,7 @@ typedef struct packed{
   MEM_ADDR mem_addr;
   MEM_SRC mem_src;
   ALU_OP alu_op;
+  ALU_SRC alu_src;
   CONTROL loader_select;
 
   STATE state;
@@ -89,5 +92,7 @@ typedef logic[15:0] PROGRAM_COUNTER;
 typedef logic[7:0] PC_HALF;
 
 typedef logic[7:0] BYTE;
+
+typedef logic[8:0] INSTRUCTION;
 	 
 endpackage // defintions

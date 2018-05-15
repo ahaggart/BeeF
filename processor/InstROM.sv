@@ -8,9 +8,10 @@
 // same format as any lookup table
 // width = 9 bits (per assignment spec.)
 // depth = 2**IW (default IW=16)
+import definitions::*;
 module InstROM #(parameter IW=16)(
   input       [IW-1:0] InstAddress,
-  output logic[   8:0] InstOut);
+  output op_code InstOut);
 	 
   logic [8:0] inst_rom [2**IW];	   // 2**IW elements, 9 bits each
 // load machine code program into instruction ROM
@@ -19,6 +20,6 @@ module InstROM #(parameter IW=16)(
 
 // continuous combinational read output  
 //   change the pointer (from program counter) ==> change the output
-  assign InstOut = inst_rom[InstAddress];
+  assign InstOut = op_code'(inst_rom[InstAddress]);
 
 endmodule

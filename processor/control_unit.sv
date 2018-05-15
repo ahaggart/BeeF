@@ -3,6 +3,8 @@ module control_unit(
     input clk,
     input op_code instruction,
     input STATE state_in,
+    input logic acc_zero,
+
     output CONTROL acc_write,
     output ACC_SRC acc_src,
     output CONTROL stack_write,
@@ -34,6 +36,7 @@ assign mem_op       = bundle.mem_op;
 assign mem_addr     = bundle.mem_addr;
 assign mem_src      = bundle.mem_src;
 assign alu_op       = bundle.alu_op;
+assign alu_src      = alu_src;
 assign state_out    = bundle.state;
 assign loader_select= bundle.loader_select;
 
@@ -43,11 +46,13 @@ control_bundle_f    core_controls, branch_controls,
 
 core_control core(
     .instruction    (instruction),
+    .acc_zero       (acc_zero),
     .controls       (core_controls)    
 );
 
 branch_control branch(
     .instruction    (instruction),
+    .acc_zero       (acc_zero),
     .controls       (branch_controls)
 );
 

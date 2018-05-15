@@ -1,11 +1,11 @@
-
+import definitions::*;
 module data_mem #(parameter AW=8)(
   input              clk,                // clock
-  input    [AW-1:0]  memAddress,		 // pointer
+  input  BYTE        memAddress,		 // pointer
   input              ReadMem,			 // read enable	(may be tied high)
   input              WriteMem,			 // write enable
-  inout       [7:0]  memDataIn,			 // data to store (write into memory)
-  output logic[7:0]  memDataOut);			 //	data to load (read from memory)
+  input  BYTE        memDataIn,			 // data to store (write into memory)
+  output BYTE        memDataOut);			 //	data to load (read from memory)
 
   logic [7:0] my_memory [2**AW]; 		 // create array of 2**AW elements (default = 256)
 

@@ -1,7 +1,7 @@
 import definitions::*;
 module branch_control(
     input op_code instruction,
-
+    input logic acc_zero,
     output control_bundle_f controls
 );
 
@@ -29,6 +29,16 @@ always_comb begin
 
             bundle.mem_src     <= MEM_FROM_PC; //dont care
             bundle.mem_addr    <= ADDR_FROM_CACHE;
+        end
+        NOP: begin
+            bundle.acc_write   <= DISABLE;
+            bundle.cache_write <= DISABLE;
+
+            bundle.mem_op      <= MEM_READ;
+            bundle.alu_op      <= ALU_INC;
+
+            bundle.mem_src     <= MEM_FROM_ACC;
+            bundle.mem_addr    <= ADDR_FROM_HEAD;
         end
         default: begin //NOP
             bundle.acc_write   <= DISABLE;

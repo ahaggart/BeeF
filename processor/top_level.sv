@@ -13,6 +13,8 @@ CONTROL acc_write, stack_write, head_write, branch_write;
 CONTROL mem_write, mem_read, mem_force, pc_write, load_pc, store_pc;
 CONTROL loader_select, loader_action;
 
+logic acc_zero;
+
 MEM_OP mem_op;
 MEM_SRC mem_src;
 MEM_ADDR mem_addr;
@@ -36,6 +38,7 @@ control_unit control(
 	.clk(clk),
 	.instruction(instruction),
 	.state_in(machine_state),
+	.acc_zero(acc_zero),
 
 	.acc_write(acc_write),
 	.acc_src(acc_src),
@@ -48,6 +51,7 @@ control_unit control(
 	.mem_addr(mem_addr),
 	.mem_src(mem_src),
 	.alu_op(alu_op),
+	.alu_src(alu_src),
 
 	.state_out(state_request)
 );
@@ -75,6 +79,7 @@ cache_unit cache(
 fetch_unit fetch(
 	.clk(clk),
 	.pc_src(pc_src),
+	.pc_write(pc_write),
 	.pc_loaded(cache_loaded),
 
 	.pc(pc),
@@ -123,6 +128,7 @@ acc_unit acc(
 	.alu_out(alu_out),
 	.mem_out(mem_out),
 
-	.acc_out(acc_out)
+	.acc_out(acc_out),
+	.acc_zero(acc_zero)
 );
 endmodule

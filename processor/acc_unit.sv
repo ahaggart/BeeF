@@ -5,16 +5,19 @@ module acc_unit(
     input BYTE alu_out,
     input BYTE mem_out,
 
-    output BYTE acc_out
+    output BYTE acc_out,
+    output logic acc_zero
 );
 
 BYTE acc_in;
+assign acc_zero = &(~acc_out);
 
-two_one_mux alu_select(
+four_one_mux acc_select(
     .selector(acc_src),
-    .indata0(alu_out),
-    .indata1(mem_out),
-
+    .indata1(0      ),
+    .indata2(alu_out),
+    .indata3(mem_out),
+    .indata4(8'b1),
     .outdata(acc_in)
 );
 

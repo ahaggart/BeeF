@@ -1,10 +1,10 @@
 import definitions::*;
-module control_register(
+module control_register#(parameter width=8)(
     input clk,
-    input BYTE in_data,
+    input logic [width-1:0] in_data,
     input CONTROL enable,
 
-    output BYTE out_data
+    output logic [width-1:0] out_data
 );
 
 always_ff @ (posedge clk)
