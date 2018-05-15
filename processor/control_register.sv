@@ -1,6 +1,7 @@
 import definitions::*;
 module control_register#(parameter width=8)(
     input clk,
+    input reset,
     input logic [width-1:0] in_data,
     input CONTROL enable,
 
@@ -8,5 +9,6 @@ module control_register#(parameter width=8)(
 );
 
 always_ff @ (posedge clk)
-    if(enable) out_data <= in_data;
+    if(reset) out_data <= 0;
+    else if(enable) out_data <= in_data;
 endmodule

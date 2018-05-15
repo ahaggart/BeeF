@@ -16,7 +16,7 @@ module InstROM #(parameter IW=16)(
   logic [8:0] inst_rom [2**IW];	   // 2**IW elements, 9 bits each
 // load machine code program into instruction ROM
   initial 
-	$readmemb("instruct.txt", inst_rom);
+	$readmemb("instructions.beef", inst_rom);
 
 // continuous combinational read output  
 //   change the pointer (from program counter) ==> change the output

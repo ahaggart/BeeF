@@ -23,7 +23,7 @@ four_one_mux alu_select(
 
 alu core(
 	.alu_data_i(alu_in),
-	.alu_op(alu_op),
+	.op_i(alu_op),
 	.alu_result_o(alu_out)
 );
 

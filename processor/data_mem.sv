@@ -13,6 +13,8 @@ module data_mem #(parameter AW=8)(
 //  initial 
 //    $readmemh("dataram_init.list", my_memory);
 
+  initial $readmemb("empty.bin", my_memory);
+
 // read from memory, e.g. on load instruction
   always_comb							 // reads are immediate/combinational
     if(ReadMem) begin

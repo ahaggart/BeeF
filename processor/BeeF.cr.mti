@@ -32,15 +32,6 @@ Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 
 Top level modules:
 	--none--
 
-} {} {}} branch_control.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/branch_control.sv
-Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
--- Compiling package branch_control_sv_unit
--- Importing package definitions
--- Compiling module branch_control
-
-Top level modules:
-	branch_control
-
 } {} {}} acc_unit.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/acc_unit.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
 -- Compiling package acc_unit_sv_unit
@@ -49,6 +40,15 @@ Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 
 
 Top level modules:
 	acc_unit
+
+} {} {}} branch_control.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/branch_control.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling package branch_control_sv_unit
+-- Importing package definitions
+-- Compiling module branch_control
+
+Top level modules:
+	branch_control
 
 } {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/four_one_mux.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/four_one_mux.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
@@ -63,6 +63,15 @@ Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 
 
 Top level modules:
 	stack
+
+} {} {}} InstrTestBench.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/InstrTestBench.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling package InstrTestBench_sv_unit
+-- Importing package definitions
+-- Compiling module InstrTestBench
+
+Top level modules:
+	InstrTestBench
 
 } {} {}} state_unit.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/state_unit.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
@@ -91,14 +100,14 @@ Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 
 Top level modules:
 	alu_unit
 
-} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/data_mem.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/data_mem.sv
+} {} {}} TopLevelTest.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/TopLevelTest.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
--- Compiling package data_mem_sv_unit
+-- Compiling package TopLevelTest_sv_unit
 -- Importing package definitions
--- Compiling module data_mem
+-- Compiling module TopLevelTest
 
 Top level modules:
-	data_mem
+	TopLevelTest
 
 } {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/alu.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/alu.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015

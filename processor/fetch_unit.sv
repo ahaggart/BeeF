@@ -43,16 +43,17 @@ two_one_mux#(.width($bits(PROGRAM_COUNTER))) pc_mux(
 
 control_register#(.width($bits(PROGRAM_COUNTER))) program_counter(
     .clk(clk),
-    .in_data(new_pc),
+    .reset(reset),
+    .in_data(pc_selected),
     .enable(pc_write),
     .out_data(pc)
 );
 
-two_one_mux#(.width($bits(PROGRAM_COUNTER))) reset_mux(
-	.selector   (reset),
-	.indata0    (pc_selected),
-	.indata1    (16'b0),
-	.outdata    (new_pc)
-);
+// two_one_mux#(.width($bits(PROGRAM_COUNTER))) reset_mux(
+// 	.selector   (reset),
+// 	.indata0    (pc_selected),
+// 	.indata1    (16'b0),
+// 	.outdata    (new_pc)
+// );
 
 endmodule

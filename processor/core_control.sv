@@ -139,6 +139,26 @@ always_comb begin
         end
     endcase
     bundle.loader_select <= DISABLE; //always load the lower half of the PC
+    bundle.pc_src <= PC_INCREMENTED; //no branch execution 
+    case(instruction) //state logic
+        CBB: begin
+            if(acc_zero) begin
+                bundle.state <= BRANCH_S;
+                bundle.pc_write <= DISABLE;
+            end else begin         
+                bundle.state <= CORE_S;
+                bundle.pc_write <= ENABLE;
+            end
+        end
+        CBF: begin 
+            bundle.state <= CACHE_SAVE_S;
+            bundle.pc_write <= DISABLE;
+        end
+        default: begin 
+            bundle.state <= CORE_S;
+            bundle.pc_write <= ENABLE;
+        end
+    endcase
 end
 
 endmodule
