@@ -54,9 +54,19 @@ fetch_unit fetch(
 control_register head(
     .clk(clk),
     .reset(reset),
+    .init(8'h0),
 	.in_data(alu_out),
 	.enable(signals.head_write),
 	.out_data(head_out)
+);
+
+control_register stack(
+    .clk(clk),
+    .reset(reset),
+    .init(8'd128),
+	.in_data(alu_out),
+	.enable(signals.stack_write),
+	.out_data(stack_out)
 );
 
 mem_unit data_mem(
@@ -82,7 +92,6 @@ initial begin
 	done = 0;
 
     pc_loaded   = 16'd5;
-    stack_out   = 8'b1;
     cache_out   = 8'b11;
 
     #10 reset = 0;

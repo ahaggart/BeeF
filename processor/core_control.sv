@@ -47,7 +47,7 @@ always_comb begin
 
             bundle.acc_src     <= ACC_FROM_ALU;
             bundle.mem_src     <= MEM_FROM_ACC;
-            bundle.mem_addr    <= ADDR_FROM_HEAD;
+            bundle.mem_addr    <= ADDR_FROM_STACK;
         end
         POP: begin
             bundle.acc_write   <= ENABLE;
@@ -59,8 +59,8 @@ always_comb begin
             bundle.alu_src     <= ALU_FROM_STACK;
 
             bundle.acc_src     <= ACC_FROM_MEM;
-            bundle.mem_src     <= MEM_FROM_ALU;
-            bundle.mem_addr    <= ADDR_FROM_STACK;
+            bundle.mem_src     <= MEM_FROM_ALU; //dont care
+            bundle.mem_addr    <= ADDR_FROM_ALU;
         end
         MVR: begin
             bundle.acc_write   <= ENABLE;

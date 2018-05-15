@@ -26,6 +26,7 @@ four_one_mux acc_select(
 control_register acc(
     .clk(clk),
     .reset(reset),
+    .init(8'h0),
     .in_data(acc_in),
     .enable(acc_write),
     .out_data(acc_out)

@@ -44,6 +44,7 @@ two_one_mux#(.width($bits(PROGRAM_COUNTER))) pc_mux(
 control_register#(.width($bits(PROGRAM_COUNTER))) program_counter(
     .clk(clk),
     .reset(reset),
+    .init(16'h0),
     .in_data(pc_selected),
     .enable(pc_write),
     .out_data(pc)

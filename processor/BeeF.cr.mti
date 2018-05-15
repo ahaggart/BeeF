@@ -7,15 +7,6 @@ Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 
 Top level modules:
 	fetch_unit
 
-} {} {}} core_control.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/core_control.sv
-Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
--- Compiling package core_control_sv_unit
--- Importing package definitions
--- Compiling module core_control
-
-Top level modules:
-	core_control
-
 } {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/top_level.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/top_level.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
 -- Compiling package top_level_sv_unit
@@ -91,6 +82,15 @@ Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 
 Top level modules:
 	control_unit
 
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/data_mem.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/data_mem.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling package data_mem_sv_unit
+-- Importing package definitions
+-- Compiling module data_mem
+
+Top level modules:
+	data_mem
+
 } {} {}} alu_unit.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/alu_unit.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
 -- Compiling package alu_unit_sv_unit
@@ -118,15 +118,6 @@ Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 
 Top level modules:
 	alu
 
-} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/InstROM.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/InstROM.sv
-Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
--- Compiling package InstROM_sv_unit
--- Importing package definitions
--- Compiling module InstROM
-
-Top level modules:
-	InstROM
-
 } {} {}} control_register.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/control_register.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
 -- Compiling package control_register_sv_unit
@@ -135,6 +126,15 @@ Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 
 
 Top level modules:
 	control_register
+
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/InstROM.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/InstROM.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling package InstROM_sv_unit
+-- Importing package definitions
+-- Compiling module InstROM
+
+Top level modules:
+	InstROM
 
 } {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/two_one_mux.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/two_one_mux.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
