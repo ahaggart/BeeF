@@ -60,12 +60,10 @@ typedef enum logic{
   PC_LOADED       = 1'b1
 } PC_SRC;
 
-typedef enum logic [2:0]{
-  CORE_S        = 3'b000,
-  BRANCH_S      = 3'b001,
-  CACHE_LOAD_S  = 3'b010,
-  CACHE_SAVE_S  = 3'b011,
-  POP_WRITE_S   = 3'b100
+typedef enum logic [1:0]{
+  CORE_S        = 2'b00,
+  BRANCH_S      = 2'b01,
+  STALL_S       = 2'b10
 } STATE;
 
 typedef struct packed{

@@ -9,10 +9,12 @@ control_bundle_f controls;
 control_bundle_s signals;
 assign signals = control_bundle_s'(controls);
 
-PROGRAM_COUNTER pc, pc_loaded;
+PROGRAM_COUNTER pc, pc_loaded, pc_incremented;
 BYTE mem_out, alu_out, stack_out, cache_out, head_out, acc_out, save_out;
 
-core_control core(
+control_unit control(
+    .clk(clk),
+    .reset(reset),
     .instruction(instruction),
     .acc_zero(acc_zero),
     .controls(controls)
@@ -48,6 +50,7 @@ fetch_unit fetch(
     .pc_write(signals.pc_write),
     .pc_loaded(pc_loaded),
     .pc(pc),
+    .pc_incremented(pc_incremented),
     .instruction(instruction)
 );
 
@@ -85,14 +88,25 @@ mem_unit data_mem(
 	.mem_out(mem_out)
 );
 
+cache_unit cache(
+    .clk(clk),
+    .reset(reset),
+    .alu_out(alu_out),
+    .cache_write(signals.cache_write),
+    .loader_select(signals.loader_select),
+    .pc(pc_incremented),
+    .mem_out(mem_out),
+
+    .load_out(pc_loaded),
+    .save_out(save_out),
+    .cache_out(cache_out)
+);
+
 
 initial begin
 	clk = 0;
 	reset = 1;
 	done = 0;
-
-    pc_loaded   = 16'd5;
-    cache_out   = 8'b11;
 
     #10 reset = 0;
 end

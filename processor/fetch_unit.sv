@@ -7,26 +7,27 @@ module fetch_unit(
     input PROGRAM_COUNTER pc_loaded,
 
     output PROGRAM_COUNTER pc,
+    output PROGRAM_COUNTER pc_incremented,
     output op_code instruction
 );
 
-PROGRAM_COUNTER pc_incremented,pc_selected,new_pc;
+PROGRAM_COUNTER pc_selected,new_pc;
 op_code at_pc;
 
 INSTRUCTION _instruction;
-assign instruction = op_code'(_instruction);
+// assign instruction = op_code'(_instruction);
 
 InstROM instruction_mem(       
     .InstAddress (pc    ),		
-   	.InstOut     (at_pc )    	//read result
+   	.InstOut     (instruction )    	//read result
 );
 
-two_one_mux#(.width($bits(op_code))) instr_mux(
-	.selector   (pc_write),
-	.indata0    (9'b0),
-	.indata1    (at_pc),
-	.outdata    (_instruction)
-);
+// two_one_mux#(.width($bits(op_code))) instr_mux(
+// 	.selector   (pc_write),
+// 	.indata0    (9'b0),
+// 	.indata1    (at_pc),
+// 	.outdata    (_instruction)
+// );
 
 alu#(.width($bits(PROGRAM_COUNTER))) pc_alu(
 	.alu_data_i	    (pc	),

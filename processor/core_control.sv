@@ -36,7 +36,7 @@ always_comb begin
             bundle.mem_src     <= MEM_FROM_ALU;
             bundle.mem_addr    <= ADDR_FROM_HEAD;
         end
-        PSH: begin
+        PSH: begin //convention: stack pointer points to free memory
             bundle.acc_write   <= DISABLE;
             bundle.stack_write <= ENABLE;
             bundle.head_write  <= DISABLE;
@@ -49,7 +49,7 @@ always_comb begin
             bundle.mem_src     <= MEM_FROM_ACC;
             bundle.mem_addr    <= ADDR_FROM_STACK;
         end
-        POP: begin
+        POP: begin //we must use the decremented stack pointer to fetch value
             bundle.acc_write   <= ENABLE;
             bundle.stack_write <= ENABLE;
             bundle.head_write  <= DISABLE;
@@ -104,13 +104,13 @@ always_comb begin
 
             bundle.acc_src     <= ACC_ONE; //load a 1 directly to avoid ALU
             bundle.mem_src     <= MEM_FROM_PC; //use this cycle's MEM and ALU for cache
-            bundle.mem_addr    <= ADDR_FROM_CACHE;
+            bundle.mem_addr    <= ADDR_FROM_ALU;
         end
         CBB: begin
             if(acc_zero) begin 
                 bundle.cache_write <= DISABLE;
             end else begin
-                bundle.cache_write <= ENABLE;
+                bundle.cache_write <= DISABLE;
             end
 
             bundle.acc_write   <= DISABLE;
@@ -141,17 +141,26 @@ always_comb begin
     bundle.loader_select <= DISABLE; //always load the lower half of the PC
     bundle.pc_src <= PC_INCREMENTED; //no branch execution 
     case(instruction) //state logic
-        CBB: begin
-            if(acc_zero) begin
-                bundle.state <= BRANCH_S;
-                bundle.pc_write <= DISABLE;
-            end else begin         
+        CBF: begin
+            if(acc_zero) begin //not taken
                 bundle.state <= CORE_S;
                 bundle.pc_write <= ENABLE;
+            end else begin //taken    
+                bundle.state <= STALL_S;
+                bundle.pc_write <= DISABLE;
             end
         end
-        CBF: begin 
-            bundle.state <= CACHE_SAVE_S;
+        CBB: begin 
+            if(acc_zero) begin //not taken
+                bundle.state <= CORE_S;
+                bundle.pc_write <= ENABLE;
+            end else begin //taken    
+                bundle.state <= STALL_S;
+                bundle.pc_write <= DISABLE;
+            end
+        end
+        POP: begin
+            bundle.state <= STALL_S;
             bundle.pc_write <= DISABLE;
         end
         default: begin 

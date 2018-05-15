@@ -9,7 +9,7 @@ module control_register#(parameter width=8)(
     output logic [width-1:0] out_data
 );
 
-always_ff @ (posedge clk)
+always_ff @ (posedge clk or posedge reset)
     if(reset) out_data <= init;
     else if(enable) out_data <= in_data;
 endmodule
