@@ -30,17 +30,15 @@ always_comb begin
     case(instruction)
         CBF: begin
             bundle.acc_write   <= ENABLE;
-            bundle.cache_write <= DISABLE;
 
             bundle.mem_op      <= MEM_READ;
             bundle.alu_op      <= ALU_INC;
 
             bundle.mem_src     <= MEM_FROM_PC; //dont care
-            bundle.mem_addr    <= ADDR_FROM_CACHE;
+            bundle.mem_addr    <= ADDR_FROM_CACHE; //dont care
         end
         CBB: begin
             bundle.acc_write   <= ENABLE;
-            bundle.cache_write <= DISABLE;
 
             bundle.mem_op      <= MEM_READ;
             bundle.alu_op      <= ALU_DEC;
@@ -50,18 +48,28 @@ always_comb begin
         end
         default: begin //NOP
             bundle.acc_write   <= DISABLE;
-            bundle.cache_write <= DISABLE;
 
             bundle.mem_op      <= MEM_READ;
             bundle.alu_op      <= ALU_INC;
 
             bundle.mem_src     <= MEM_FROM_ACC;
-            bundle.mem_addr    <= ADDR_FROM_HEAD;
+            bundle.mem_addr    <= ADDR_FROM_HEAD; //dont care
         end
     endcase
+    if(acc_zero) begin
+        bundle.acc_src      <= ACC_ZERO; //redirect the acc source to a zeroed wire
+        bundle.state        <= CORE_S;
+        bundle.pc_write     <= DISABLE; //re-do this instruction
+    end else begin
+        bundle.acc_src      <= ACC_FROM_ALU;
+        bundle.state        <= BRANCH_S;
+        bundle.pc_write     <= ENABLE; //advance to next instruction
+    end
+    bundle.alu_src      <= ALU_FROM_ACC;
+    bundle.pc_src       <= PC_INCREMENTED;
+    bundle.cache_write  <= DISABLE;
     bundle.stack_write  <= DISABLE;
     bundle.head_write   <= DISABLE;
-    bundle.acc_src      <= ACC_FROM_ALU;
     bundle.loader_select<= DISABLE;
 end
 

@@ -90,15 +90,17 @@ always_comb begin
         end
         CBF: begin
             if(acc_zero) begin 
+                bundle.mem_op      <= MEM_READ;
                 bundle.acc_write   <= ENABLE;
+                bundle.cache_write <= DISABLE;
             end else begin
+                bundle.mem_op      <= MEM_WRITE;
                 bundle.acc_write   <= DISABLE;
+                bundle.cache_write <= ENABLE;
             end
 
             bundle.stack_write <= DISABLE;
             bundle.head_write  <= DISABLE;
-            bundle.cache_write <= ENABLE;
-            bundle.mem_op      <= MEM_WRITE;
             bundle.alu_op      <= ALU_INC;
             bundle.alu_src     <= ALU_FROM_CACHE;
 
@@ -143,10 +145,10 @@ always_comb begin
     case(instruction) //state logic
         CBF: begin
             if(acc_zero) begin //not taken
-                bundle.state <= CORE_S;
+                bundle.state    <= BRANCH_S; //search for matching brace
                 bundle.pc_write <= ENABLE;
             end else begin //taken    
-                bundle.state <= STALL_S;
+                bundle.state    <= STALL_S;
                 bundle.pc_write <= DISABLE;
             end
         end
