@@ -2,7 +2,7 @@
 *.d
 
 emulator/build/*
-.vscode/*
+**/.vscode/*
 
 *.bak
 processor/work/*
