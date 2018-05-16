@@ -226,6 +226,8 @@ def build(module,parser,path):
     # build functions into base table
     master_table =build_master_table(text_table,base_table,depended,order_table)
 
+    pp.pprint(master_table)
+
     # 8. Wrap namespace table entries in counting block structure
     # 9. Build preamble and postamble text
 
@@ -241,8 +243,8 @@ def parse(source,parser):
 
     module = tree[MODULE_VAR]
 
-    assert NAMESPACE_VAR in module,"No namespace in module: {}".format(root_module)
-    assert BINDINGS_VAR in module,"No bindings in module: {}".format(root_module)
+    assert NAMESPACE_VAR in module,"No namespace in module: {}".format(module[NAME_TAG])
+    assert BINDINGS_VAR in module,"No bindings in module: {}".format(module[NAME_TAG])
 
     return module
 
@@ -272,7 +274,7 @@ def module_loader(module_name,parser,path):
     return mod
 
 def collect_dependencies(module,acc,new_added):
-    if IMPORT_VAR in module and module[IMPORT_VAR][MODULES_TAG] != None:
+    if IMPORT_VAR in module and module[IMPORT_VAR][MODULES_TAG] is not None:
         for dep in module[IMPORT_VAR][MODULES_TAG]:
             depname = dep[NAME_TAG]
             if depname not in acc:
@@ -292,13 +294,13 @@ def update_text_table(table,image):
 
 def table_insert(table,path,data):
     leaf = table_index(table,path)
-    if leaf == None:
+    if leaf is None:
         return
     leaf[TREE_DATA] = data
 
 def table_insert_list(table,path,data):
     leaf = table_index(table,path)
-    if leaf == None:
+    if leaf is None:
         return
     if TREE_DATA not in leaf:
         leaf[TREE_DATA] = []
@@ -405,7 +407,7 @@ def build_from_table_path(table,path):
     return build_from_table(enc_table,name)
 
 def build_from_table(table,entry,target=None):
-    if target == None:
+    if target is None:
         target = []
     text = table[entry][TREE_DATA]
     for token in text:
@@ -430,7 +432,7 @@ def build_preamble(module,scope):
             process_inline_closure(inline,scope)
 
 def collect_function_dependencies(entry,table,acc=None):
-    if acc == None:
+    if acc is None:
         acc = dict()
     leaf = table_index(table,entry)
     if TREE_DATA not in leaf:
@@ -500,12 +502,12 @@ def resolve_table_ordering(dep_map,dep_table):
     return path_table,base_table,fragment_order
 
 def ascending_insert(table,item,score):
-    if score == None:
+    if score is None:
         table.append((item,None))
         return len(table) - 1
 
     for i in range(0,len(table)):
-        if table[i][1] == None or score < table[i][1]:
+        if table[i][1] is None or score < table[i][1]:
             table.insert(i,(item,score))
             return i
 
@@ -607,7 +609,7 @@ def traverse_module_bindings(base,scope):
             yield text
 
 def traverse_binding_text(base,scope):
-    if base == None:
+    if base is None:
         return
     for binding in base:
         yield binding
@@ -621,7 +623,7 @@ def traverse_module_text(base,scope):
                 yield text
 
 def traverse_namespace_text(namespace,scope):
-    if namespace[BLOCKS_VAR] == None:
+    if namespace[BLOCKS_VAR] is None:
         return
 
     with scope.inner() as scope:
@@ -654,14 +656,14 @@ def traverse_function_text(func,scope):
         # emit_raw_text(COUNTING_BLOCK_HEADER,scope)
         update_tracking(scope,0) # rebase to 0 on function entry
         
-        if func[TEXT_VAR] != None:
+        if func[TEXT_VAR] is not None:
             for text in traverse_scoped_text(func[TEXT_VAR],scope):
                 yield text
         # emit_raw_text(COUNTING_BLOCK_FOOTER,scope)
 
 
 def traverse_scoped_text(inline,scope):
-    if inline == None:
+    if inline is None:
         return
     order = update_scope_order(scope)
 
@@ -672,7 +674,7 @@ def traverse_scoped_text(inline,scope):
 
 def traverse_unscoped_text(inline,scope):
     # pp.pprint(inline)
-    if inline == None:
+    if inline is None:
         return
     for text in inline:
         if TOKEN_VAR in text:
@@ -726,7 +728,7 @@ def process_text_closure(closure,scope):
     if ASSEMBLY_VAR in closure: # raw assembly, only need to resolve modifier
         modifier = closure[MODIFIER_VAR]
         assembly = closure[ASSEMBLY_VAR]
-        if modifier != None:
+        if modifier is not None:
             if NAME_TAG in modifier:
                 vvar = make_value_var(modifier[NAME_TAG])
                 if not scope.has(vvar):
@@ -750,10 +752,10 @@ def emit_raw_text(text,scope):
     with scope.use(TEXT_TARGET) as target:
         target.append(text)
     tracker = get_pos_tracker(scope)
-    if tracker[ADDRESS_TAG] == None:
+    if tracker[ADDRESS_TAG] is None:
         return
     for char in text:
-        if tracker[ADDRESS_TAG] == None:
+        if tracker[ADDRESS_TAG] is None:
             break
         if char == RIGHT_INSTR:
             tracker[ADDRESS_TAG] = tracker[ADDRESS_TAG] + 1
@@ -764,7 +766,7 @@ def emit_raw_text(text,scope):
         elif char == ABR_INSTR:
             track_loop_exit(scope)
         tracker = get_pos_tracker(scope)
-    # if tracker[ADDRESS_TAG] != None:
+    # if tracker[ADDRESS_TAG] is not None:
     #     print("Tracking to {} through {}".format(get_tracked_pos(scope),text))
     # else:
     #     print("Tracking invalidated on: {}".format(text))
@@ -785,7 +787,7 @@ def process_bind_closure(closure,scope):
     text = body[BIND_TEXT_VAR].copy()
 
     binding_text = text.pop(BINDING_TEXT_VAR)
-    if binding_text == None:
+    if binding_text is None:
         binding_text = []
     prefix = text # get whatever else is there and prepend to list
     if TOKEN_VAR in prefix:
@@ -817,7 +819,7 @@ def process_rebase_closure(closure,scope):
 
 def process_goto_closure(closure,scope):
     curr_loc = get_tracked_pos(scope)
-    if curr_loc == None:
+    if curr_loc is None:
         errstr = "Unable to resolve data head position for: {}".format(closure)
         raise ValueError(errstr)
     
@@ -857,7 +859,7 @@ def process_set_statement(pair,scope):
     elif DATA_ADDRESS_VAR in source: # source is an address
         s_address = int(source[DATA_ADDRESS_VAR][NUMBER_TAG])
     
-    if s_address == None: # couldnt match source to a resolved type -> numeric
+    if s_address is None: # couldnt match source to a resolved type -> numeric
         s_address = int(source[NUMBER_TAG])
         s_type = CONSTANT_TAG
 
@@ -999,14 +1001,14 @@ def process_bound_keyword(closure,scope): # resolve a bound keyword into assembl
     # TODO: add a way to intercept emitted text and duplicate it
     dups = 1
 
-    if closure[MODIFIER_VAR] != None:
+    if closure[MODIFIER_VAR] is not None:
         # print("got here {}".format(keyword))
         modifiers = closure[MODIFIER_VAR]
         binding_def = format_binding_def(binding)
         apperr = "Cannot apply {} to binding: {}".format(
                 format_modifiers(modifiers),binding_def)
         matcherr = "Cannot match \"{}\" to \"{}\" in {}"
-        if binding[MODIFIER_DEC_VAR] != None:
+        if binding[MODIFIER_DEC_VAR] is not None:
             applied = build_modifier_chain(modifiers)
             declared = binding[MODIFIER_DEC_VAR][MODIFIER_LIST_VAR]
 
@@ -1059,10 +1061,10 @@ def process_bound_keyword(closure,scope): # resolve a bound keyword into assembl
                 if not scope.has(vvar):
                     raise ValueError(apperr)
                 dups = scope.get(vvar)
-            elif modifiers[MODIFIER_CHAIN_VAR] != None:
+            elif modifiers[MODIFIER_CHAIN_VAR] is not None:
                 raise ValueError(apperr)
             pass
-    elif binding[MODIFIER_DEC_VAR] != None:
+    elif binding[MODIFIER_DEC_VAR] is not None:
         # binding expects modifiers
         raise ValueError("Binding {} expects modifiers".format(keyword))
 
@@ -1122,7 +1124,7 @@ def add_global_binding(scope,binding):
 def pack_binding_text(binding):
     # pack binding text as if it were normal inline text
     # we can reuse processing functions on binding text this way
-    if binding[BINDING_TEXT_VAR] == None:
+    if binding[BINDING_TEXT_VAR] is None:
         return binding
     packed = []
     for closure in binding[BINDING_TEXT_VAR]:
@@ -1189,7 +1191,7 @@ def track_loop_exit(scope): # pop the current tracking scope
     old = destroy_tracking_scope(scope)
 
     # if tracking does is invalid, nullify enclosing tracking
-    if old[ADDRESS_TAG] == None:
+    if old[ADDRESS_TAG] is None:
         invalidate_tracking(scope)
 
 def make_binding_var(binding,module=None):
@@ -1250,7 +1252,7 @@ def make_assert_closure(addr,value):
 def make_adjustment_text(curr,target,up,down,wrap=None):
     adj_amt = abs(curr-target)
     adj = None
-    if wrap != None:
+    if wrap is not None:
         wrap_up = abs(curr - wrap + 1) + abs(target)
         wrap_down = abs(target - wrap + 1) + abs(curr)
         if wrap_up < adj_amt:
@@ -1260,7 +1262,7 @@ def make_adjustment_text(curr,target,up,down,wrap=None):
             adj_amt = wrap_down
             adj = down
     
-    if adj == None:
+    if adj is None:
         adj = up if target > curr else down
     return make_assembly_closure(adj*adj_amt)
 
@@ -1303,7 +1305,7 @@ def format_modifiers(modifier):
             text.append(statement[NUMBER_TAG])
 
     text_append(text,modifier)
-    if modifier[MODIFIER_CHAIN_VAR] != None:
+    if modifier[MODIFIER_CHAIN_VAR] is not None:
         for mod in modifier[MODIFIER_CHAIN_VAR]:
             text_append(text,mod)
     text.append(")")
@@ -1324,7 +1326,7 @@ def format_binding_def(binding):
         text.append(" ".join(sub))
 
     inner = []
-    if binding[MODIFIER_DEC_VAR] != None:
+    if binding[MODIFIER_DEC_VAR] is not None:
         for mod in binding[MODIFIER_DEC_VAR][MODIFIER_LIST_VAR]:
             text_append(inner,mod)
 
@@ -1332,7 +1334,7 @@ def format_binding_def(binding):
 
 def build_modifier_chain(modifiers):
     chain = []
-    if modifiers[MODIFIER_CHAIN_VAR] != None:
+    if modifiers[MODIFIER_CHAIN_VAR] is not None:
         for mod in [modifiers]+modifiers[MODIFIER_CHAIN_VAR]:
             if NAME_TAG in mod:
                 chain.append((NAME_TAG,mod[NAME_TAG]))
