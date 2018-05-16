@@ -583,6 +583,7 @@ def compile_call_stack(stack,scope):
     # cached scope allows us to use goto, create, and assembly closures
     # to build in-scope optimized call routines using assertions
     addr = get_tracked_pos(scope)
+    print("calling @ addr: {}".format(addr))
     actions = []
     actions.append(make_goto_closure(addr-1))
     for value in stack:
@@ -635,7 +636,7 @@ def wrap_and_flatten_text(master_table,dest=None):
                 dest.pop()
                 func = True
             dest.append(item)
-    assert namespace or func
+    assert namespace ^ func
     if namespace:
         dest.append(EXEC_LOOP_FOOTER)
     return dest
@@ -699,7 +700,7 @@ def traverse_function_text(func,scope):
         append_path(scope,func[NAME_TAG])
         update_tracking(scope,0) # create a tracking scope
         # emit_tracked_text(COUNTING_BLOCK_HEADER,scope)
-        update_tracking(scope,0) # rebase to 0 on function entry
+        # update_tracking(scope,0) # rebase to 0 on function entry
         
         if func[TEXT_VAR] is not None:
             for text in traverse_scoped_text(func[TEXT_VAR],scope):
@@ -802,8 +803,6 @@ def emit_tracked_text(text,scope):
         return
     emit_raw_text(text,scope)
     tracker = get_pos_tracker(scope)
-    if tracker[ADDRESS_TAG] is None:
-        return
     for char in text:
         if tracker[ADDRESS_TAG] is None:
             break
@@ -816,10 +815,6 @@ def emit_tracked_text(text,scope):
         elif char == ABR_INSTR:
             track_loop_exit(scope)
         tracker = get_pos_tracker(scope)
-    # if tracker[ADDRESS_TAG] is not None:
-    #     print("Tracking to {} through {}".format(get_tracked_pos(scope),text))
-    # else:
-    #     print("Tracking invalidated on: {}".format(text))
 
 def process_bind_closure(closure,scope):
     # pp.pprint(closure)
@@ -1007,6 +1002,7 @@ def process_create_closure(closure,scope):
             make_adjustment_text(0,target,INC_INSTR,DEC_INSTR,CELL_MAX)
         ]
     else:
+        # print("using value @ {}".format(best[0]))
         actions = [
             make_goto_closure(best[0]),
             make_assembly_closure(PUSH_INSTR),
@@ -1147,7 +1143,9 @@ def process_call_closure(call,scope):
         append_path(scope,order)
         path_list = path if path.__class__.__name__ == "list" else [path]
         scope.get(REF_TABLE).append((scope.get(PATH_INFO),path_list))
-        scope.get(SCOPE_CACHE)[tuple(scope.get(PATH_INFO))] = scope.snapshot()
+        snapshot = scope.snapshot()
+        snapshot[TRACKING_INFO] = Stack([make_pos_tracker(get_tracked_pos(scope))])
+        scope.get(SCOPE_CACHE)[tuple(scope.get(PATH_INFO))] = snapshot
 
 # SCOPE MANAGEMENT HELPER FUNCTIONS ############################################
 
@@ -1242,7 +1240,7 @@ def track_loop_entry(scope):
 def track_loop_exit(scope): # pop the current tracking scope
     old = destroy_tracking_scope(scope)
 
-    # if tracking does is invalid, nullify enclosing tracking
+    # if tracking is invalid, nullify enclosing tracking
     if old[ADDRESS_TAG] is None:
         invalidate_tracking(scope)
 

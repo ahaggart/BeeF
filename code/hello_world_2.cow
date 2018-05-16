@@ -15,12 +15,6 @@ hello_world_2{
                 L2  3
                 O1  4
                 SP  5
-                W   6
-                O2  7
-                R   8
-                L3  9
-                D   10
-                EXC 11
             }
             set{
                 H   72
@@ -29,13 +23,8 @@ hello_world_2{
                 L2  76
                 O1  79
                 SP  32
-                W   87
-                O2  79
-                R   82
-                L3  76
-                D   68
-                EXC 33
             }
+            call{make_world go}
         }
     }
     bindings{
