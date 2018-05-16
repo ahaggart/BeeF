@@ -132,6 +132,9 @@ ZERO_BINDING = "[-]"
 COUNTING_BLOCK_HEADER = "^[_-^>^[-]+^<[_[-]^]_>_<[_>"
 COUNTING_BLOCK_FOOTER = "<[-]^]]_"
 
+EXEC_LOOP_HEADER = "<_["
+EXEC_LOOP_FOOTER = "_]>"
+
 CELL_MAX = 255
 
 TOKEN_CHAR_REGEX = "([{},()])"
@@ -221,18 +224,27 @@ def build(module,parser,path):
         call_loc   = call_info[1]
         insert_function_call(text_table,call_stack,call_loc,cache)
 
-    pp.pprint(text_table)
+    print("PATHS:")
+    pp.pprint(path_table)
+
 
     # build functions into base table
     master_table =build_master_table(text_table,base_table,depended,order_table)
 
-    pp.pprint(master_table)
+    # pp.pprint(master_table)
 
     # 8. Wrap namespace table entries in counting block structure
-    # 9. Build preamble and postamble text
+    exec_loop = wrap_and_flatten_text(master_table)
 
+    # pp.pprint(exec_loop)
+
+    # 9. Build preamble and postamble text
+    master_text = build_from_table_path(text_table,preamble_path)
+    master_text.extend(exec_loop)
+    
     scope.exit()
-    return
+
+    return master_text
 
 # HIGH LEVEL HELPER FUNCTIONS ##################################################
 
@@ -534,14 +546,18 @@ def build_call_stacks(depended,path_table):
         depending = depended[block]
         for dep in depending:
             dep_path,node = extract_path(dep)
-            dep_path.append(node)
+            if node != PREAMBLE_DATA:
+                dep_path.append(node)
+            else:
+                dep_path = [node]
             if dep_path[0] != block[0]:
                 # cross-module dependency
                 # print("{} vs {}".format(dep,block[0]))
                 call_stack = make_exit_stack(dep_path,block,path_table)
             else:
                 call_stack = make_local_stack(dep_path,block,path_table)
-            call_stack.insert(0,0)
+            call_stack.reverse()
+            # call_stack.append(0)
             # print("{} -> {}".format(dep,block))
             # print(path_table[block])
             # print(call_stack)
@@ -554,11 +570,12 @@ def insert_function_call(text_table,call_stack,call_path,cache):
     # build a scope from the cached image
     scope = Scope(image=cache[tuple(call_path)])
 
-    if call_path[1] == PREAMBLE_DATA: # pop the scope return from preamble call
-        call_stack.pop(0)
+    # if call_path[1] == PREAMBLE_DATA: # pop the scope return from preamble call
+    #     call_stack.pop()
 
     text = compile_call_stack(call_stack,scope)
     target = cache[tuple(call_path)][TEXT_TARGET] # direct ref to the text table
+    target.append("$$$")
     target.extend(text)
     target.append("$$$")
 
@@ -598,6 +615,32 @@ def build_master_table(text_table,base_table,depending,order_table):
     
     return base_table
 
+def wrap_and_flatten_text(master_table,dest=None):
+    if dest is None:
+        dest = []
+    func        = False
+    namespace   = False
+    dest.append(EXEC_LOOP_HEADER)
+    for item in master_table:
+        if item.__class__.__name__ ==  "list":
+            assert not func
+            if not namespace:
+                namespace = True
+            dest.append(COUNTING_BLOCK_HEADER)
+            wrap_and_flatten_text(item,dest)
+            dest.append(COUNTING_BLOCK_FOOTER)            
+        else:
+            assert not namespace
+            if not func:
+                dest.pop()
+                func = True
+            dest.append(item)
+    assert namespace or func
+    if namespace:
+        dest.append(EXEC_LOOP_FOOTER)
+    return dest
+
+
 # RECURSIVE TREE TRAVERSAL AND SCOPE MANAGMENT #################################
 
 def traverse_module_bindings(base,scope):
@@ -635,9 +678,11 @@ def traverse_namespace_text(namespace,scope):
         else:
             append_path(scope,scope.get(MODULE_INFO))
         
+        # emit_raw_text(EXEC_LOOP_HEADER,scope)
         for block in namespace[BLOCKS_VAR]:
             for text in traverse_block_text(block,scope):
                 yield text
+        # emit_raw_text(EXEC_LOOP_FOOTER,scope)
 
 
 def traverse_block_text(block,scope):
@@ -653,13 +698,13 @@ def traverse_function_text(func,scope):
     with scope.inner() as scope:
         append_path(scope,func[NAME_TAG])
         update_tracking(scope,0) # create a tracking scope
-        # emit_raw_text(COUNTING_BLOCK_HEADER,scope)
+        # emit_tracked_text(COUNTING_BLOCK_HEADER,scope)
         update_tracking(scope,0) # rebase to 0 on function entry
         
         if func[TEXT_VAR] is not None:
             for text in traverse_scoped_text(func[TEXT_VAR],scope):
                 yield text
-        # emit_raw_text(COUNTING_BLOCK_FOOTER,scope)
+        # emit_tracked_text(COUNTING_BLOCK_FOOTER,scope)
 
 
 def traverse_scoped_text(inline,scope):
@@ -741,7 +786,7 @@ def process_text_closure(closure,scope):
             else:
                 mod_val = int(modifier[NUMBER_TAG])
             assembly = closure[ASSEMBLY_VAR] * mod_val
-        emit_raw_text(assembly,scope)
+        emit_tracked_text(assembly,scope)
     else: # resolve the keyword
         # resolve the keyword into assembly and swap the tags
         process_bound_keyword(closure,scope)
@@ -751,6 +796,11 @@ def emit_raw_text(text,scope):
         return
     with scope.use(TEXT_TARGET) as target:
         target.append(text)
+
+def emit_tracked_text(text,scope):
+    if not text:
+        return
+    emit_raw_text(text,scope)
     tracker = get_pos_tracker(scope)
     if tracker[ADDRESS_TAG] is None:
         return
@@ -831,14 +881,16 @@ def process_goto_closure(closure,scope):
     
     adj = RIGHT_INSTR if curr_loc < dest_loc else LEFT_INSTR
     text = adj * abs(curr_loc - dest_loc)
-    emit_raw_text(text,scope)
+    emit_tracked_text(text,scope)
 
 def process_set_closure(closure,scope):
     statement_block = []
+    start_address = get_tracked_pos(scope)
     for item in closure[SET_INNER_VAR]:
         statement_block.append(process_set_statement(item[SET_PAIR_VAR],scope))
     # reorder set statements and convert to GOTO and PUSH/POP actions
     optimized = optimize_statement_block(statement_block,scope)
+    optimized.append(make_goto_closure(start_address))
 
     for block in optimized:
         process_inline_closure(block,scope)
@@ -1280,7 +1332,10 @@ def bind_current_module_name(scope,name):
 def bind_module(scope,name):
     # print("BINDING MODULE: {}".format(name))
     with scope.use(KEYWORD_INFO) as bound_list:
-        for bname in scope.get(MAPPING_INFO)[name]:
+        mapping_info = scope.get(MAPPING_INFO)
+        if name not in mapping_info:
+            return
+        for bname in mapping_info[name]:
             global_var = make_binding_var(bname,name)
             scoped_var = make_binding_var(bname)
             # print("BINDING {} to {}".format(global_var,scoped_var))
@@ -1521,7 +1576,7 @@ class SourceReader:
                 yield token
             self.line = self.line + 1
 
-def compile_module(source):
+def compile_module(source,dest):
     with open("cow.json","r") as src:
         g = Grammar.create(json.loads(src.read()))
 
@@ -1531,12 +1586,21 @@ def compile_module(source):
 
     module = module_loader(root_module_name,parser,path)
 
-    build(module,parser,path)
+    text = build(module,parser,path)
+    
+    with open(dest,"w") as target:
+        for string in text:
+            target.write(string)
+            target.write('\n')
     
 handler = BCCErrorHandler()
 
 def main():
-    compile_module("../code/test.cow")
+    if len(sys.argv) < 3:
+        print("usage: bcc cow_file beef_file")
+    cow = sys.argv[1]
+    beef= sys.argv[2]
+    compile_module(cow,beef)
         
 if __name__ == '__main__':
     main()

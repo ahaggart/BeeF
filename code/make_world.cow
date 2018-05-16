@@ -1,0 +1,34 @@
+make_world{
+    preamble{
+
+    }
+    depends{
+
+    }
+    namespace{
+        go{
+            layout{
+                W   6
+                O   7
+                R   8
+                L   9
+                D   10
+                EXC 11
+            }
+            set{
+                W   87
+                O   79
+                R   82
+                L   76
+                D   68
+                EXC 33
+            }
+        }
+    }
+    bindings{
+
+    }
+    postamble{
+
+    }
+}
