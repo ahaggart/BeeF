@@ -530,11 +530,13 @@ def make_local_stack(path,block,path_table):
     call_path = []
     resolved_path = path_table[block]
     for i in range(0,len(block)):
-        if path[i] != block[i]:
-            break
-    while i < len(resolved_path):
         call_path.append(resolved_path[i]+1)
-        i = i + 1
+        # if path[i] != block[i]:
+        #     break
+    # while i < len(resolved_path):
+    #     call_path.append(resolved_path[i]+1)
+    #     i = i + 1
+    call_path.extend([0]*(len(call_path)-1))
     return call_path
 
 def make_exit_stack(path,block,path_table):
@@ -550,12 +552,16 @@ def build_call_stacks(depended,path_table):
                 dep_path.append(node)
             else:
                 dep_path = [node]
+            call_stack = [0]*(len(dep_path)-1)
+            call_stack.extend(make_local_stack(dep_path,block,path_table))
             if dep_path[0] != block[0]:
-                # cross-module dependency
-                # print("{} vs {}".format(dep,block[0]))
-                call_stack = make_exit_stack(dep_path,block,path_table)
-            else:
-                call_stack = make_local_stack(dep_path,block,path_table)
+                call_stack.pop()
+            # if dep_path[0] != block[0]:
+            #     # cross-module dependency
+            #     # print("{} vs {}".format(dep,block[0]))
+            #     call_stack = make_exit_stack(dep_path,block,path_table)
+            # else:
+            #     call_stack = make_local_stack(dep_path,block,path_table)
             call_stack.reverse()
             # call_stack.append(0)
             # print("{} -> {}".format(dep,block))

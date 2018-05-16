@@ -24,6 +24,9 @@ make_world{
                 EXC 33
             }
         }
+        scan{
+            goto{ 13 }
+        }
     }
     bindings{
 
