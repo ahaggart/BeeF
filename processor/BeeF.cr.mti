@@ -91,15 +91,6 @@ Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 
 Top level modules:
 	stall_control
 
-} {} {}} control_unit.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/control_unit.sv
-Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
--- Compiling package control_unit_sv_unit
--- Importing package definitions
--- Compiling module control_unit
-
-Top level modules:
-	control_unit
-
 } {} {}} InstrTestBench.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/InstrTestBench.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
 -- Compiling package InstrTestBench_sv_unit

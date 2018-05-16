@@ -52,7 +52,8 @@ def main():
                     emit(machine,MACHINE_CODE[instr])
 
 def emit(file,text): # insert a NOP so we can see whats going on in memory
-    file.write(text + '\n' + MACHINE_CODE[NOP] + '\n')
+    # file.write(text + '\n' + MACHINE_CODE[NOP] + '\n')
+    file.write(text + '\n')
 
 
 if __name__ == "__main__":

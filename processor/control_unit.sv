@@ -38,11 +38,11 @@ core_control core(
     .controls       (core_controls)    
 );
 
-// branch_control branch(
-//     .instruction    (instruction),
-//     .acc_zero       (acc_zero),
-//     .controls       (branch_controls)
-// );
+branch_control branch(
+    .instruction    (instruction),
+    .acc_zero       (acc_zero),
+    .controls       (branch_controls)
+);
 
 stall_control stall(
     .instruction    (instruction),

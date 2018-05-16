@@ -42,3 +42,5 @@ _+^         place the 'E'
 >>_^---     place an 'L'
 <_+++^      place the 'R'
 <<_+++++    place the 'W'
+<<<<<<      return to cell 0
+>>>>>>>>>>>> scan over the message
