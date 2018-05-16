@@ -73,6 +73,15 @@ Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 
 Top level modules:
 	stack
 
+} {} {}} control_unit.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/control_unit.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling package control_unit_sv_unit
+-- Importing package definitions
+-- Compiling module control_unit
+
+Top level modules:
+	control_unit
+
 } {} {}} state_unit.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/state_unit.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
 -- Compiling package state_unit_sv_unit
@@ -81,15 +90,6 @@ Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 
 
 Top level modules:
 	state_unit
-
-} {} {}} stall_control.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/stall_control.sv
-Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
--- Compiling package stall_control_sv_unit
--- Importing package definitions
--- Compiling module stall_control
-
-Top level modules:
-	stall_control
 
 } {} {}} InstrTestBench.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/InstrTestBench.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
@@ -118,15 +118,6 @@ Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 
 Top level modules:
 	data_mem
 
-} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/alu.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/alu.sv
-Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
--- Compiling package alu_sv_unit
--- Importing package definitions
--- Compiling module alu
-
-Top level modules:
-	alu
-
 } {} {}} TopLevelTest.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/TopLevelTest.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
 -- Compiling package TopLevelTest_sv_unit
@@ -135,6 +126,15 @@ Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 
 
 Top level modules:
 	TopLevelTest
+
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/alu.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/alu.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling package alu_sv_unit
+-- Importing package definitions
+-- Compiling module alu
+
+Top level modules:
+	alu
 
 } {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/two_one_mux.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/two_one_mux.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
