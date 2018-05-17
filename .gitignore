@@ -3,6 +3,7 @@
 
 emulator/build/*
 **/.vscode/*
+**/.DS_Store
 
 *.bak
 processor/work/*
