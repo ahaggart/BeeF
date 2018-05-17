@@ -110,7 +110,7 @@ always_comb begin
         end
         CBB: begin
             if(acc_zero) begin 
-                bundle.cache_write <= DISABLE;
+                bundle.cache_write <= ENABLE;
             end else begin
                 bundle.cache_write <= DISABLE;
             end
@@ -152,14 +152,9 @@ always_comb begin
                 bundle.pc_write <= DISABLE;
             end
         end
-        CBB: begin 
-            if(acc_zero) begin //not taken
-                bundle.state <= CORE_S;
-                bundle.pc_write <= ENABLE;
-            end else begin //taken    
-                bundle.state <= STALL_S;
-                bundle.pc_write <= DISABLE;
-            end
+        CBB: begin // need to stall to load or clear cached value
+            bundle.state <= STALL_S;
+            bundle.pc_write <= DISABLE;
         end
         POP: begin
             bundle.state <= STALL_S;

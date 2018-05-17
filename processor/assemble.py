@@ -31,7 +31,8 @@ BEEF = {
     "^" : PSH,
     "_" : POP,
     ">" : MVR,
-    "<" : MVL
+    "<" : MVL,
+    "%" : NOP
 }
 
 def main():

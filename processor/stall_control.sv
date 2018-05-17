@@ -44,11 +44,16 @@ always_comb begin
             
         end
         CBB: begin //read second half of pc from cache
+            if(acc_zero) begin //clearing cache
+                bundle.cache_write      <= ENABLE;
+                bundle.pc_src           <= PC_INCREMENTED;
+            end else begin //loading from cache
+                bundle.cache_write      <= DISABLE;
+                bundle.pc_src           <= PC_LOADED;
+            end
             bundle.state            <= CORE_S; 
-            bundle.cache_write      <= DISABLE;
             bundle.alu_op           <= ALU_DEC;
             bundle.alu_src          <= ALU_FROM_CACHE;
-            bundle.pc_src           <= PC_LOADED;
             bundle.loader_select    <= ENABLE;
             bundle.mem_addr         <= ADDR_FROM_ALU; //use decremented cacheptr
             bundle.mem_src          <= MEM_FROM_ACC; //dont care
