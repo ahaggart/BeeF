@@ -49,6 +49,8 @@ DATA_SOURCE_VAR = "data_source"
 DATA_TARGET_VAR = "data_target"
 DATA_ADDRESS_VAR= "data_address"
 
+VALUE_INNER_VAR = "value_statement"
+
 GOTO_INNER_VAR  = "goto_statement"
 
 ASSERT_INNER_VAR = "assert_statement"
@@ -772,6 +774,8 @@ def process_inline_closure(closure,scope):
         process_create_closure(closure,scope)
     elif ASSERT_TAG in closure:
         process_assert_closure(closure,scope)
+    elif VALUE_TAG in closure:
+        process_value_closure(closure,scope)
     else: # call closure
         process_call_closure(closure,scope)
 
@@ -908,7 +912,12 @@ def process_set_statement(pair,scope):
     s_address = None
     s_type = ADDRESS_TAG
     if NAME_TAG in source: # resolve the source address from scope layout
-        s_address = scope.get(make_layout_var(source[NAME_TAG]))
+        source_layout = make_layout_var(source[NAME_TAG])
+        if scope.has(source_layout):
+            s_address = scope.get(source_layout)
+        else:
+            s_address = int(scope.get(make_value_var(source[NAME_TAG])))
+            s_type = CONSTANT_TAG
     elif DATA_ADDRESS_VAR in source: # source is an address
         s_address = int(source[DATA_ADDRESS_VAR][NUMBER_TAG])
     
@@ -1136,6 +1145,10 @@ def process_binding_text(closure,scope):
     # recursively resolve text in this binding
     for text in traverse_unscoped_text(closure[BINDING_TEXT_VAR],scope):
         process_inline_closure(text,scope)
+
+def process_value_closure(closure,scope):
+    for statement in closure[VALUE_INNER_VAR]:
+        scope.bind(make_value_var(statement[NAME_TAG]),statement[NUMBER_TAG])
 
 def process_call_closure(call,scope):
     errstr = "expected a call closure, got: {}".format(call)

@@ -41,8 +41,10 @@
                             "goto { goto_statement }",
                             "rebase { number }",
                             "create { data_address number }",
-                            "assert { assert_statement }"
+                            "assert { assert_statement }",
+                            "value { value_statement }"
                         ],
+        "value_statement":["name number","name number value_statement"],
         "call_closure":["call { call_path }"],
         "call_path":["name","name name"],
         "unimplemented":["panic"],

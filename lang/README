@@ -1,5 +1,5 @@
 ===============================================================================
-Assembly Language Spec for BeeF machine code
+Language Spec
 ===============================================================================
 Features:
 * namespaces
@@ -26,108 +26,66 @@ Features:
         * Preamble and Postable routines only run for the root module
 * functions and recursion
 * debugging
-    * automatic cell and stack locking
+    * automatic cell and stack locking (planned)
         * generates error messages at runtime when code violates important 
             conditions
-
-* incomplete modules
-    * submodules inherit parent module bindings at low priority, which prevents
-        parent modules from clobbering child module bindings
-    * submodules which contain unbound tokens are "incomplete" and will not
-        compile, but may become compilable if a parent module binds the token
-    * modules can take advantage of incompleteness by allowing parent modules
-        to "inject" some code of their own into a submodule routine
-    * TODO: add language support for incomplete modules
-
-===============================================================================
-Syntax:
-* syntax is enforced with named curly-brace closures
-    * certain names a reserved keywords, and mark the closure as performing a
-        a special functionality
-    * keywords are only reserved if they would be valid, anywhere else they are
-        available for use (but this is discouraged)
-
-CFG: ***************************************************************************
-
-start: module_closure
-
-terminals: 
-    "{","}",
-    module, preamble, depends, namespace, bindings, postamble,
-    binds, imports,
-    name, number,                                        
-    bound_keyword, raw_assembly
-
-variables: <implicit>
-
-rules:
-
-module_closure  ->  module{     preamble_closure 
-                                depends_closure
-                                namespace_closure 
-                                bindings_closure 
-                                postamble_closure   }
-
-preamble_closure -> preamble{   inline_text         }
-depends_closure  -> depends{    module_names        }
-namspace_closure -> namespace{  functional_blocks   }
-functional_blocks-> functional_blocks function_closure 
-                    | functional_blocks nested_namespace_closure
-                    | \Epsilon
-nested_namespace_closure ->  name import_chain binding_chain { functional_blocks }
-import_chain    ->  imports module_names name
-binding_chain   ->  binds module_names name
-module_names    ->  module_names name
-                    | \Epsilon
-
-function_closure->  name { inline_text }
-
-bindings_closure->  bindings{ binding_closures }
-binding_closures->  binding_closures binding_block
-                    | \Epsilon
-binding_block   ->  name modifier_declaration import_chain { binding_text }
-
-postamble_closure-> postamble{  binding_text    }
-binding_text    ->  binding_text bound_keyword
-                    | binding_text raw_assembly
-                    | \Epsilon
-
-modifier_declaration    ->  (modifier_list)
-                            | \Epsilon
-
-modifier_list   ->  modifier_list name
-                    | name
-
-inline_text     ->  inline_text text_token
-                    | inline_text inline_closure
-                    | \Epsilon
-
-text_token      ->  raw_assembly assembly_modifier
-                    | bound_keyword binding_modifier
-
-assembly_modifier   ->  ( number )
-                        | \Epsilon
-
-binding_modifier    ->  ( raw_assembly )
-                        | assembly_modifier
-                        | \Epsilon
-
-inline_closure  ->  keyword_closure
-                    | call_closure
-
-keyword_closure ->  type { inline_text }
-call_closure    ->  call { call_path }
-call_path       ->  name
-                    | name name
-END CFG: ***********************************************************************
-
 * keywords:
-    * module:
-        * Defines a closure as a module. Module closures must contain a 
-            namespace closure, and may optionally contain preamble and postamble
-            closures, which make the module closure runnable. Modules may also
-            have a depends closure, which lists files containing modules to
-            import from
+    * rebase: inform the compiler that the current location of the data head
+        should be treated as a given relative address
+        * functions rebase to the current data head location on entry
+        * compiler will attempt to track relative position
+        * assert, rebase, goto, etc require a valid base
+    * assert: assert on some condition, error on violation
+        * value: assert on the value in some location
+            * enables compiler to optimize under this assumption, 
+                * example: when zeroing cells to make function calls,
+                    compiler can fetch an asserted zero instead of using "[-]"
+            * can specify a range or set of values
+        * stack: assert on the top value of the stack
+            * also enables some compiler optimizations
+        *** need to finish implementing VM locks for these to work
+        *** position assertions don't really make sense, just rebase
+        *** assertions may be unused if the location they assert on is not
+             visited
+        *** assertions are cleared when they go out of scope
+    * goto: resposition the data head to the given relative location
+        * clearer, more concise COW files, less prone to error than manually 
+            writing ">" and "<" to reposition the data head
+        * accepts relative location or layout names as destination
+    * set: set the value of a cell
+        * by default, will zero then increment cell to value
+        * nearby assertions will be considered as "shortcuts" to value
+        * can be compounded: statement may contain multiple address-target
+            pairs
+        * (maybe) language support for string creation using set statements
+    * create: create a value at a specified address
+    * layout: assign names to relative locations in the current coordinate base
+        * inner text is a whitespace delimited list of position-name pairs
+        * reserved names carry special meaning (planned)
+            * free: unused memory location, allow compiler to optimize around
+        * bindings which contain layout information allow modules to export 
+            formatting information for their function calls
+    * lock: marks code as having no net effect on data head position
+        * wraps code block in data head position assertions to enforce
+    * scope: create a scope
+        * assertions and keywords bound within the scope are invisible outside
+        * avoid namespace collisions or pollution by scoping bindings, etc
+    * bind: bind keywords to text in the current scope
+        * binding a module name will add all of its bindings to the scope
+        * new keywords can be bound inline
+    * panic (planned): abort the VM and print a custom message
+    * value (planned):
+        * bind a name to a numeric value, which can be used as a modifier or a 
+            target value in SET statements
+        * ex: bind ascii alphabet to single-letter names, for easy "string" use
+
+BINDING SEMANTICS:
+* Bindings do not create a local scope, so they will pollute the invoker's
+    namespace. This allows bindings to contain layout and assertion information
+    * exported functions with complex memory footprints should have associated
+        bindings which define and verify their expected layout
+
+MODULE CONTENTS:
     * preamble:
         * Defines a closure as a module preamble. Preamble closures are run when
             the parent module is run, and are expected to prepare memory then
@@ -143,35 +101,26 @@ END CFG: ***********************************************************************
         * Defines a closure as a namespace. Namespaces may contain up to 255
             closures, which must have a namespace-unique name
     * call:
-        * (Planned) Defines a closure as a function call, which contains a path fragment
-            to the desired function. The compiler will attempt to resolve
-            incomplete paths, but will error if an ambiguous function call ID is
-            supplied in the closure.
         * Marks another function within the namespace for execution
         * Calls can stack, with the most recent call being executed first.
-    * imports: example IMPORTS library
-        * adds the top-level namespace of another module as a nested namespace
-            of the current namespace, with the module name as its ID
-    * if:
-        * Defines a closure as a conditional block. Text within the closure will
-            be executed if the value at the data head is nonzero
-    * else:
-        * Defines a closure as a conditional block. Must be nested within an if
-            closure. Text within the closure will be executed if the preceding
-            if closure is not executed
     * bindings:
         * Bindings are direct text substitutions, and are associated at the
             module level. Bindings which appear in function code will be 
             resolved to the symbols they are bound to.
+        * bindings may declare typed modifiers, which are passed by the caller
+            and change binding behavior
+            * modifier types:
+                * text   -- bind a name as a keyword to caller-supplied text
+                * value  -- bind a name to a number supplied by caller
+                * layout -- bind a name to a relative address supplied by caller
         * Bindings may contain other bindings
         * bindings can import another module's bindings, which will be used when
             resolving the binding's text
         * Bindings may not contain function calls
-    * binds: 
-        * Import bindings from another module. 
 
-* notes:
-    * 
+
+===============================================================================
+BUTCHER
 ===============================================================================
 LANGUAGE ARCHITECTURE NOTES:
 * makes use of one "control cell" at position 0
@@ -246,15 +195,6 @@ Footer Block:
     * branch-and-link implemented by pushing new call ID and own call ID
         * "creates" new execution context
         * control returns to caller function when context "exits"
-
-
-* namespace is a dictionary of named closures
-    * imported modules should be merged with the importing namespace
-        * call imported_namespace.update(next_namespace), which gives modules
-            imported "later" higher precedence in the case of name collisions
-    * merge process:
-        * namespace must resolve all dependencies from its own scope into a 
-            nested scope
 
 * function calls create a directional dependency from the caller to the callee
     * each namespace maintains a dictionary of accessible named closures
