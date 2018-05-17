@@ -71,6 +71,7 @@ always_comb begin
     bundle.stack_write  <= DISABLE;
     bundle.head_write   <= DISABLE;
     bundle.loader_select<= DISABLE;
+    bundle.halt         <= DISABLE;
 end
 
 endmodule

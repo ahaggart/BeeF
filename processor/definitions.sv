@@ -81,7 +81,7 @@ typedef struct packed{
   ALU_OP alu_op;
   ALU_SRC alu_src;
   CONTROL loader_select;
-
+  CONTROL halt;
   STATE state;
 } control_bundle_s;
 

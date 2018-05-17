@@ -165,6 +165,10 @@ always_comb begin
             bundle.pc_write <= ENABLE;
         end
     endcase
+    case(instruction)
+        HLT:        bundle.halt     <= ENABLE;
+        default:    bundle.halt     <= DISABLE;
+    endcase
 end
 
 endmodule

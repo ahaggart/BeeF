@@ -76,6 +76,7 @@ always_comb begin
     bundle.stack_write  <= DISABLE;
     bundle.acc_write    <= DISABLE;
     bundle.acc_src      <= ACC_FROM_ALU; //dont care
+    bundle.halt         <= DISABLE;
 end
 
 endmodule

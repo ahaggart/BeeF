@@ -102,11 +102,17 @@ cache_unit cache(
     .cache_out(cache_out)
 );
 
+// clock_unit clock(
+//     .halt(signals.halt),
+
+//     .clk(clk)
+// );
+
+assign done = signals.halt;
 
 initial begin
 	clk = 0;
 	reset = 1;
-	done = 0;
 
     #10 reset = 0;
 end
