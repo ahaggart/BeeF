@@ -3,14 +3,15 @@ package definitions;
 
 typedef enum logic[8:0] {
   NOP = 9'b000000000,
-  PSH = 9'b110101101,	    // since these start at 0 and are in
-  INC = 9'b110000000,		//  increment-by-1 sequence, we could
-  DEC = 9'b110000001,		//  omit the 3'bxxx values, but we 
-  MVR = 9'b101000010,		//  include these for clarity
-  MVL = 9'b101000011,
-  CBF = 9'b111110110,
-  CBB = 9'b100110111,
-  POP = 9'b100001101
+  INC = 9'b000000001,
+  DEC = 9'b000000010,	
+  MVR = 9'b000000100,
+  MVL = 9'b000001000,
+  PSH = 9'b000010000,    
+  POP = 9'b000100000,
+  CBF = 9'b001000000,
+  CBB = 9'b010000000,
+  HLT = 9'b100000000
 } op_code;
 
 typedef enum logic[1:0]{
