@@ -78,39 +78,26 @@ int get_starting_mem(char* file,CELL** dest,int default_size){
   }
   int i = 0;
   int ccount = 0;
-  int readbuffer_size = 4;
+  int readbuffer_size = 256;
   char readbuffer[readbuffer_size];
+  char* streamloc;
+  // char *readbuffer;
   int in_char;
   int total_size = default_size;
   CELL* mem = (CELL*)malloc(total_size*sizeof(CELL));
   int mem_size = 0;
-  while((in_char = fgetc(memsrc))!=EOF){
-    readbuffer[i] = (char)in_char;
-    ccount++;
-    if(readbuffer[i] == '\n'){
-      continue;
-    }else if(readbuffer[i] == ','){
-      readbuffer[i] = 0;
-      if(mem_size == total_size){
-        CELL* tmp = (CELL*)malloc(total_size*2*sizeof(CELL));
-        memcpy(tmp,mem,mem_size*sizeof(CELL));
-        free(mem);
-        mem = tmp;
-        total_size *= 2;
-      }
-      mem[mem_size++] = (CELL)atoi(readbuffer);
-      i = 0;
-    } else{
-      i++;
-    }
-
-    if(i == readbuffer_size){
-      printf("Error: starting cell value at %d out of bounds.",ccount-1);
+  size_t read;
+  int lc = 0;
+  char* endptr;
+  while(!feof(memsrc)){
+    lc++;
+    streamloc = fgetln(memsrc,&read);
+    if(read > 9){
+      printf("Error: Invalid binary at line %d",lc);
       exit(1);
     }
-  }
-  if(i != 0){ //TODO: this is duplicated from the loop body
-    readbuffer[i] = 0;
+    memcpy(readbuffer,streamloc,read);
+    readbuffer[read-1] = 0; //null terminate
     if(mem_size == total_size){
       CELL* tmp = (CELL*)malloc(total_size*2*sizeof(CELL));
       memcpy(tmp,mem,mem_size*sizeof(CELL));
@@ -118,7 +105,13 @@ int get_starting_mem(char* file,CELL** dest,int default_size){
       mem = tmp;
       total_size *= 2;
     }
-    mem[mem_size++] = (CELL)atoi(readbuffer);
+    mem[mem_size++] = (CELL)strtol(readbuffer,&endptr,2);
+    // printf("%s -> %d\n",readbuffer,mem[mem_size-1]);
+
+    if(i == readbuffer_size){
+      printf("Error: starting cell value at %d out of bounds.",ccount-1);
+      exit(1);
+    }
   }
   *dest = mem;
   return mem_size;

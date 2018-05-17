@@ -26,8 +26,6 @@ hello_world_2{
         }
     }
     bindings{
-        PUSH{ ^     }
-        POP { _     }
         ascii_mode{ bind{ascii} use_ascii }
         push_exit_stack{
             ZERO PUSH PUSH PUSH
