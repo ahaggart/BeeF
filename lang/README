@@ -3,13 +3,9 @@ Language Spec
 ===============================================================================
 Features:
 * namespaces
-    * The function block architecture used by BUTCHER allows for function
+    * The function block architecture used by BCC allows for function
         "namespaces" of up to 255 functions. Functions occupying a
         namespace may call any other function by name within the namespace.
-    * Namespaces can be nested. Nested namespaces occupy one name in the parent
-        namespace. Functions in a child namespace can be accessed by functions
-        in the parent namespace by stacking the functions child-namespace ID
-        under the namespace's parent-namespace ID
 * modules
     * Import code from other .cow files
         * load other modules and expose their top-level namespace
@@ -40,9 +36,17 @@ Features:
             * enables compiler to optimize under this assumption, 
                 * example: when zeroing cells to make function calls,
                     compiler can fetch an asserted zero instead of using "[-]"
-            * can specify a range or set of values
-        * stack: assert on the top value of the stack
+            * (planned) specify a range or set of values
+        * stack (planned): assert on the top value of the stack
             * also enables some compiler optimizations
+        * verify (planned): visit all asserted locations to manually check them
+            * generates goto statements which allow VM to check locked cells
+            * produces no net data head movement, which means that compression
+                tools (grinder) will completely strip out move instructions
+                produced for assertion verification
+        * clear (planned): remove assertions at all listed locations
+        * compounding (planned): make multiple value assertions in one statement
+        *** compiler needs better assertion management system
         *** need to finish implementing VM locks for these to work
         *** position assertions don't really make sense, just rebase
         *** assertions may be unused if the location they assert on is not
@@ -53,12 +57,12 @@ Features:
             writing ">" and "<" to reposition the data head
         * accepts relative location or layout names as destination
     * set: set the value of a cell
-        * by default, will zero then increment cell to value
-        * nearby assertions will be considered as "shortcuts" to value
         * can be compounded: statement may contain multiple address-target
             pairs
         * (maybe) language support for string creation using set statements
     * create: create a value at a specified address
+        * by default, will zero then increment cell to value
+        * nearby assertions will be considered as "shortcuts" to value
     * layout: assign names to relative locations in the current coordinate base
         * inner text is a whitespace delimited list of position-name pairs
         * reserved names carry special meaning (planned)
@@ -74,15 +78,50 @@ Features:
         * binding a module name will add all of its bindings to the scope
         * new keywords can be bound inline
     * panic (planned): abort the VM and print a custom message
-    * value (planned):
+    * value:
         * bind a name to a numeric value, which can be used as a modifier or a 
             target value in SET statements
         * ex: bind ascii alphabet to single-letter names, for easy "string" use
+    * exec (planned): in-order function calling
+        * unlike normal calls, exec calls happen immediately
+        * implicitly segments function, stacks a call to second segment under
+            call to exec'ed function
+        * preserves scope across function call, but not inside it
+
+>> { # } denotes a relative address
+
+PLANNED:
+* counting block optimization
+    * current design is prone to spending excessive amounts of time repeatedly
+        zeroing the cell at { 0 }
+    * (maybe) assume control cell will be a lower value, 
+        * zero the CC and copy to { 0 } instead of zeroing { 0 }
+* pre-compiled modules
+    * compile module into intermediate format and save it
+        * parse tree files (pickled)
+        * fully compiled files with annotations specifying entry points and 
+            FCIDs
+* optimize compiler
+    * cache semi-resolved bindings
+* namespace size management
+    * automatically nest functions in overfull namespaces without changing 
+        how they can be referenced
+    * allow namespaces to logically group contents without worrying about
+        exceeding size limit
+
+CONVENTIONS:
+* make function calls from zeroed cells
+    * indexing to the next functional block will repeatedly zero then restore 
+        the cell, so this will save a lot of cycles
+* top level functions should make heavy use of assertion verification to prevent
+    misuse or misunderstanding by importers
+    * tightly controlled code is much easier to debug
+    * verification code is easily optimized out
 
 BINDING SEMANTICS:
-* Bindings do not create a local scope, so they will pollute the invoker's
+* Bindings do not create a local scope, so they will pollute the caller's
     namespace. This allows bindings to contain layout and assertion information
-    * exported functions with complex memory footprints should have associated
+    * top-level functions with complex memory footprints should have associated
         bindings which define and verify their expected layout
 
 MODULE CONTENTS:
@@ -100,9 +139,6 @@ MODULE CONTENTS:
     * namespace:
         * Defines a closure as a namespace. Namespaces may contain up to 255
             closures, which must have a namespace-unique name
-    * call:
-        * Marks another function within the namespace for execution
-        * Calls can stack, with the most recent call being executed first.
     * bindings:
         * Bindings are direct text substitutions, and are associated at the
             module level. Bindings which appear in function code will be 
@@ -120,13 +156,13 @@ MODULE CONTENTS:
 
 
 ===============================================================================
-BUTCHER
+BUTCHER / BCC
 ===============================================================================
 LANGUAGE ARCHITECTURE NOTES:
-* makes use of one "control cell" at position 0
+* makes use of one "control cell" at { -1 }
 
 Instruction Layout:
-<preamble> [ <header block> <functional blocks> <footer block>] <postamble>
+<preamble> [ <header block> <functional blocks> <footer block> ] <postamble>
 ===============================================================================
 Preamble:
 * sets up memory for functional block execution
@@ -157,13 +193,23 @@ Functional Block Prototype:
     _                   pull stacked value (one if cc was zero, zero ow)
     >_<                 restore adjacent cell
     [                   skip block 2: skipped if cc was not zero
-        >
+        _>
 * FUNCTION CODE GOES HERE *
-        <[-]            zero cc (exit skip block 2)
+        <[-]^           zero cc (exit skip block 2)
     ]
                         (exit container)
 ]_                      restore cc
 
+Execution Loop Block:
+* container for a set of counting functional blocks
+* at the end of one execution cycle, unpacks next function call ID (FCID),
+    which will be used to select the next functional block to execute
+* header: <_[
+    * unloads a function call ID into the control cell
+* footer: _]>
+    * unloads the next function call ID into the control cell
+    * pushing a null FCID causes the exec loop to exit, which acts as a
+        namespace exit
 
 Function Call Prototype:
 * within skip block two, the stack top is control cell

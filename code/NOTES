@@ -1,4 +1,5 @@
 ################################################################################
+DEPRECATED 5/17/18 ---> see README in the lang directory
 NOTES ON COMPILER/EMULATOR
 ################################################################################
 ISSUES
@@ -67,7 +68,7 @@ PLANNED FEATURES
     * unload: write values from stack to a range of relative cell locations
     * panic: abort the VM and print a custom message
 * backtracking: debug mode allows stepping forward AND backward
-    * all instructions expect stack ops are easy to backtrack through
+    * all instructions expect stack ops and branching are easy to backtrack through
     * use a "popped" stack to restore backtracked POP instructions
 * modifier system (parenthetical expressions): "apply" some expression to 
     a token by following it with a parenthesized expression
