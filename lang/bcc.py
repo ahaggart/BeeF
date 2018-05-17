@@ -145,10 +145,17 @@ COMMENT_DELIM = "#"
 
 EXT = ".cow"
 
+# BUILTIN BINDINGS
+BUILTINS = {
+    "ADD":"[->+<]",
+    "SUB":"[->-<]",
+    "ZERO":"[-]",
+}
+
 # TOP LEVEL COMPILER ROUTINE ###################################################
 
 def build(module,parser,path):
-    pp.pprint(module)
+    # pp.pprint(module)
     # 1. Collect dependencies from tree, expanding the master scope until all
     #       dependencies are included
     loader = lambda(name):module_loader(name,parser,path)
@@ -182,6 +189,8 @@ def build(module,parser,path):
     scope.bind(REF_TABLE,call_table)
     scope.bind(SCOPE_CACHE,{})
 
+    bind_builtin_keywords(scope)
+
     # populate the global scope with module bindings
     for binding in traverse_module_bindings(master_scope,scope):
         add_global_binding(scope,binding[BINDING_BLOCK_VAR])
@@ -196,8 +205,9 @@ def build(module,parser,path):
         process_inline_closure(closure,scope)
 
     build_preamble(module,scope)
+    build_postamble(module,scope)
 
-    pp.pprint(text_table)
+    # pp.pprint(text_table)
 
     # 3. Create soft links between dependent code and depended module
     #       a. register function calls with a path to the calling text
@@ -215,7 +225,7 @@ def build(module,parser,path):
     preamble_path = [module[NAME_TAG],PREAMBLE_DATA]
     depended = collect_function_dependencies(preamble_path,dep_table)
 
-    pp.pprint(depended)
+    # pp.pprint(depended)
 
     # 6. Resolve soft links into table indices
     path_table,base_table,order_table = resolve_table_ordering(depended,dep_table)
@@ -226,8 +236,8 @@ def build(module,parser,path):
         call_loc   = call_info[1]
         insert_function_call(text_table,call_stack,call_loc,cache)
 
-    print("PATHS:")
-    pp.pprint(path_table)
+    # print("PATHS:")
+    # pp.pprint(path_table)
 
 
     # build functions into base table
@@ -243,6 +253,10 @@ def build(module,parser,path):
     # 9. Build preamble and postamble text
     master_text = build_from_table_path(text_table,preamble_path)
     master_text.extend(exec_loop)
+
+    postamble_path = [module[NAME_TAG],POSTAMBLE_DATA]
+    postamble_text = build_from_table_path(text_table,postamble_path)
+    master_text.extend(postamble_text)
     
     scope.exit()
 
@@ -445,6 +459,20 @@ def build_preamble(module,scope):
         for inline in traverse_unscoped_text(preamble[TEXT_VAR],scope):
             process_inline_closure(inline,scope)
 
+def build_postamble(module,scope):
+    # create a fake environment to evaluate the preamble in
+    with scope.inner() as scope:
+        # set things up as if we were in the base namespace
+        bind_current_module(scope,module)  
+        with scope.use(PATH_INFO) as path:
+            path.append(module[NAME_TAG])
+            path.append(POSTAMBLE_DATA)
+
+        scope.bind(ORDER_INFO,0)
+        scope.bind(TRACKING_INFO,Stack([make_pos_tracker(0)]))
+        postamble = module[POSTAMBLE_VAR]
+        process_binding_text(pack_binding_text(postamble),scope)
+
 def collect_function_dependencies(entry,table,acc=None):
     if acc is None:
         acc = dict()
@@ -531,14 +559,13 @@ def ascending_insert(table,item,score):
 def make_local_stack(path,block,path_table):
     call_path = []
     resolved_path = path_table[block]
-    for i in range(0,len(block)):
+    for i in range(0,len(resolved_path)):
         call_path.append(resolved_path[i]+1)
-        # if path[i] != block[i]:
-        #     break
-    # while i < len(resolved_path):
-    #     call_path.append(resolved_path[i]+1)
-    #     i = i + 1
-    call_path.extend([0]*(len(call_path)-1))
+    path = tuple(path)
+    if path in path_table:
+        return_path = path_table[path]
+        for i in range(0,len(return_path)-1):
+            call_path.append(return_path[i]+1)
     return call_path
 
 def make_exit_stack(path,block,path_table):
@@ -556,20 +583,7 @@ def build_call_stacks(depended,path_table):
                 dep_path = [node]
             call_stack = [0]*(len(dep_path)-1)
             call_stack.extend(make_local_stack(dep_path,block,path_table))
-            if dep_path[0] != block[0]:
-                call_stack.pop()
-            # if dep_path[0] != block[0]:
-            #     # cross-module dependency
-            #     # print("{} vs {}".format(dep,block[0]))
-            #     call_stack = make_exit_stack(dep_path,block,path_table)
-            # else:
-            #     call_stack = make_local_stack(dep_path,block,path_table)
             call_stack.reverse()
-            # call_stack.append(0)
-            # print("{} -> {}".format(dep,block))
-            # print(path_table[block])
-            # print(call_stack)
-
             # resolve the call stack to assembly and inject it
             # remove the leading zero from preamble call
             yield (call_stack,dep)
@@ -591,7 +605,7 @@ def compile_call_stack(stack,scope):
     # cached scope allows us to use goto, create, and assembly closures
     # to build in-scope optimized call routines using assertions
     addr = get_tracked_pos(scope)
-    print("calling @ addr: {}".format(addr))
+    # print("calling @ addr: {}".format(addr))
     actions = []
     actions.append(make_goto_closure(addr-1))
     for value in stack:
@@ -733,7 +747,7 @@ def traverse_unscoped_text(inline,scope):
     for text in inline:
         if TOKEN_VAR in text:
             yield text
-        elif INLINE_VAR in text:
+        else:
             if KEYWORD_VAR in text[INLINE_VAR]:
                 sub = text[INLINE_VAR][KEYWORD_VAR]
                 if SCOPE_TAG in sub:
@@ -851,18 +865,7 @@ def process_bind_closure(closure,scope):
         prefix = pack_keyword_closure({KEYWORD_VAR:prefix[KEYWORD_VAR]})
     binding_text.insert(0,prefix)
 
-    # convert to the standard binding format
-    # move this to a helper function?
-    binding = {
-        MODIFIER_DEC_VAR:None,
-        BINDING_TEXT_VAR:binding_text,
-        NAME_TAG:name
-    }
-    scope.bind(make_binding_var(binding[NAME_TAG]),binding)
-
-    # add this keyword to the bound keywords for this scope
-    with scope.use(KEYWORD_INFO) as bound:
-        bound.add(name)
+    bind_raw_text(name,binding_text,scope)
 
 def process_layout_closure(layout,scope):
     for entry in layout[LAYOUT_INNER_VAR]:
@@ -1137,10 +1140,6 @@ def process_bound_keyword(closure,scope): # resolve a bound keyword into assembl
             process_binding_text(binding,scope)
             count = count + 1
 
-def resolve_binding(closure,modifier,scope):
-    raise NotImplementedError
-    pass
-
 def process_binding_text(closure,scope):
     # recursively resolve text in this binding
     for text in traverse_unscoped_text(closure[BINDING_TEXT_VAR],scope):
@@ -1345,6 +1344,18 @@ def bind_current_module(scope,module):
 
 def bind_current_module_name(scope,name):
     scope.bind(MODULE_INFO,name) # bind the module name to metadata
+
+def bind_builtin_keywords(scope):
+    for keyword in BUILTINS:
+        bind_raw_text(keyword,[make_assembly_closure(BUILTINS[keyword])],scope)
+
+def bind_raw_text(name,text,scope):
+    # convert to the standard binding format
+    binding = pack_into_binding_text(name,text)
+    scope.bind(make_binding_var(name),binding)
+    # add this keyword to the bound keywords for this scope
+    with scope.use(KEYWORD_INFO) as bound:
+        bound.add(name)
 
 def bind_module(scope,name):
     # print("BINDING MODULE: {}".format(name))
@@ -1592,6 +1603,8 @@ class SourceReader:
                     break
                 yield token
             self.line = self.line + 1
+
+# TOP LEVEL COMPILE ############################################################
 
 def compile_module(source,dest):
     with open("cow.json","r") as src:

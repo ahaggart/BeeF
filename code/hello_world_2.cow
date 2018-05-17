@@ -1,6 +1,6 @@
 hello_world_2{
     preamble{
-        ZERO PUSH PUSH >
+        push_exit_stack >
         call{ hello_world }
     }
     depends{
@@ -8,8 +8,7 @@ hello_world_2{
     }
     namespace{
         hello_world{
-            bind{ascii}
-            use_ascii
+            ascii_mode
             set{
                 {0}     H   
                 {1}     e
@@ -24,15 +23,17 @@ hello_world_2{
                 {10}    d
                 {11}    EXC
             }
-            goto{13} # scan over the result
         }
     }
     bindings{
-        ZERO{ [-]   }
         PUSH{ ^     }
         POP { _     }
+        ascii_mode{ bind{ascii} use_ascii }
+        push_exit_stack{
+            ZERO PUSH PUSH PUSH
+        }
     }
     postamble{
-
+        goto{12} # scan over the result (for testing processor)
     }
 }

@@ -1,15 +1,10 @@
 ascii{
-    depends{
-
-    }
-    namespace{
-        dummy{
-
-        }
-    }
+    depends{}
+    namespace{}
     bindings{
-        use_ascii{
+        use_ascii{ # bind alphabetical characters to their ascii values
             value{
+                # special characters
                 SP 32 #space
                 EXC 33 #exclamation
 
