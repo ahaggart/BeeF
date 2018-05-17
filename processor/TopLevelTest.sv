@@ -108,7 +108,7 @@ cache_unit cache(
 //     .clk(clk)
 // );
 
-assign done = signals.halt;
+assign done = signals.halt & !reset;
 
 initial begin
 	clk = 0;

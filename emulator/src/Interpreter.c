@@ -117,6 +117,11 @@ int get_starting_mem(char* file,CELL** dest,int default_size){
   return mem_size;
 }
 
+int run_directive(BVM* vm,PP_INFO_T* info,SRC_LEN_T dref){
+  return info ->debug_data[dref]
+              ->execute(info->d_cache[vm->pc*2+1],info->debug_data[dref]->data,vm);
+}
+
 int main(int argc, char** argv){
   if(argc < 2){
     print_usage();
@@ -165,8 +170,12 @@ int main(int argc, char** argv){
       break;
     }
     if((dref=info->d_cache[vm->pc * 2]) != PPD_REF_INVALID){
-      if((status=info->debug_data[dref]->execute(info->d_cache[vm->pc*2+1],info->debug_data[dref]->data,vm))){
-        printf("VM flags raised an error: %d\n",status);
+      if(status==BVM_HALT||(status=run_directive(vm,info,dref))){
+        if(status != BVM_HALT){
+          printf("VM flags raised an error: %d\n",status);
+        } else {
+          printf("HALT instruction reached at pc=%d\n",vm->pc);
+        }
         if(debugging){
           printf("Continue in debug mode? (return):");
           if(getchar() == '\n'){

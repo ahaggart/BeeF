@@ -128,6 +128,7 @@ CBF_INSTR   = "["
 ABR_INSTR   = "]"
 INC_INSTR   = "+"
 DEC_INSTR   = "-"
+HALT_INSTR  = "!"
 
 ZERO_BINDING = "[-]"
 
@@ -152,6 +153,7 @@ BUILTINS = {
     "ZERO":"[-]",
     "PUSH":"^",
     "POP":"_",
+    "EXIT":"!"
 }
 
 # TOP LEVEL COMPILER ROUTINE ###################################################
@@ -259,6 +261,7 @@ def build(module,parser,path):
     postamble_path = [module[NAME_TAG],POSTAMBLE_DATA]
     postamble_text = build_from_table_path(text_table,postamble_path)
     master_text.extend(postamble_text)
+    master_text.append(HALT_INSTR)
     
     scope.exit()
 

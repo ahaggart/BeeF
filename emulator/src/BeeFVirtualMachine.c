@@ -21,22 +21,83 @@ BVM* create_bvm(CELL_IDX initial_size,CELL* starting_mem){
 
   //set up the data stack
   g->stack = bvms_create_stack(initial_size,sizeof(CELL));
+
+  g->instruction = 0;
   
   return g;
 }
 
 void dump_bvm(BVM* g,int full){
+  if(!full){
+    dump_bvm_live(g,10);
+    return;
+  }
   printf("Dumping Virtual Machine...\n");
   printf(FMT_INDENT "Data Head Position: %u\n",g->data_head);
   bvms_dump(g->stack);
   printf("Cells:\n");
   int i;
   CELL val;
-  for(i = 0; (i < g->num_cells) && (full || (i < g->data_head+10)); i++){
+  for(i = 0; i < g->num_cells; i++){
     val = g->cells[i];
     printf("%cc%d:\t%u\t0x%x\t%c\n",(i==g->data_head)?'>':' ',i,val,val,val);
   }
+}
 
+void dump_bvm_live(BVM* g,CELL_IDX range){
+
+  //get the upper and lower cells to print
+  long lower = (long)(g->data_head)-range;
+  lower = (lower>0)?lower:0;
+  long upper = (long)(g->data_head)+range;
+  upper = (upper<g->num_cells)?upper:g->num_cells;
+
+  int i;
+  // int term_height = 80; //good enough?
+  // //clear the screen (aggressively)
+  // for(i = 0; i < term_height; i++){
+  //   printf("\n");
+  // }
+
+  const char* hexstr = " 0x%.2x ";
+
+  //print curr instruction
+  printf("PROGRAM COUNTER: %d\n",g->pc);
+  printf("INSTRUCTION: %c\n",g->instruction);
+  
+
+  //print the stack
+  for(i=0;i<g->stack->top+1;i++){
+    printf("======");
+  }
+  printf("\nSTACK:");
+  for(i=0;i<g->stack->top;i++){
+    printf(hexstr,g->stack->stack[i]);
+  }
+  printf("\n");
+  for(i=0;i<g->stack->top+1;i++){
+    printf("======");
+  }
+  printf("\nCELLS:\n");
+  //print the cell addresses
+  for(i = lower; i<upper; i++){
+    printf("%5u ",i);
+  }
+  printf("\n");
+  //print the data head above the cells
+  for(i = lower; i<upper; i++){
+    if(i == g->data_head){
+      printf("  vv  ");
+    } else {
+      printf("      ");
+    }
+  }
+  printf("\n");
+  //print the cells in range
+  for(i = lower; i<upper; i++){
+    printf(hexstr,g->cells[i]);
+  }
+  printf("\n");
 }
 
 /**
@@ -121,10 +182,14 @@ int bvm_pop(BVM* g){
   return BVM_SUCCESS;
 }
 
+int bvm_halt(BVM* g){
+  return BVM_HALT;
+}
 
 int process(BVM* g,char insn){
   // printf("size: %u,\thead: %u\n",g->num_cells,g->data_head);
   g->pc++;
+  g->instruction = insn;
   switch(insn){
     case '^':
       DEBUG("PSH\n");
@@ -150,6 +215,9 @@ int process(BVM* g,char insn){
     case '_':
       DEBUG("POP\n");
       return bvm_pop(g);
+    case '!':
+      DEBUG("HALT\n");
+      return bvm_halt(g);
     default: //ignore invalid char
       printf("Got some garbage: 0x%x\n",insn);
       return 0;
@@ -166,6 +234,7 @@ int is_instruction(char c){
     case '[':
     case ']':
     case '_':
+    case '!':
       return 1;
     default: //ignore invalid char
       return 0;
