@@ -1,6 +1,6 @@
 #include "Preprocessor.h"
 
-PP_DEBUG_T* pp_make_debug_data(BF_INSN_T* dir){
+PP_DEBUG_T* pp_make_debug_data(BF_INSN_T* dir,int* assertions){
     //parse the directive
     if(dir[0] != PP_DELIM){//what are ya doin man
         return 0;
@@ -23,8 +23,12 @@ PP_DEBUG_T* pp_make_debug_data(BF_INSN_T* dir){
         case PP_DIR_PRINT_DATA_HEAD:
             ppd_make_print_data_head(dest);
             break;
+        case PP_DIR_LOCK_TOGGLE: //toggle a cell value lock
+            ppd_make_cell_assertion(dest,dir,*assertions);
+            *assertions = *assertions + 1;
+            break;
         case PP_DIR_CONSOLE_OUT: //print to console 
-        default: //default to printqing directive if we dont recognize it
+        default: //default to printing directive if we dont recognize it
             ppd_make_console_out(dest,dir);
             break;
     }
@@ -41,6 +45,8 @@ SRC_LEN_T pp_get_debug_info(FILE* src, PP_INFO_T* info){
     int debug_array_size = DEBUG_DATA_SIZE;
     info->debug_data = PP_MK_DEBUG_BUF(DEBUG_DATA_SIZE);
 
+    int assertions = 0;
+
     while(1){
         //directives must end with newline
         if(!fgets(read_buffer,READ_BUFFER_SIZE,src)){
@@ -54,7 +60,7 @@ SRC_LEN_T pp_get_debug_info(FILE* src, PP_INFO_T* info){
                 debug_array_size *= 2;
                 info->debug_data = tmp;
             }
-            info->debug_data[info->d_count] = pp_make_debug_data(read_buffer);
+            info->debug_data[info->d_count] = pp_make_debug_data(read_buffer,&assertions);
             info->d_count++;
             info->line_count++;
         } else {
@@ -62,6 +68,8 @@ SRC_LEN_T pp_get_debug_info(FILE* src, PP_INFO_T* info){
             break;
         }
     }
+
+    info->assertions = assertions;
 
     return ftell(src);
 }

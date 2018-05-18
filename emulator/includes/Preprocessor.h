@@ -31,6 +31,8 @@ typedef struct {
     PP_DEBUG_T** debug_data;
 
     SRC_LEN_T line_count;
+
+    int assertions;
 } Preprocessor_Info;
 
 PP_INFO_T* ppreprocessor(FILE* src);

@@ -122,6 +122,12 @@ int run_directive(BVM* vm,PP_INFO_T* info,SRC_LEN_T dref){
               ->execute(info->d_cache[vm->pc*2+1],info->debug_data[dref]->data,vm);
 }
 
+int finalize_directive(BVM* vm,PP_INFO_T* info,SRC_LEN_T dref){
+  info  ->debug_data[dref]
+        ->finalize(info->d_cache[vm->pc*2+1],info->debug_data[dref]->data,vm);
+  return 0;
+}
+
 int main(int argc, char** argv){
   if(argc < 2){
     print_usage();
@@ -142,6 +148,7 @@ int main(int argc, char** argv){
   FILE* prog = insns;
   PP_INFO_T* info = ppreprocessor(prog);
   fclose(insns);
+  vm->assertions = (ASSERT**)calloc(sizeof(ASSERT*),info->assertions);
   pp_dump_info(info);
 
   printf("Starting Virtual Machine...\n* * * * *\n");
@@ -151,6 +158,7 @@ int main(int argc, char** argv){
   char insn;
   time_t start = clock();
   char user_input = 0;
+  int assert_index;
   int running = 1;
   while(running){
     running = (autorun || (user_input=getchar())!=EOF);
@@ -167,14 +175,16 @@ int main(int argc, char** argv){
       vm->pc = info->br_cache[vm->pc-1]; //find matching brace
     }
     if(vm->pc >= info->i_count){
+      status = 0;
       break;
     }
-    if((status==BVM_HALT)||(dref=info->d_cache[vm->pc * 2]) != PPD_REF_INVALID){
+    if((status==BVM_HALT)||(dref=info->d_cache[(vm->pc-1) * 2]) != PPD_REF_INVALID){
       if(status==BVM_HALT||(status=run_directive(vm,info,dref))){
         if(status != BVM_HALT){
           printf("VM flags raised an error: %d\n",status);
+          finalize_directive(vm,info,dref);
         } else {
-          printf("HALT instruction reached at pc=%d\n",vm->pc);
+          printf("HALT instruction reached at pc=%d\n",(vm->pc-1));
         }
         if(debugging){
           printf("Continue in debug mode? (return):");
@@ -184,6 +194,14 @@ int main(int argc, char** argv){
             break;
           }
         } else{
+          break;
+        }
+      }
+    }
+    if(vm->meta[vm->data_head]){
+      if((assert_index=vm->meta[vm->data_head]->assert_index)){
+        if(vm->assertions[assert_index-1]->value != vm->cells[vm->data_head]){
+          printf("assertion violation @ %u\n",vm->data_head);
           break;
         }
       }

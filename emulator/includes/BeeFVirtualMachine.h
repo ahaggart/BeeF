@@ -25,15 +25,29 @@
 
 #define BVM_HISTORY_SIZE      20
 
-// #define DEBUG(str) printf(str)
-#define DEBUG(str)
-
 #define BVM BeeFVirtualMachine
+
+#define ASSERT VM_Assertion
+
+#define BVM_META BVM_Metadata
+
+typedef struct{
+  char locked;
+  CELL value;
+  CELL_IDX address;
+  CELL_IDX offset;
+} VM_Assertion;
+
+typedef struct{
+  int assert_index;
+} BVM_Metadata;
 
 typedef struct{
   PC_t pc;
   BVMS* stack;
-  CELL* cells; 
+  CELL* cells;
+  ASSERT** assertions;
+  BVM_META** meta;
   CELL_IDX num_cells; 
   CELL_IDX data_head;
   char instruction;
@@ -43,6 +57,7 @@ BVM* create_bvm(CELL_IDX initial_size, CELL* starting_mem);
 int process(BVM* g, char insn);
 void dump_bvm(BVM* g,int full);
 void dump_bvm_live(BVM* g,CELL_IDX range);
+CELL_IDX bvm_resize(BVM* g,CELL_IDX new_size);
 int is_instruction(char insn);
 
 

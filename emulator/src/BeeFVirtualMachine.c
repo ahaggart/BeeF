@@ -23,6 +23,10 @@ BVM* create_bvm(CELL_IDX initial_size,CELL* starting_mem){
   g->stack = bvms_create_stack(initial_size,sizeof(CELL));
 
   g->instruction = 0;
+
+  g->meta = (BVM_META**)calloc(initial_size,sizeof(BVM_META*));
+
+  g->assertions = 0;
   
   return g;
 }
@@ -100,6 +104,23 @@ void dump_bvm_live(BVM* g,CELL_IDX range){
   printf("\n");
 }
 
+void* expand_array(void* array,size_t curr_size,size_t new_size){ //size in bytes
+  void* tmp = calloc(new_size,1);
+  memcpy(tmp,array,curr_size);
+  return tmp;
+}
+
+CELL_IDX bvm_resize(BVM* g,CELL_IDX new_size){
+  if(new_size < g->num_cells){
+    printf("Error: Cannot downsize VM\n");
+    exit(1);
+  }
+  g->cells = (CELL*)      expand_array(g->cells,sizeof(CELL) *g->num_cells,new_size);
+  g->meta  = (BVM_META**) expand_array(g->meta,sizeof(BVM_META*)*g->num_cells,new_size);
+  g->num_cells = new_size;
+  return g->num_cells;
+}
+
 /**
  *  push current cell value to the bvm data stack
  */
@@ -114,10 +135,7 @@ int bvm_psh(BVM* g){
 int bvm_mvr(BVM* g){
   g->data_head++;
   if(g->data_head == g->num_cells){
-    CELL* tmp = (CELL*)calloc(g->num_cells*2,sizeof(CELL));
-    memcpy(tmp,g->cells,g->num_cells);
-    g->cells = tmp;
-    g->num_cells *= 2;
+    bvm_resize(g,g->num_cells*2);
   }
   return BVM_SUCCESS;
 }
@@ -192,31 +210,31 @@ int process(BVM* g,char insn){
   g->instruction = insn;
   switch(insn){
     case '^':
-      DEBUG("PSH\n");
+      BVM_DEBUG("PSH\n");
       return bvm_psh(g);
     case '>':
-      DEBUG("MVR\n");
+      BVM_DEBUG("MVR\n");
       return bvm_mvr(g);
     case '<':
-      DEBUG("MVL\n");
+      BVM_DEBUG("MVL\n");
       return bvm_mvl(g);
     case '+':
-      DEBUG("INC\n");
+      BVM_DEBUG("INC\n");
       return bvm_inc(g);
     case '-':
-      DEBUG("DEC\n");
+      BVM_DEBUG("DEC\n");
       return bvm_dec(g);
     case '[':
-      DEBUG("CBF\n");
+      BVM_DEBUG("CBF\n");
       return bvm_cbf(g);
     case ']':
-      DEBUG("CBB\n");
+      BVM_DEBUG("CBB\n");
       return bvm_cbb(g);
     case '_':
-      DEBUG("POP\n");
+      BVM_DEBUG("POP\n");
       return bvm_pop(g);
     case '!':
-      DEBUG("HALT\n");
+      BVM_DEBUG("HALT\n");
       return bvm_halt(g);
     default: //ignore invalid char
       printf("Got some garbage: 0x%x\n",insn);

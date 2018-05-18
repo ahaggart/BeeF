@@ -21,7 +21,7 @@ build: ${SRC_PATH} ${INC_PATH}
 	${CC} ${SRC_PATH} -o ${BUILD_DIR}/${TARGET}
 
 hello: build
-	./${BUILD_DIR}/${TARGET} ${CODE_DIR}/hello_world.beef
+	./${BUILD_DIR}/${TARGET} ${CODE_DIR}/build/hello_world_2.beef
 
 test: build
 	./${BUILD_DIR}/${TARGET} ${CODE_DIR}/test.beef
