@@ -169,7 +169,7 @@ int main(int argc, char** argv){
     if(vm->pc >= info->i_count){
       break;
     }
-    if((dref=info->d_cache[vm->pc * 2]) != PPD_REF_INVALID){
+    if((status==BVM_HALT)||(dref=info->d_cache[vm->pc * 2]) != PPD_REF_INVALID){
       if(status==BVM_HALT||(status=run_directive(vm,info,dref))){
         if(status != BVM_HALT){
           printf("VM flags raised an error: %d\n",status);

@@ -4,6 +4,7 @@
 """
 from __future__ import print_function
 import sys
+import os
 import re
 import json
 import pprint as pp
@@ -1612,7 +1613,8 @@ class SourceReader:
 # TOP LEVEL COMPILE ############################################################
 
 def compile_module(source,dest):
-    with open("cow.json","r") as src:
+    compiler_dir,_ = os.path.split(sys.argv[0])
+    with open(compiler_dir+"/cow.json","r") as src:
         g = Grammar.create(json.loads(src.read()))
 
     parser = ParsingAutomaton("PARSER",g)
