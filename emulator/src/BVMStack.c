@@ -61,3 +61,9 @@ void bvms_dump(BVMS* stack){
         printf(FMT_INDENT " <EMPTY>\n");
     }
 }
+
+int bvms_destroy(BVMS* stack){
+    free(stack->stack);
+    free(stack);
+    return 0;
+}

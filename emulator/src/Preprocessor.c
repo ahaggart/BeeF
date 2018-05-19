@@ -180,12 +180,12 @@ PP_INFO_T* ppreprocessor(FILE* src){
                 brbuffer[i_count] = PP_NO_BRANCH;
             }
             //record the line number for every instruction
-            refbuffer[(i_count-1)*2+1] = info->line_count;
+            refbuffer[(i_count)*2+1] = info->line_count;
             i_count++;
         } else if(insn == PP_DELIM){
             if(i_count == 0){
                 printf("Error: Unable to bind reference\n");
-                pp_link_debug_info(src,maxlen); //consume the ref without link
+                pp_link_debug_info(src,maxlen); //consume the ref, skip linking
                 continue;
             }
             refbuffer[(i_count-1)*2]   = pp_link_debug_info(src,maxlen);

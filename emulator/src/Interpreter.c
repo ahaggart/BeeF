@@ -14,19 +14,20 @@
 #include "Preprocessor.h"
 
 void print_usage(){
-  printf("usage: roast -[d] path_to_beef_assembly\n");
+  printf("usage: roast -[d] path_to_beef_assembly [ path_to_seed_file ]\n");
 }
 
 typedef struct{
   char* code;
   char* mem;
   char debug;
+  char verbose;
 } arg_info;
 
 void process_user_input(char input,int* autorun,BVM* vm){
   switch(input){
     case '\n':
-      dump_bvm(vm,0);
+      bvm_dump(vm,0);
       break;
     case 'q':
       *autorun = 1;
@@ -45,12 +46,16 @@ void parse_args(int argc,char** argv,arg_info* dest){
   dest->debug = 0;
   dest->code = 0;
   dest->mem = 0;
+  dest->verbose = 0;
   for(arg = 1; arg < argc; arg++){
     if(argv[arg][0] == '-'){
       while((flag=argv[arg][iflag++])){
         switch(flag){
           case 'd':
             dest->debug = 1;
+            break;
+          case 'v':
+            dest->verbose = 1;
             break;
           default:
             break;
@@ -117,15 +122,27 @@ int get_starting_mem(char* file,CELL** dest,int default_size){
   return mem_size;
 }
 
-int run_directive(BVM* vm,PP_INFO_T* info,SRC_LEN_T dref){
-  return info ->debug_data[dref]
-              ->execute(info->d_cache[vm->pc*2+1],info->debug_data[dref]->data,vm);
+SRC_LEN_T get_line_number(PP_INFO_T* info,PC_t program_counter){
+  return info->d_cache[program_counter*2+1];
 }
 
-int finalize_directive(BVM* vm,PP_INFO_T* info,SRC_LEN_T dref){
-  info  ->debug_data[dref]
-        ->finalize(info->d_cache[vm->pc*2+1],info->debug_data[dref]->data,vm);
+int run_directive(BVM* vm,PP_INFO_T* info,SRC_LEN_T d_index){
+  return info ->debug_data[d_index]
+              ->execute(
+                get_line_number(info,vm->pc-1),
+                info->debug_data[d_index]->data,
+                vm);
+}
+
+int finalize_directive(BVM* vm,PP_DEBUG_T* debug_data,SRC_LEN_T line){
+  debug_data->finalize(line,debug_data->data,vm);
   return 0;
+}
+
+int finalize_from_index(BVM* vm,PP_INFO_T* info,SRC_LEN_T d_index){
+  SRC_LEN_T line = get_line_number(info,vm->pc-1);
+  PP_DEBUG_T* debug_data = info->debug_data[d_index];
+  return finalize_directive(vm,debug_data,line);
 }
 
 int main(int argc, char** argv){
@@ -139,35 +156,40 @@ int main(int argc, char** argv){
   int autorun = !debugging;
   CELL* cells;
   int memsize = get_starting_mem(args.mem,&cells,12);
-  BVM* vm = create_bvm(memsize,cells); //big enough for the hello world program
+  BVM* vm = bvm_create(memsize,cells); //big enough for the hello world program
   FILE* insns = fopen(args.code,"r");
   if(!insns){
-    printf("Error: Unable to load code file: %s\n",args.code);
+    printf("Error: Unable to load instruction source: %s\n",args.code);
     exit(1);
   }
   FILE* prog = insns;
   PP_INFO_T* info = ppreprocessor(prog);
   fclose(insns);
   vm->assertions = (ASSERT**)calloc(sizeof(ASSERT*),info->assertions);
-  pp_dump_info(info);
+  vm->num_assertions = info->assertions;
+  
+  if(args.verbose)
+    pp_dump_info(info);
 
   printf("Starting Virtual Machine...\n* * * * *\n");
   unsigned int step_counter = 0;
-  SRC_LEN_T dref;
+  SRC_LEN_T d_index;
+  SRC_LEN_T line;
   int status = 0;
   char insn;
   time_t start = clock();
   char user_input = 0;
-  int assert_index;
+  VAD* assert_ptr;
   int running = 1;
   while(running){
+    line = get_line_number(info,vm->pc);
     running = (autorun || (user_input=getchar())!=EOF);
     if(user_input){ //see if we got a character
       process_user_input(user_input,&autorun,vm);
       user_input = 0;
     }
     insn = info->i_cache[vm->pc];
-    if((status=process(vm,insn))>0){
+    if((status=bvm_process(vm,insn))>0){
       printf("Line %ld: Error: Interpreter exited with code: %d\n",
               info->d_cache[vm->pc*2+1],status);
       break;
@@ -178,15 +200,19 @@ int main(int argc, char** argv){
       status = 0;
       break;
     }
-    if((status==BVM_HALT)||(dref=info->d_cache[(vm->pc-1) * 2]) != PPD_REF_INVALID){
-      if(status==BVM_HALT||(status=run_directive(vm,info,dref))){
+    if((status==BVM_HALT)||(d_index=info->d_cache[(vm->pc-1) * 2]) != PPD_REF_INVALID){
+      if(status==BVM_HALT||(status=run_directive(vm,info,d_index))){
         if(status != BVM_HALT){
-          printf("VM flags raised an error: %d\n",status);
-          finalize_directive(vm,info,dref);
+          if(status != BVM_BREAK){
+            printf("VM flags raised an exception: %d\n",status);
+            finalize_from_index(vm,info,d_index);
+          }
         } else {
           printf("HALT instruction reached at pc=%d\n",(vm->pc-1));
         }
-        if(debugging){
+        if(status == BVM_BREAK && !debugging){
+          //ignore the break
+        }else if(debugging){
           printf("Continue in debug mode? (return):");
           if(getchar() == '\n'){
             autorun = 0;
@@ -198,10 +224,14 @@ int main(int argc, char** argv){
         }
       }
     }
+
+    //check vm metadata for assertions, etc
     if(vm->meta[vm->data_head]){
-      if((assert_index=vm->meta[vm->data_head]->assert_index)){
-        if(vm->assertions[assert_index-1]->value != vm->cells[vm->data_head]){
-          printf("assertion violation @ %u\n",vm->data_head);
+      if((assert_ptr=(VAD*)(vm->meta[vm->data_head]->assert_ptr))){
+        ASSERT* assertion = vm->assertions[assert_ptr->index];
+        if(assertion->value != vm->cells[vm->data_head]){
+          //call the assertion directive's finalize() to print its message
+          finalize_directive(vm,assert_ptr->d_ptr,line);
           break;
         }
       }
@@ -211,7 +241,9 @@ int main(int argc, char** argv){
 
   const char* fmt = "* * * * *\nStopping Virtual Machine...\nCompleted %u steps in %fs\n";
   printf(fmt,step_counter,(float)(clock() - start)/CLOCKS_PER_SEC);
-  dump_bvm(vm,1);
+  bvm_dump(vm,1);
+
+  bvm_destroy(vm);
 
   return status;
 }

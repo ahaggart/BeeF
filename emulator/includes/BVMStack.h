@@ -25,5 +25,6 @@ BVMS* bvms_create_stack(BVMS_PTR_T initial_size,BVMS_WIDTH_T width);
 int bvms_push(BVMS* stack,BVMS_DATA_PTR_T source);
 BVMS_DATA_PTR_T bvms_pop(BVMS* stack);
 void bvms_dump(BVMS* stack);
+int bvms_destroy(BVMS* stack);
 
 #endif //BVMS_H

@@ -9,6 +9,8 @@
 
 #define PP_DELIM               '#'   
 
+#define MAX_ARGS                8
+
 #define PP_DIR_EXIT            -1
 #define PP_DIR_CONSOLE_OUT      0
 #define PP_DIR_PRINT_DATA_HEAD  1
@@ -34,6 +36,15 @@ typedef struct {
     void(*finalize)(SRC_LEN_T,PPD_DATA_PTR_T, BVM*);
 } Debug_Data;
 
+#define VAD ValueAssertionData
+
+typedef struct {
+    int index;
+    CELL_IDX offset;
+    char* msg;
+    PP_DEBUG_T* d_ptr;
+} ValueAssertionData;
+
 void ppd_make_console_out(PP_DEBUG_T* dest,char* dir);
 void ppd_make_print_data_head(PP_DEBUG_T* dest);
 void ppd_make_exit(PP_DEBUG_T* dest,char* dir);
@@ -42,6 +53,6 @@ void ppd_make_full_stack_lock(PP_DEBUG_T* dest,char* dir);
 void ppd_make_cell_assertion(PP_DEBUG_T* dest,char* dir,int index);
 void ppd_error(SRC_LEN_T line,const char* msg);
 
-size_t ppd_parse_directive_idx(char* dir,CELL_IDX* dest);
+size_t ppd_parse_directive_args(char* dir,int* argc_ptr,char*** argv_ptr);
 
 #endif
