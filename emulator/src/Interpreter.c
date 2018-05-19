@@ -179,7 +179,6 @@ int main(int argc, char** argv){
   char insn;
   time_t start = clock();
   char user_input = 0;
-  VAD* assert_ptr;
   int running = 1;
   while(running){
     line = get_line_number(info,vm->pc);
@@ -227,12 +226,16 @@ int main(int argc, char** argv){
 
     //check vm metadata for assertions, etc
     if(vm->meta[vm->data_head]){
-      if((assert_ptr=(VAD*)(vm->meta[vm->data_head]->assert_ptr))){
-        ASSERT* assertion = vm->assertions[assert_ptr->index];
-        if(assertion->value != vm->cells[vm->data_head]){
-          //call the assertion directive's finalize() to print its message
-          finalize_directive(vm,assert_ptr->d_ptr,line);
-          break;
+      BVM_META* metadata = vm->meta[vm->data_head];
+      if(metadata->assert_ptr){
+        ASSERT* assertion = metadata->assert_ptr;
+        if(assertion->type == BVM_ASSERT_VALUE){
+          ASSERT_CV* value_assertion = (ASSERT_CV*)(assertion->data);
+          if(value_assertion->value != vm->cells[vm->data_head]){
+            //call the assertion directive's finalize() to print its message
+            finalize_directive(vm,(PP_DEBUG_T*)assertion->owner,line);
+            break;
+          }
         }
       }
     }

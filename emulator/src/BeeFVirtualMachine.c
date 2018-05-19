@@ -236,6 +236,15 @@ int bvm_halt(BVM* g){
   return BVM_HALT;
 }
 
+ASSERT* bvm_create_assertion(int type, int index, void* owner, void* data){
+  ASSERT* assertion = (ASSERT*)malloc(sizeof(ASSERT));
+  assertion->type = type;
+  assertion->index = index;
+  assertion->owner = owner;
+  assertion->data = data;
+  return assertion;
+}
+
 int bvm_destroy(BVM* g){ //destroy a VM, releasing its resources
   int i;
   if(g->num_cells){

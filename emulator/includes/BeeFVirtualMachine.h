@@ -21,6 +21,10 @@
 #define BVM_ERR_AT_LEFTMOST   1
 #define BVM_ERR_EMPTY_STACK   2
 
+//      ASSERTION TYPES
+#define BVM_ASSERT_NONE       0
+#define BVM_ASSERT_VALUE      1 
+
 //    INTERNAL DATA TYPES
 #define CELL unsigned char
 #define CELL_IDX unsigned int
@@ -31,16 +35,25 @@
 #define ASSERT VM_Assertion
 #define BVM_META BVM_Metadata
 
-typedef struct{  //value assertion data, probably will be moved
+#define ASSERT_CV CellValueAssertion
+
+typedef struct{
   char locked;
   PC_t pc;
   CELL value;
   CELL_IDX address;
   CELL_IDX offset;
+} CellValueAssertion;
+
+typedef struct{  //assertion data, probably will be moved
+  int index;
+  void* owner;
+  int type;
+  void* data;
 } VM_Assertion;
 
 typedef struct{     //additional cell metadata, such as active assertions
-  void* assert_ptr;
+  ASSERT* assert_ptr;
 } BVM_Metadata;
 
 typedef struct{
@@ -63,6 +76,7 @@ void        bvm_dump(BVM* g,int full);
 void        bvm_dump_live(BVM* g,CELL_IDX range);
 CELL_IDX    bvm_resize(BVM* g,CELL_IDX new_size);
 BVM_META*   bvm_get_metadata(BVM* g,CELL_IDX index);
+ASSERT*     bvm_create_assertion(int type,int index,void* owner,void* data);
 int         is_instruction(char insn);
 
 // void bvm_scan_metadata(BVM* g); //not working, need to research printf
