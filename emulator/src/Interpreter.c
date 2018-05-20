@@ -145,6 +145,32 @@ int finalize_from_index(BVM* vm,PP_INFO_T* info,SRC_LEN_T d_index){
   return finalize_directive(vm,debug_data,line);
 }
 
+int check_value_assertion(BVM* vm,ASSERT* assertion,SRC_LEN_T line){
+  ASSERT_CV* value_assertion = (ASSERT_CV*)(assertion->data);
+  if(value_assertion->value != vm->cells[vm->data_head]){
+    //call the assertion directive's finalize() to print its message
+    finalize_directive(vm,(PP_DEBUG_T*)assertion->owner,line);
+    return BVM_ASSERTION_FAIL;
+  }
+  return BVM_ASSERTION_PASS;
+}
+
+int check_assertions(BVM* vm,SRC_LEN_T line){
+  if(vm->meta[vm->data_head]){
+    BVM_META* metadata = vm->meta[vm->data_head];
+    if(metadata->assert_ptr){
+      ASSERT* assertion = metadata->assert_ptr;
+      switch(assertion->type){
+        case BVM_ASSERT_VALUE:
+          return check_value_assertion(vm,assertion,line);
+        default:
+          return BVM_ASSERTION_FAIL;
+      }
+    }
+  }
+  return BVM_ASSERTION_PASS;
+}
+
 int main(int argc, char** argv){
   if(argc < 2){
     print_usage();
@@ -225,19 +251,8 @@ int main(int argc, char** argv){
     }
 
     //check vm metadata for assertions, etc
-    if(vm->meta[vm->data_head]){
-      BVM_META* metadata = vm->meta[vm->data_head];
-      if(metadata->assert_ptr){
-        ASSERT* assertion = metadata->assert_ptr;
-        if(assertion->type == BVM_ASSERT_VALUE){
-          ASSERT_CV* value_assertion = (ASSERT_CV*)(assertion->data);
-          if(value_assertion->value != vm->cells[vm->data_head]){
-            //call the assertion directive's finalize() to print its message
-            finalize_directive(vm,(PP_DEBUG_T*)assertion->owner,line);
-            break;
-          }
-        }
-      }
+    if(check_assertions(vm,line)){
+      break;
     }
     step_counter++;
   }

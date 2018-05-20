@@ -25,6 +25,9 @@
 #define BVM_ASSERT_NONE       0
 #define BVM_ASSERT_VALUE      1 
 
+#define BVM_ASSERTION_PASS    0
+#define BVM_ASSERTION_FAIL    1
+
 //    INTERNAL DATA TYPES
 #define CELL unsigned char
 #define CELL_IDX unsigned int
