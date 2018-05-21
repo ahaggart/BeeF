@@ -282,31 +282,31 @@ int bvm_process(BVM* g,char insn){
   g->instruction = insn;
   switch(insn){
     case '^':
-      BVM_DEBUG("PSH\n");
+      BVM_ASSEMBLY("PSH\n");
       return bvm_psh(g);
     case '>':
-      BVM_DEBUG("MVR\n");
+      BVM_ASSEMBLY("MVR\n");
       return bvm_mvr(g);
     case '<':
-      BVM_DEBUG("MVL\n");
+      BVM_ASSEMBLY("MVL\n");
       return bvm_mvl(g);
     case '+':
-      BVM_DEBUG("INC\n");
+      BVM_ASSEMBLY("INC\n");
       return bvm_inc(g);
     case '-':
-      BVM_DEBUG("DEC\n");
+      BVM_ASSEMBLY("DEC\n");
       return bvm_dec(g);
     case '[':
-      BVM_DEBUG("CBF\n");
+      BVM_ASSEMBLY("CBF\n");
       return bvm_cbf(g);
     case ']':
-      BVM_DEBUG("CBB\n");
+      BVM_ASSEMBLY("CBB\n");
       return bvm_cbb(g);
     case '_':
-      BVM_DEBUG("POP\n");
+      BVM_ASSEMBLY("POP\n");
       return bvm_pop(g);
     case '!':
-      BVM_DEBUG("HALT\n");
+      BVM_ASSEMBLY("HALT\n");
       return bvm_halt(g);
     default: //ignore invalid char
       printf("Got some garbage: 0x%x\n",insn);

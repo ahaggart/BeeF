@@ -24,6 +24,7 @@
 //      ASSERTION TYPES
 #define BVM_ASSERT_NONE       0
 #define BVM_ASSERT_VALUE      1 
+#define BVM_ASSERT_POS        2 
 
 #define BVM_ASSERTION_PASS    0
 #define BVM_ASSERTION_FAIL    1
@@ -47,6 +48,14 @@ typedef struct{
   CELL_IDX address;
   CELL_IDX offset;
 } CellValueAssertion;
+
+#define ASSERT_DH DataHeadAssertion
+
+typedef struct{
+  char locked;
+  PC_t pc;
+  CELL_IDX address;
+} DataHeadAssertion;
 
 typedef struct{  //assertion data, probably will be moved
   int index;

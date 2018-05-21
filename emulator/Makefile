@@ -18,13 +18,16 @@ INC_PATH = $(addprefix ${INC_DIR},${INCLUDES})
 export CPATH = ${INC_DIR}
 
 build: ${SRC_PATH} ${INC_PATH}
-	${CC} ${SRC_PATH} -o ${BUILD_DIR}/${TARGET}
+	${CC} ${CFLAGS} ${SRC_PATH} -o ${BUILD_DIR}/${TARGET}
 
 hello: build
 	./${BUILD_DIR}/${TARGET} ${CODE_DIR}/build/hello_world_2.beef
 
 test: build
 	./${BUILD_DIR}/${TARGET} ${CODE_DIR}/test.beef
+
+debug:
+	$(MAKE) -B build CFLAGS=-DVM_DEBUG
 
 clean:
 	rm ${BUILD_DIR}/*

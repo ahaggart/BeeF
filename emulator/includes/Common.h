@@ -7,3 +7,9 @@
 #else
   #define BVM_DEBUG(...)
 #endif
+
+#ifdef VM_ASSEMBLY
+  #define BVM_ASSEMBLY(...) printf(__VA_ARGS__)
+#else
+  #define BVM_ASSEMBLY(...)
+#endif

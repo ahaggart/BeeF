@@ -48,7 +48,7 @@ void ppd_value_assertion_violation(SRC_LEN_T line,PPD_DATA_PTR_T data, BVM* bvm)
     CELL actual   = bvm->cells[assertion->address];
 
     printf(PPD_ERRSTR(  
-        "Assertion Violation (id=%d) @ Cell %u: Expected %u, got %u\n"
+        "Value Assertion Violation (id=%d) @ Cell %u: Expected %u, got %u\n"
         ">> Assertion: %s"
         ">> Asserted on step %u (pc=%u), Violated on step %u (pc=%u)"),
         index, assertion->address, expected, actual,
@@ -131,11 +131,63 @@ void ppd_make_cell_assertion(PP_DEBUG_T* dest,char* dir,int index){
     dest->finalize  = &ppd_value_assertion_violation;
 }
 
+void ppd_position_assertion_violation(SRC_LEN_T line,PPD_DATA_PTR_T data, BVM* bvm){
+    PAD* adata = (PAD*)data;
+    int index = adata->index;
+    const char* message = adata->msg;
+    ASSERT_DH* assertion = bvm->assertions[index]->data;
+    CELL_IDX expected = assertion->address;
+    CELL_IDX actual   = bvm->data_head;
+
+    printf(PPD_ERRSTR(  
+        "Position Assertion Violation (id=%d): Expected %u, got %u\n"
+        ">> Assertion: %s"
+        ">> Asserted on step %u (pc=%u), Violated on step %u (pc=%u)"),
+        index, expected, actual,
+        message,
+        assertion->locked,assertion->pc,bvm->steps,bvm->pc);
+}
+
+PPD_RETURN_T ppd_toggle_position_lock(SRC_LEN_T line,PPD_DATA_PTR_T data, BVM* bvm){
+    PAD* adata = (PAD*)data;
+    int index = adata->index;
+    ASSERT_DH* assertion;
+
+    if(!bvm->assertions[index]){
+        assertion = (ASSERT_DH*)malloc(sizeof(ASSERT_DH));
+
+        bvm->assertions[index] = bvm_create_assertion(
+            BVM_ASSERT_POS,index,adata->d_ptr,assertion);
+
+        assertion->locked = 0;
+    } else{
+        assertion = (ASSERT_DH*)bvm->assertions[index]->data;
+    }
+
+    if(assertion->locked){
+        BVM_DEBUG("checking postion @ %u\n",assertion->address);
+        if(bvm->data_head != assertion->address){
+            return PPD_EXIT;
+        }
+        assertion->locked = 0;
+    } else {
+        assertion->locked = bvm->steps;
+        assertion->pc = bvm->pc;
+        assertion->address = bvm->data_head;
+        BVM_DEBUG("locking position @ %u\n",assertion->address);
+    }
+    return PPD_SUCCESS;
+}
+
 void ppd_make_position_assertion(PP_DEBUG_T* dest,char* dir,int index){
-    ppd_pack_msg(dest,dir,sizeof(int));
-    *((int*)dest->data) = index;
-    dest->execute  = 0;
-    dest->finalize = 0;
+    PAD* data = (PAD*)malloc(sizeof(PAD));
+    data->msg       = ppd_extract_msg(dir);
+    data->index     = index;
+    data->d_ptr     = dest;
+
+    dest->data      = data;
+    dest->execute   = &ppd_toggle_position_lock;
+    dest->finalize  = &ppd_position_assertion_violation;
 }
 
 PPD_RETURN_T ppd_exit(SRC_LEN_T line,PPD_DATA_PTR_T data, BVM* bvm){

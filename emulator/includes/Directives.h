@@ -15,7 +15,8 @@
 #define PP_DIR_CONSOLE_OUT      0
 #define PP_DIR_PRINT_DATA_HEAD  1
 #define PP_DIR_FULL_STACK_LOCK  2
-#define PP_DIR_LOCK_TOGGLE      3
+#define PP_DIR_VALUE_ASSERT     3
+#define PP_DIR_LOCK_TOGGLE      4
 
 #define PPD_RETURN_T            int
 #define PPD_SUCCESS             0
@@ -45,12 +46,21 @@ typedef struct {
     PP_DEBUG_T* d_ptr;
 } ValueAssertionData;
 
+#define PAD PositionAssertionData
+
+typedef struct {
+    int index;
+    char* msg;
+    PP_DEBUG_T* d_ptr;
+} PositionAssertionData;
+
 void ppd_make_console_out(PP_DEBUG_T* dest,char* dir);
 void ppd_make_print_data_head(PP_DEBUG_T* dest);
 void ppd_make_exit(PP_DEBUG_T* dest,char* dir);
 void ppd_make_dump_stack(PP_DEBUG_T* dest,char* dir);
 void ppd_make_full_stack_lock(PP_DEBUG_T* dest,char* dir);
 void ppd_make_cell_assertion(PP_DEBUG_T* dest,char* dir,int index);
+void ppd_make_position_assertion(PP_DEBUG_T* dest,char* dir,int index);
 void ppd_error(SRC_LEN_T line,const char* msg);
 
 size_t ppd_parse_directive_args(char* dir,int* argc_ptr,char*** argv_ptr);

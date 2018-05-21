@@ -73,6 +73,15 @@ Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 
 Top level modules:
 	stack
 
+} {} {}} InstrTestBench.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/InstrTestBench.sv
+Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
+-- Compiling package InstrTestBench_sv_unit
+-- Importing package definitions
+-- Compiling module InstrTestBench
+
+Top level modules:
+	InstrTestBench
+
 } {} {}} control_unit.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/control_unit.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
 -- Compiling package control_unit_sv_unit
@@ -100,14 +109,14 @@ Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 
 Top level modules:
 	stall_control
 
-} {} {}} InstrTestBench.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/InstrTestBench.sv
+} {} {}} alu_unit.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/alu_unit.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
--- Compiling package InstrTestBench_sv_unit
+-- Compiling package alu_unit_sv_unit
 -- Importing package definitions
--- Compiling module InstrTestBench
+-- Compiling module alu_unit
 
 Top level modules:
-	InstrTestBench
+	alu_unit
 
 } {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/data_mem.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/data_mem.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
@@ -118,23 +127,14 @@ Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 
 Top level modules:
 	data_mem
 
-} {} {}} alu_unit.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/alu_unit.sv
+} {} {}} clock_unit.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/clock_unit.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
--- Compiling package alu_unit_sv_unit
+-- Compiling package clock_unit_sv_unit
 -- Importing package definitions
--- Compiling module alu_unit
+-- Compiling module clock_unit
 
 Top level modules:
-	alu_unit
-
-} {} {}} TopLevelTest.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/TopLevelTest.sv
-Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
--- Compiling package TopLevelTest_sv_unit
--- Importing package definitions
--- Compiling module TopLevelTest
-
-Top level modules:
-	TopLevelTest
+	clock_unit
 
 } {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/alu.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/alu.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
@@ -145,23 +145,21 @@ Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 
 Top level modules:
 	alu
 
-} {} {}} clock_unit.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/clock_unit.sv
+} {} {}} TopLevelTest.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/TopLevelTest.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
--- Compiling package clock_unit_sv_unit
+-- Compiling package TopLevelTest_sv_unit
 -- Importing package definitions
--- Compiling module clock_unit
+-- Compiling module TopLevelTest
 
 Top level modules:
-	clock_unit
+	TopLevelTest
 
-} {} {}} control_register.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/control_register.sv
+} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/two_one_mux.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/two_one_mux.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
--- Compiling package control_register_sv_unit
--- Importing package definitions
--- Compiling module control_register
+-- Compiling module two_one_mux
 
 Top level modules:
-	control_register
+	two_one_mux
 
 } {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/InstROM.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/InstROM.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
@@ -172,12 +170,14 @@ Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 
 Top level modules:
 	InstROM
 
-} {} {}} Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/two_one_mux.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/two_one_mux.sv
+} {} {}} control_register.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/control_register.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
--- Compiling module two_one_mux
+-- Compiling package control_register_sv_unit
+-- Importing package definitions
+-- Compiling module control_register
 
 Top level modules:
-	two_one_mux
+	control_register
 
 } {} {}} mem_unit.sv {1 {vlog -work work -sv -stats=none Z:/Users/Alex/Documents/school/CSE141L/BeeF/processor/mem_unit.sv
 Model Technology ModelSim PE Student Edition vlog 10.4a Compiler 2015.03 Apr  7 2015
