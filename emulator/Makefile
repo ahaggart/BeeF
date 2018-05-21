@@ -1,6 +1,8 @@
 
 CC = gcc
 
+BCC = bcc.py
+
 TARGET = roast
 
 INC_DIR = includes/
@@ -8,6 +10,12 @@ SRC_DIR = src/
 
 CODE_DIR = ../code
 BUILD_DIR = build
+
+LANG_DIR = ../lang
+
+HELLO_NAME = hello_world_2
+BEEF_EXT = .beef
+COW_EXT	= .cow
 
 SOURCES = Interpreter.c BeeFVirtualMachine.c BVMStack.c Preprocessor.c Directives.c
 INCLUDES = BeeFVirtualMachine.h BVMStack.h Preprocessor.h Directives.h
@@ -20,8 +28,9 @@ export CPATH = ${INC_DIR}
 build: ${SRC_PATH} ${INC_PATH}
 	${CC} ${CFLAGS} ${SRC_PATH} -o ${BUILD_DIR}/${TARGET}
 
-hello: build
-	./${BUILD_DIR}/${TARGET} ${CODE_DIR}/build/hello_world_2.beef
+hello: build 
+	${LANG_DIR}/${BCC} ${CODE_DIR}/cow/${HELLO_NAME}${COW_EXT} ${CODE_DIR}/build/${HELLO_NAME}${BEEF_EXT}
+	./${BUILD_DIR}/${TARGET} ${CODE_DIR}/build/${HELLO_NAME}${BEEF_EXT}
 
 test: build
 	./${BUILD_DIR}/${TARGET} ${CODE_DIR}/test.beef

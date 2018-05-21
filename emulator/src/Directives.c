@@ -39,7 +39,7 @@ void ppd_make_print_data_head(PP_DEBUG_T* dest){
     dest->finalize = &ppd_null_finalize;
 }
 
-void ppd_value_assertion_violation(SRC_LEN_T line,PPD_DATA_PTR_T data, BVM* bvm){
+void ppd_value_lock_violation(SRC_LEN_T line,PPD_DATA_PTR_T data, BVM* bvm){
     VAD* adata = (VAD*)data;
     int index = adata->index;
     const char* message = adata->msg;
@@ -48,7 +48,7 @@ void ppd_value_assertion_violation(SRC_LEN_T line,PPD_DATA_PTR_T data, BVM* bvm)
     CELL actual   = bvm->cells[assertion->address];
 
     printf(PPD_ERRSTR(  
-        "Value Assertion Violation (id=%d) @ Cell %u: Expected %u, got %u\n"
+        "Value Lock Violation (id=%d) @ Cell %u: Expected %u, got %u\n"
         ">> Assertion: %s"
         ">> Asserted on step %u (pc=%u), Violated on step %u (pc=%u)"),
         index, assertion->address, expected, actual,
@@ -56,7 +56,7 @@ void ppd_value_assertion_violation(SRC_LEN_T line,PPD_DATA_PTR_T data, BVM* bvm)
         assertion->locked,assertion->pc,bvm->steps,bvm->pc);
 }
 
-PPD_RETURN_T ppd_toggle_value_assertion(SRC_LEN_T line,PPD_DATA_PTR_T data, BVM* bvm){
+PPD_RETURN_T ppd_toggle_value_lock(SRC_LEN_T line,PPD_DATA_PTR_T data, BVM* bvm){
     VAD* adata = (VAD*)data;
     int index = adata->index;
     ASSERT_CV* assertion;
@@ -96,7 +96,7 @@ PPD_RETURN_T ppd_toggle_value_assertion(SRC_LEN_T line,PPD_DATA_PTR_T data, BVM*
     return PPD_SUCCESS;
 }
 
-size_t parse_value_assertion_offset(char* dir,CELL_IDX* offset){
+size_t parse_value_lock_offset(char* dir,CELL_IDX* offset){
     char** argv;
     int argc;
     size_t msg_start = ppd_parse_directive_args(dir,&argc,&argv);
@@ -116,9 +116,9 @@ size_t parse_value_assertion_offset(char* dir,CELL_IDX* offset){
     return msg_start;
 }
 
-void ppd_make_cell_assertion(PP_DEBUG_T* dest,char* dir,int index){
+void ppd_make_value_lock(PP_DEBUG_T* dest,char* dir,int index){
     CELL_IDX offset;
-    dir += parse_value_assertion_offset(dir,&offset);
+    dir += parse_value_lock_offset(dir,&offset);
 
     VAD* data = (VAD*)malloc(sizeof(VAD));
     data->msg       = ppd_extract_msg(dir);
@@ -127,8 +127,8 @@ void ppd_make_cell_assertion(PP_DEBUG_T* dest,char* dir,int index){
     data->d_ptr     = dest;
 
     dest->data      = data;
-    dest->execute   = &ppd_toggle_value_assertion;
-    dest->finalize  = &ppd_value_assertion_violation;
+    dest->execute   = &ppd_toggle_value_lock;
+    dest->finalize  = &ppd_value_lock_violation;
 }
 
 void ppd_position_assertion_violation(SRC_LEN_T line,PPD_DATA_PTR_T data, BVM* bvm){
@@ -188,6 +188,77 @@ void ppd_make_position_assertion(PP_DEBUG_T* dest,char* dir,int index){
     dest->data      = data;
     dest->execute   = &ppd_toggle_position_lock;
     dest->finalize  = &ppd_position_assertion_violation;
+}
+
+size_t parse_value_assertion_args(char* dir,CELL_IDX* offset,CELL* value){
+    char** argv;
+    int argc;
+    size_t msg_start = ppd_parse_directive_args(dir,&argc,&argv);
+
+    if(!argc){
+        printf("Error: Value assertion syntax: # %d # position # [ offset # ]",
+                PP_DIR_VALUE_ASSERT);
+        exit(1);
+    }
+    long offset_v;
+    if(argc == 1){
+        offset_v = 0;
+        *value = atol(argv[0]);
+    } else{
+        offset_v = atol(argv[0]);
+        *value = (CELL)(atol(argv[1]) % CELL_SIZE);
+    }
+    if(offset_v < 0){
+        printf("Error: Invalid assertion offset %ld\n",offset_v);
+        exit(1);
+    }
+    // printf("Adding assertion at offset %ld\n",offset_value);
+
+    *offset = (CELL_IDX)offset_v;
+    return msg_start;
+}
+
+void ppd_value_assertion_violation(SRC_LEN_T line,PPD_DATA_PTR_T data, BVM* bvm){
+    VAD* adata = (VAD*)data;
+    const char* message = adata->msg;
+    CELL_IDX address = bvm->data_head + adata->offset;
+    CELL expected = adata->value;
+    CELL actual   = bvm->cells[address];
+
+    printf(PPD_ERRSTR(  
+        "Value Assertion Violation @ Cell %u: Expected %u, got %u\n"
+        ">> Assertion: %s"
+        ">> Violated on step %u (pc=%u)"),
+        address, expected, actual,
+        message,
+        bvm->steps,bvm->pc);
+}
+
+PPD_RETURN_T ppd_check_value_assertion(SRC_LEN_T line,PPD_DATA_PTR_T data, BVM* bvm){
+    VAD* adata = (VAD*)data;
+
+    if(bvm->cells[bvm->data_head + adata->offset] != adata->value){
+        return PPD_EXIT;
+    }
+
+    return PPD_SUCCESS;
+}
+
+void ppd_make_value_assertion(PP_DEBUG_T* dest,char* dir){
+    CELL_IDX offset;
+    CELL value;
+    dir += parse_value_assertion_args(dir,&offset,&value);
+
+    VAD* data = (VAD*)malloc(sizeof(VAD));
+    data->msg       = ppd_extract_msg(dir);
+    data->index     = -1;
+    data->value     = value;
+    data->offset    = offset;
+    data->d_ptr     = dest;
+
+    dest->data      = data;
+    dest->execute   = &ppd_check_value_assertion;
+    dest->finalize  = &ppd_value_assertion_violation;
 }
 
 PPD_RETURN_T ppd_exit(SRC_LEN_T line,PPD_DATA_PTR_T data, BVM* bvm){

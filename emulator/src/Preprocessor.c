@@ -23,9 +23,12 @@ PP_DEBUG_T* pp_make_debug_data(BF_INSN_T* dir,int* assertions){
         case PP_DIR_PRINT_DATA_HEAD:
             ppd_make_print_data_head(dest);
             break;
-        case PP_DIR_VALUE_ASSERT: //toggle a cell value lock
-            ppd_make_cell_assertion(dest,dir,*assertions);
+        case PP_DIR_VALUE_LOCK: //toggle a cell value lock
+            ppd_make_value_lock(dest,dir,*assertions);
             *assertions = *assertions + 1;
+            break;
+        case PP_DIR_VALUE_ASSERT:
+            ppd_make_value_assertion(dest,dir);
             break;
         case PP_DIR_LOCK_TOGGLE:
             ppd_make_position_assertion(dest,dir,*assertions);

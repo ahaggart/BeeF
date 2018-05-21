@@ -78,13 +78,17 @@ MAPPING_INFO    = ("MAPPING","INFO")
 PATH_INFO       = ("PATH","INFO")
 ORDER_INFO      = ("ORDER","INFO")
 TRACKING_INFO   = ("TRACKING","INFO")
-KNOWN_VALUE_INFO= ("KNOWN_VALUES")
+KNOWN_VALUE_INFO= ("KNOWN","VALUES")
+ASSERTED_VALUE_INFO=("ASSERTED","VALUES")
+LAST_CHAR_INFO  = ("LAST","CHAR")
 
 TEXT_TARGET     = ("TEXT","TARGET")
 REF_TABLE       = ("REF","TABLE")
 FUNC_TABLE      = ("FUNCTION","TABLE")
 
 SCOPE_CACHE     = ("SCOPE","CACHE")
+
+DIRECTIVE_HEADERS= ("DIRECTIVE","HEADERS")
 
 TREE_DATA       = "$" # use illegal chars to avoid collisions
 DEP_COUNTER     = "#"
@@ -133,17 +137,29 @@ HALT_INSTR  = "!"
 
 ZERO_BINDING = "[-]"
 
-COUNTING_BLOCK_HEADER = "^[_-^>^[-]+^<[_[-]^]_>_<[_>"
+COUNTING_BLOCK_HEADER = "^[_-^>^ <^>_ [-]+^<[_[-]^]_>_<[_>"
 COUNTING_BLOCK_FOOTER = "<[-]^]]_"
 
 EXEC_LOOP_HEADER = "<_["
 EXEC_LOOP_FOOTER = "_]>"
+
+NULL_SPACER_ASSEMBLY = "<>"
 
 CELL_MAX = 255
 
 TOKEN_CHAR_REGEX = "([{},()])"
 
 COMMENT_DELIM = "#"
+
+DIRECTIVE_MARKER = COMMENT_DELIM + "{}" + COMMENT_DELIM
+
+VALUE_DIR = "VALUE_DIRECTIVE"
+POS_LOCK_DIR = "POS_LOCK_DIRECTIVE"
+
+DIRECTIVE_CODES = {
+    VALUE_DIR:      5,
+    POS_LOCK_DIR:   4,
+}
 
 EXT = ".cow"
 
@@ -191,8 +207,11 @@ def build(module,parser,path):
     scope.bind(PATH_INFO,CopyList())
     scope.bind(TRACKING_INFO,Stack([make_pos_tracker()]))
     scope.bind(KNOWN_VALUE_INFO,{})
+    scope.bind(ASSERTED_VALUE_INFO,set())
     scope.bind(REF_TABLE,call_table)
     scope.bind(SCOPE_CACHE,{})
+    scope.bind(LAST_CHAR_INFO,{VALUE_TAG:None})
+    scope.bind(DIRECTIVE_HEADERS,[])
 
     bind_builtin_keywords(scope)
 
@@ -256,7 +275,9 @@ def build(module,parser,path):
     # pp.pprint(exec_loop)
 
     # 9. Build preamble and postamble text
-    master_text = build_from_table_path(text_table,preamble_path)
+    master_text = []
+    master_text.extend(scope.get(DIRECTIVE_HEADERS))
+    master_text.extend(build_from_table_path(text_table,preamble_path))
     master_text.extend(exec_loop)
 
     postamble_path = [module[NAME_TAG],POSTAMBLE_DATA]
@@ -743,8 +764,13 @@ def traverse_scoped_text(inline,scope):
 
     with scope.inner() as scope:
         append_path(scope,order)
+        scope.bind(ASSERTED_VALUE_INFO,set()) # track assertions bound in scope
         for text in traverse_unscoped_text(inline,scope):
             yield text
+        
+        # clear assertions made in this scope
+        for addr in scope.get(ASSERTED_VALUE_INFO):
+            clear_value_assertion(addr,scope)
 
 def traverse_unscoped_text(inline,scope):
     # pp.pprint(inline)
@@ -765,9 +791,12 @@ def traverse_unscoped_text(inline,scope):
                     # >> allow locks on bindings while still updating scope
                     # TODO: add VM locks to enforce
                     pos = get_tracked_pos(scope)
+                    path_text = ':'.join([str(node) for node in scope.get(PATH_INFO)])
+                    marker = lock_position("Lock @ " + path_text,scope)
                     for txt in traverse_unscoped_text(sub[TEXT_VAR],scope):
                         yield txt
                     update_tracking(scope,pos)
+                    unlock_position(marker,scope)
                 else:
                     yield sub
             else: # call closure
@@ -826,7 +855,10 @@ def emit_raw_text(text,scope):
     if not text:
         return
     with scope.use(TEXT_TARGET) as target:
+        if scope.get(LAST_CHAR_INFO)[VALUE_TAG] == COMMENT_DELIM and text[0] == COMMENT_DELIM:
+            target.append(NULL_SPACER_ASSEMBLY)
         target.append(text)
+    scope.get(LAST_CHAR_INFO)[VALUE_TAG] = text[-1]
 
 def emit_tracked_text(text,scope):
     if not text:
@@ -1056,6 +1088,10 @@ def process_value_assertion(closure,scope):
     val = int(statement[NUMBER_TAG])
     with scope.use(KNOWN_VALUE_INFO) as kv:
         kv[addr] = val
+    with scope.use(ASSERTED_VALUE_INFO) as asserted:
+        asserted.add(addr)
+    offset = addr - get_tracked_pos(scope)
+    add_value_assertion_directive(offset,val,"value assertion",scope)
    
 def process_bound_keyword(closure,scope): # resolve a bound keyword into assembly
     # pp.pprint(closure)
@@ -1323,6 +1359,33 @@ def make_assert_closure(addr,value):
         }
     }
 
+def add_value_assertion_directive(offset,val,msg,scope):
+    make_directive(make_directive_text(VALUE_DIR,[offset,val],msg),scope)
+
+def lock_position(msg,scope):
+    return make_directive(make_directive_text(POS_LOCK_DIR,[],msg),scope)
+
+def unlock_position(marker,scope):
+    emit_raw_text(marker,scope)
+
+def make_directive_text(dtype,args,message):
+    text = [COMMENT_DELIM,str(DIRECTIVE_CODES[dtype]),COMMENT_DELIM]
+    for arg in args:
+        text.append(str(arg))
+        text.append(COMMENT_DELIM)
+    text.append(message)
+    return ''.join(text)
+
+
+def make_directive(text,scope):
+    headers = scope.get(DIRECTIVE_HEADERS)
+    index = len(headers)
+    headers.append(text)
+
+    marker = DIRECTIVE_MARKER.format(index)
+    emit_raw_text(marker,scope)
+    return marker
+
 def make_adjustment_text(curr,target,up,down,wrap=None):
     adj_amt = abs(curr-target)
     adj = None
@@ -1432,6 +1495,10 @@ def build_modifier_chain(modifiers):
             else:
                 chain.append((ASSEMBLY_TAG,mod[ASSEMBLY_TAG]))
     return chain
+
+def clear_value_assertion(addr,scope):
+    # print("clearing {} from known values".format(addr))
+    scope.get(KNOWN_VALUE_INFO).pop(addr)
 
 # HELPER CLASSES ###############################################################
 

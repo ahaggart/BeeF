@@ -234,6 +234,7 @@ int main(int argc, char** argv){
           }
         } else {
           printf("HALT instruction reached at pc=%d\n",(vm->pc-1));
+          status = BVM_SUCCESS;
         }
         if(status == BVM_BREAK && !debugging){
           //ignore the break
