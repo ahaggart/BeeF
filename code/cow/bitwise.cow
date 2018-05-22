@@ -1,0 +1,42 @@
+bitwise{
+    preamble{
+        >
+        EXIT_STACK
+        rebase{0}
+        op_layout
+        set{
+            op1 197
+            op2 79
+        }
+        call{ xor }
+    }
+    depends{}
+    namespace{
+        xor{
+            double_expand( 3 )
+        }
+    }
+    bindings{
+        op_layout{
+            layout{
+                start   0
+                op1     0
+                op2     1
+            }
+        }
+        expander(value width){
+            [->> >(width) [ >(width) ] ++ [- <(width) ] <<]
+        }
+        double_expand(value width){
+            op_layout
+            goto{ op1 }
+            expander( width )
+            goto{ op2 }
+            expander( width )
+            goto{ start }
+        }
+    }
+    postamble{
+
+    }
+}

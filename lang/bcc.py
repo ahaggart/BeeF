@@ -170,7 +170,10 @@ BUILTINS = {
     "ZERO":"[-]",
     "PUSH":"^",
     "POP":"_",
-    "EXIT":"!"
+    "DEC":"-",
+    "INC":"+",
+    "EXIT":"!",
+    "EXIT_STACK":"[-]^^^",
 }
 
 # TOP LEVEL COMPILER ROUTINE ###################################################
@@ -1123,6 +1126,9 @@ def process_bound_keyword(closure,scope): # resolve a bound keyword into assembl
             if len(applied) != len(declared):
                 raise ValueError(apperr)
 
+            if len(declared) == 1: # TODO: proper unrolling
+                declared = [declared]
+
             mods = [dec[MODIFIER_ARG_VAR][NAME_TAG] for dec in declared]
 
             for i in range(0,len(declared)):
@@ -1141,7 +1147,7 @@ def process_bound_keyword(closure,scope): # resolve a bound keyword into assembl
                     if arg[0] == NUMBER_TAG: # raw number
                         partial[make_value_var(param[NAME_TAG])] = int(arg[1])
                     elif arg[0] == NAME_TAG: # named number (param forwarding)
-                        vvar = make_value_var(arg[NAME_TAG])
+                        vvar = make_value_var(arg[1])
                         pvar = make_value_var(param[NAME_TAG])
                         partial[pvar] = scope.get(vvar)
                     else:
@@ -1479,21 +1485,27 @@ def format_binding_def(binding):
 
     inner = []
     if binding[MODIFIER_DEC_VAR] is not None:
-        for mod in binding[MODIFIER_DEC_VAR][MODIFIER_LIST_VAR]:
-            text_append(inner,mod)
+        if len(binding[MODIFIER_DEC_VAR][MODIFIER_LIST_VAR]) == 1:
+            text_append(inner,binding[MODIFIER_DEC_VAR][MODIFIER_LIST_VAR])
+        else:
+            for mod in binding[MODIFIER_DEC_VAR][MODIFIER_LIST_VAR]:
+                text_append(inner,mod)
 
     return " ".join([binding[NAME_TAG],"(",", ".join(inner),")"])
 
 def build_modifier_chain(modifiers):
     chain = []
     if modifiers[MODIFIER_CHAIN_VAR] is not None:
-        for mod in [modifiers]+modifiers[MODIFIER_CHAIN_VAR]:
-            if NAME_TAG in mod:
-                chain.append((NAME_TAG,mod[NAME_TAG]))
-            elif NUMBER_TAG in mod:
-                chain.append((NUMBER_TAG,mod[NUMBER_TAG]))
-            else:
-                chain.append((ASSEMBLY_TAG,mod[ASSEMBLY_TAG]))
+        additional = modifiers[MODIFIER_CHAIN_VAR]
+    else:
+        additional = []
+    for mod in [modifiers]+additional:
+        if NAME_TAG in mod:
+            chain.append((NAME_TAG,mod[NAME_TAG]))
+        elif NUMBER_TAG in mod:
+            chain.append((NUMBER_TAG,mod[NUMBER_TAG]))
+        else:
+            chain.append((ASSEMBLY_TAG,mod[ASSEMBLY_TAG]))
     return chain
 
 def clear_value_assertion(addr,scope):
