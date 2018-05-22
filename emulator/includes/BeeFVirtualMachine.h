@@ -30,10 +30,11 @@
 #define BVM_ASSERTION_FAIL    1
 
 //    INTERNAL DATA TYPES
-#define CELL      unsigned char
-#define CELL_IDX  unsigned int
-#define PC_t      unsigned int
-#define CELL_SIZE 256
+#define CELL        unsigned char
+#define CELL_IDX    unsigned int
+#define CELL_OFFSET int
+#define PC_t        unsigned int
+#define CELL_SIZE   256
 
 //    CONVENIENCE 
 #define BVM BeeFVirtualMachine

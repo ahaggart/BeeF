@@ -42,7 +42,7 @@ typedef struct {
 
 typedef struct {
     int index;
-    CELL_IDX offset;
+    CELL_OFFSET offset;
     CELL value;
     char* msg;
     PP_DEBUG_T* d_ptr;

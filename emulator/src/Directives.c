@@ -96,7 +96,7 @@ PPD_RETURN_T ppd_toggle_value_lock(SRC_LEN_T line,PPD_DATA_PTR_T data, BVM* bvm)
     return PPD_SUCCESS;
 }
 
-size_t parse_value_lock_offset(char* dir,CELL_IDX* offset){
+size_t parse_value_lock_offset(char* dir,CELL_OFFSET* offset){
     char** argv;
     int argc;
     size_t msg_start = ppd_parse_directive_args(dir,&argc,&argv);
@@ -106,18 +106,18 @@ size_t parse_value_lock_offset(char* dir,CELL_IDX* offset){
         return msg_start;
     }
     long offset_value =  atol(argv[0]);
-    if(offset_value < 0){
-        printf("Error: Invalid assertion offset %ld\n",offset_value);
-        exit(1);
-    }
+    // if(offset_value < 0){
+    //     printf("Error: Invalid assertion offset %ld\n",offset_value);
+    //     exit(1);
+    // }
     // printf("Adding assertion at offset %ld\n",offset_value);
-    *offset = offset_value;
+    *offset = (CELL_OFFSET)offset_value;
 
     return msg_start;
 }
 
 void ppd_make_value_lock(PP_DEBUG_T* dest,char* dir,int index){
-    CELL_IDX offset;
+    CELL_OFFSET offset;
     dir += parse_value_lock_offset(dir,&offset);
 
     VAD* data = (VAD*)malloc(sizeof(VAD));
@@ -190,7 +190,7 @@ void ppd_make_position_assertion(PP_DEBUG_T* dest,char* dir,int index){
     dest->finalize  = &ppd_position_assertion_violation;
 }
 
-size_t parse_value_assertion_args(char* dir,CELL_IDX* offset,CELL* value){
+size_t parse_value_assertion_args(char* dir,CELL_OFFSET* offset,CELL* value){
     char** argv;
     int argc;
     size_t msg_start = ppd_parse_directive_args(dir,&argc,&argv);
@@ -208,13 +208,13 @@ size_t parse_value_assertion_args(char* dir,CELL_IDX* offset,CELL* value){
         offset_v = atol(argv[0]);
         *value = (CELL)(atol(argv[1]) % CELL_SIZE);
     }
-    if(offset_v < 0){
-        printf("Error: Invalid assertion offset %ld\n",offset_v);
-        exit(1);
-    }
+    // if(offset_v < 0){
+    //     printf("Error: Invalid assertion offset %ld\n",offset_v);
+    //     exit(1);
+    // }
     // printf("Adding assertion at offset %ld\n",offset_value);
 
-    *offset = (CELL_IDX)offset_v;
+    *offset = (CELL_OFFSET)offset_v;
     return msg_start;
 }
 
@@ -245,7 +245,7 @@ PPD_RETURN_T ppd_check_value_assertion(SRC_LEN_T line,PPD_DATA_PTR_T data, BVM* 
 }
 
 void ppd_make_value_assertion(PP_DEBUG_T* dest,char* dir){
-    CELL_IDX offset;
+    CELL_OFFSET offset;
     CELL value;
     dir += parse_value_assertion_args(dir,&offset,&value);
 

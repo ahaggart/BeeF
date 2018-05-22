@@ -915,23 +915,37 @@ class Util:
     # identify self-nesting nonterminals and un-nest them into a list
     # list ordering depends on the recursion type
     # left-recursive nonterminals will reverse the order in the list
-    # right-recursive nonterminals will maintian the order in the list
+    # right-recursive nonterminals will maintain the order in the list
     @staticmethod
     def unroll(tree,grammar):
-        for var in Util.collect_recursive(tree):
+        # for var in Util.collect_recursive(tree):
+        for var in Util.collect_recursive(grammar):
             tree = Util._unroll(tree,var,Util.left_recursive(var,grammar))
         return tree
 
     @staticmethod
-    def collect_recursive(tree,acc=None):
-        if acc == None:
-            acc = set()
-        for var in tree:
-            if tree[var].__class__.__name__ == "dict":
-                if var in tree[var]:
-                    acc.add(var)
-                acc.update(Util.collect_recursive(tree[var],acc))
-        return acc
+    # def collect_recursive(tree,acc=None):
+    #     if acc == None:
+    #         acc = set()
+    #     for var in tree:
+    #         if tree[var].__class__.__name__ == "dict":
+    #             if var in tree[var]:
+    #                 acc.add(var)
+    #             acc.update(Util.collect_recursive(tree[var],acc))
+    #     return acc
+
+    def collect_recursive(grammar):
+        for nt in grammar.rules:
+            for derivation in grammar.rules[nt]:
+                done = False
+                for symbol in derivation.symbols:
+                    if symbol.symbol == nt:
+                        yield nt
+                        done = True
+                    if done:
+                        break
+                if done:
+                    break
 
     @staticmethod
     def _unroll(tree,variable,reverse=False):

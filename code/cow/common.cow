@@ -1,0 +1,37 @@
+common{
+    depends{}
+    namespace{}
+    bindings{
+        swap(layout op1, layout op2){
+            set{
+                {-1}    op2
+                op1     op2
+                op2     op1
+            }
+        }
+        get(layout source){
+            scope{
+                rebase{0}
+                goto{source}
+                PUSH
+                goto{0}
+            }
+        }
+        save(layout offset, value amount){
+            apply(offset amount ^> [-] ^<_ )
+        }
+        restore(layout offset, value amount){
+            apply(offset amount > NOP <_ )
+        }
+        apply(layout offset,value amount,text go_fn, text there_fn, text ret_fn){
+            scope{
+                rebase{0}
+                goto{offset}
+                go_fn(amount)
+                there_fn
+                ret_fn(amount)
+                goto{0}
+            }
+        }
+    }
+}

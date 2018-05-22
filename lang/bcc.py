@@ -118,6 +118,8 @@ PUSH_TAG    = "push"
 POP_TAG     = "pop"
 CREATE_TAG  = "create"
 
+MESSAGE_TAG = "message"
+
 VALUE_TAG = "value"
 
 ADDRESS_TAG = "address"
@@ -173,6 +175,8 @@ BUILTINS = {
     "DEC":"-",
     "INC":"+",
     "EXIT":"!",
+    "BREAK":"#0#",
+    "NOP":"<>",
     "EXIT_STACK":"[-]^^^",
 }
 
@@ -214,7 +218,7 @@ def build(module,parser,path):
     scope.bind(REF_TABLE,call_table)
     scope.bind(SCOPE_CACHE,{})
     scope.bind(LAST_CHAR_INFO,{VALUE_TAG:None})
-    scope.bind(DIRECTIVE_HEADERS,[])
+    scope.bind(DIRECTIVE_HEADERS,["#-1#global break condition"])
 
     bind_builtin_keywords(scope)
 
@@ -983,7 +987,7 @@ def optimize_statement_block(block,scope):
     # doing things stupidly for now
     pair_compare = lambda x,y:(x[0]-y[0])
     block = sorted(block[:],cmp=pair_compare)
-    sources     = [pair[0] for pair in block if pair[2] == ADDRESS_TAG]
+    sources     = [pair[1] for pair in block if pair[2] == ADDRESS_TAG]
 
     actions = []
 
@@ -1061,8 +1065,11 @@ def process_create_closure(closure,scope):
             make_adjustment_text(0,target,INC_INSTR,DEC_INSTR,CELL_MAX)
         ]
     else:
+        msg = "create: using value {} @ cell {} (from cell {})".format(
+            best[1],best[0],curr_addr)
         # print("using value @ {}".format(best[0]))
         actions = [
+            make_assert_closure(best[0],best[1],msg), # assert on the value used
             make_goto_closure(best[0]),
             make_assembly_closure(PUSH_INSTR),
             make_goto_closure(addr),
@@ -1094,7 +1101,11 @@ def process_value_assertion(closure,scope):
     with scope.use(ASSERTED_VALUE_INFO) as asserted:
         asserted.add(addr)
     offset = addr - get_tracked_pos(scope)
-    add_value_assertion_directive(offset,val,"value assertion",scope)
+    if MESSAGE_TAG in closure and closure[MESSAGE_TAG]:
+        msg = closure[MESSAGE_TAG]
+    else:
+        msg = "value assertion"
+    add_value_assertion_directive(offset,val,msg,scope)
    
 def process_bound_keyword(closure,scope): # resolve a bound keyword into assembly
     # pp.pprint(closure)
@@ -1126,9 +1137,6 @@ def process_bound_keyword(closure,scope): # resolve a bound keyword into assembl
             if len(applied) != len(declared):
                 raise ValueError(apperr)
 
-            if len(declared) == 1: # TODO: proper unrolling
-                declared = [declared]
-
             mods = [dec[MODIFIER_ARG_VAR][NAME_TAG] for dec in declared]
 
             for i in range(0,len(declared)):
@@ -1141,15 +1149,19 @@ def process_bound_keyword(closure,scope): # resolve a bound keyword into assembl
                     layout_var = make_layout_var(arg_val)
                     local_var  = make_layout_var(param[NAME_TAG]) 
                     if not scope.has(layout_var):
-                        raise match_error
-                    partial[local_var] = scope.get(layout_var)
+                        if arg[0] == NUMBER_TAG:
+                            partial[local_var] = int(arg[1])
+                        else:
+                            raise match_error
+                    else:
+                        partial[local_var] = scope.get(layout_var)
                 elif VALUE_TAG in param: # expecting a number
                     if arg[0] == NUMBER_TAG: # raw number
                         partial[make_value_var(param[NAME_TAG])] = int(arg[1])
-                    elif arg[0] == NAME_TAG: # named number (param forwarding)
+                    elif arg[0] == NAME_TAG: # bound value
                         vvar = make_value_var(arg[1])
                         pvar = make_value_var(param[NAME_TAG])
-                        partial[pvar] = scope.get(vvar)
+                        partial[pvar] = int(scope.get(vvar))
                     else:
                         raise match_error
                 elif TEXT_TAG in param: # expecting a keyword or raw assembly
@@ -1174,7 +1186,7 @@ def process_bound_keyword(closure,scope): # resolve a bound keyword into assembl
                 vvar = make_value_var(modifiers[NAME_TAG])
                 if not scope.has(vvar):
                     raise ValueError(apperr)
-                dups = scope.get(vvar)
+                dups = int(scope.get(vvar))
             elif modifiers[MODIFIER_CHAIN_VAR] is not None:
                 raise ValueError(apperr)
             pass
@@ -1195,7 +1207,7 @@ def process_binding_text(closure,scope):
 
 def process_value_closure(closure,scope):
     for statement in closure[VALUE_INNER_VAR]:
-        scope.bind(make_value_var(statement[NAME_TAG]),statement[NUMBER_TAG])
+        scope.bind(make_value_var(statement[NAME_TAG]),int(statement[NUMBER_TAG]))
 
 def process_call_closure(call,scope):
     errstr = "expected a call closure, got: {}".format(call)
@@ -1353,9 +1365,10 @@ def make_create_closure(addr,value):
         NUMBER_TAG:value,
     }
 
-def make_assert_closure(addr,value):
+def make_assert_closure(addr,value,msg=None):
     return {
         ASSERT_TAG:ASSERT_TAG,
+        MESSAGE_TAG:msg,
         ASSERT_INNER_VAR:{
             DATA_ADDRESS_VAR:{
                 NUMBER_TAG:addr,
@@ -1485,11 +1498,8 @@ def format_binding_def(binding):
 
     inner = []
     if binding[MODIFIER_DEC_VAR] is not None:
-        if len(binding[MODIFIER_DEC_VAR][MODIFIER_LIST_VAR]) == 1:
-            text_append(inner,binding[MODIFIER_DEC_VAR][MODIFIER_LIST_VAR])
-        else:
-            for mod in binding[MODIFIER_DEC_VAR][MODIFIER_LIST_VAR]:
-                text_append(inner,mod)
+        for mod in binding[MODIFIER_DEC_VAR][MODIFIER_LIST_VAR]:
+            text_append(inner,mod)
 
     return " ".join([binding[NAME_TAG],"(",", ".join(inner),")"])
 
@@ -1610,6 +1620,7 @@ class ScopeCopyContextManager:
 
     def __exit__(self,exc_type,exc_value,traceback):
         # bind the value back into scope
+        # print("restoring: {}".format(self.symbol))
         self.scope.bind(self.symbol,self.hold)
 
 class ScopePartialContextManager:
