@@ -11,13 +11,21 @@ bitwise{
             { 5}    127
         }
         goto{ start }
-        call{ xor }
+        call{ LSL }
     }
     depends{ 
-        common
         bvm     # processor-specific info
+        common
     }
     namespace{
+        LSL{
+            op_layout
+            get( op2 )
+            set{ op2 0 }
+            [->++<]
+            swap( op1 op2 )
+            put( op2 )
+        }
         xor{
             apply_bitwise( logical_xor )
         }
@@ -27,6 +35,15 @@ bitwise{
         and{
             apply_bitwise( logical_and )
         }
+        u_xor{
+            u_op_layout
+            get_param__U_SCRATCH_SIZE
+
+            save_wipe( scratch_start U_SCRATCH_SIZE 0 )
+            dense_binary_expander
+            worm( 1 8 0 logical_xor )
+            restore( scratch_start U_SCRATCH_SIZE )
+        }
     }
     bindings{
         op_layout{ # memory footprint for bitwise ops
@@ -35,6 +52,13 @@ bitwise{
                 op1             0   # operand 1 (not preserved)
                 op2             1   # operand 2 (preserved)
                 scratch_start   2   # scratch space (preserved)
+            }
+        }
+        u_op_layout{ # memory footprint for bitwise ops
+            layout{
+                start           0   # data head starts here
+                op              0   # operand 1 (not preserved)
+                scratch_start   1   # scratch space (preserved)
             }
         }
         apply_bitwise(text logical_op){
@@ -57,8 +81,11 @@ bitwise{
             restore( scratch_start SCRATCH_SIZE )
             put( op2 )
         }
+        dense_binary_expander{
+            [->> [>] ++ [-<] <]
+        }
         binary_expander(value width){
-            # >(width) <    ::     >(width-1)
+            # >(width) <    ::    >(width-1)
             [- >(width) < >(width) [ >(width) ] ++ [- <(width) ] <(width) >]
         }
         binary_compacter(value width){
@@ -106,6 +133,9 @@ bitwise{
         get_param__SCRATCH_SIZE{
             # convention?: get_param__ prefix for single-value binding exports
             value{ SCRATCH_SIZE 26 }
+        }
+        get_param__U_SCRATCH_SIZE{
+            value{ U_SCRATCH_SIZE 9 }
         }
         test_and_set{
             >[< PUSH +> POP ]<

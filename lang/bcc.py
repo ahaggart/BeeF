@@ -89,6 +89,7 @@ FUNC_TABLE      = ("FUNCTION","TABLE")
 SCOPE_CACHE     = ("SCOPE","CACHE")
 
 DIRECTIVE_HEADERS= ("DIRECTIVE","HEADERS")
+DIRECTIVE_INFO  =("DIRECTIVE","MAP")
 
 TREE_DATA       = "$" # use illegal chars to avoid collisions
 DEP_COUNTER     = "#"
@@ -153,13 +154,18 @@ COMMENT_DELIM = "#"
 
 DIRECTIVE_MARKER = COMMENT_DELIM + "{}" + COMMENT_DELIM
 
-VALUE_DIR = "VALUE_DIRECTIVE"
-POS_LOCK_DIR = "POS_LOCK_DIRECTIVE"
+PRINT_DIR       = "PRINT_DIRECTIVE"
+VALUE_DIR       = "VALUE_DIRECTIVE"
+POS_LOCK_DIR    = "POS_LOCK_DIRECTIVE"
 
 DIRECTIVE_CODES = {
+    PRINT_DIR:      0,
     VALUE_DIR:      5,
     POS_LOCK_DIR:   4,
 }
+
+VERBOSE_FLAG = "verbose"
+TABLE_FLAG = "table"
 
 EXT = ".cow"
 
@@ -180,7 +186,7 @@ BUILTINS = {
 
 # TOP LEVEL COMPILER ROUTINE ###################################################
 
-def build(module,parser,path):
+def build(module,parser,path,options):
     # pp.pprint(module)
     # 1. Collect dependencies from tree, expanding the master scope until all
     #       dependencies are included
@@ -263,14 +269,16 @@ def build(module,parser,path):
     for call_info in build_call_stacks(depended,path_table):
         call_stack = call_info[0]
         call_loc   = call_info[1]
+        print(call_stack)
         insert_function_call(text_table,call_stack,call_loc,cache)
 
-    # print("PATHS:")
-    # pp.pprint(path_table)
+    if TABLE_FLAG in options:
+        print("FUNCTION CALL PATHS:")
+        pp.pprint(path_table)
 
 
     # build functions into base table
-    master_table =build_master_table(text_table,base_table,depended,order_table)
+    master_table = build_master_table(text_table,base_table,depended,order_table)
 
     # pp.pprint(master_table)
 
@@ -592,36 +600,51 @@ def ascending_insert(table,item,score):
     table.append((item,score))
     return len(table) - 1
 
-def make_local_stack(path,block,path_table):
+def make_global_stack(caller,callee,path_table):
     call_path = []
-    resolved_path = path_table[block]
-    for i in range(0,len(resolved_path)):
-        call_path.append(resolved_path[i]+1)
-    path = tuple(path)
-    if path in path_table:
-        return_path = path_table[path]
-        for i in range(0,len(return_path)-1):
-            call_path.append(return_path[i]+1)
-    return call_path
+    exit_path = []
+    resolved_path = path_table[callee]
+    for index in resolved_path:
+        call_path.append(index+1)
+        exit_path.append(0)
+    exit_path.pop()
+    
+    print("partial call path: {}".format(call_path+exit_path))
 
-def make_exit_stack(path,block,path_table):
-    exit_stack = [0]*(len(path)-1)
-    return exit_stack + make_local_stack(path,block,path_table)
+    return_path = []
+    print("path table: {}".format(path_table))
+    path = tuple(caller)
+
+    if path in path_table:
+        caller_path = path_table[path]
+        print("caller path: {}".format(return_path))
+        for index in caller_path:
+            return_path.append(index+1)
+        return_path.pop() # dont re-call the function
+    
+    return call_path + exit_path + return_path
+
+# def make_exit_stack(path,block,path_table):
+#     exit_stack = [0]*(len(path)-1)
+#     return exit_stack + make_local_stack(path,block,path_table)
 
 def build_call_stacks(depended,path_table):
     for block in depended:
         depending = depended[block]
         for dep in depending:
             dep_path,node = extract_path(dep)
-            if node != PREAMBLE_DATA:
-                dep_path.append(node)
-            else:
-                dep_path = [node]
-            call_stack = [0]*(len(dep_path)-1)
-            call_stack.extend(make_local_stack(dep_path,block,path_table))
+            if node == PREAMBLE_DATA:
+                dep_path = []
+            call_stack = []
+            
+            exit_stack = [0]*(len(dep_path))
+            call_stack.extend(exit_stack)
+
+            print(block)
+
+            call_stack.extend(make_global_stack(dep_path+[node],block,path_table))
             call_stack.reverse()
-            # resolve the call stack to assembly and inject it
-            # remove the leading zero from preamble call
+
             yield (call_stack,dep)
 
 def insert_function_call(text_table,call_stack,call_path,cache):
@@ -669,7 +692,7 @@ def build_master_table(text_table,base_table,depending,order_table):
             fragment.append(node)
             fkey = tuple(fragment)
             curr_table = curr_table[order_table[fkey]]
-        curr_table.append(fn[-1])
+        # curr_table.append(fn[-1])
         curr_table.extend(build_from_table_path(text_table,fn))
     
     return base_table
@@ -759,6 +782,7 @@ def traverse_function_text(func,scope):
     # create an itermediate scope for path resolution
     with scope.inner() as scope:
         append_path(scope,func[NAME_TAG])
+        make_print_directive(get_path(scope),scope)
         update_tracking(scope,0) # create a tracking scope
         # emit_tracked_text(COUNTING_BLOCK_HEADER,scope)
         # update_tracking(scope,0) # rebase to 0 on function entry
@@ -803,8 +827,8 @@ def traverse_unscoped_text(inline,scope):
                     # >> allow locks on bindings while still updating scope
                     # TODO: add VM locks to enforce
                     pos = get_tracked_pos(scope)
-                    path_text = ':'.join([str(node) for node in scope.get(PATH_INFO)])
-                    marker = lock_position("Lock @ " + path_text,scope)
+                    path_text = get_path(scope)
+                    marker = lock_position(sub,path_text+":lock",scope)
                     for txt in traverse_unscoped_text(sub[TEXT_VAR],scope):
                         yield txt
                     update_tracking(scope,pos)
@@ -1070,8 +1094,8 @@ def process_create_closure(closure,scope):
             make_adjustment_text(0,target,INC_INSTR,DEC_INSTR,CELL_MAX)
         ]
     else:
-        msg = "create: using value {} @ cell {} (from cell {})".format(
-            best[1],best[0],curr_addr)
+        msg = "{}:create: using value {} @ cell {} (from cell {})".format(
+            get_path(scope),best[1],best[0],curr_addr)
         # print("using value @ {}".format(best[0]))
         actions = [
             make_assert_closure(best[0],best[1],msg), # assert on the value used
@@ -1097,7 +1121,6 @@ def process_assert_closure(closure,scope):
         process_value_assertion(closure,scope)
 
 def process_value_assertion(closure,scope):
-    # TODO: add VM assertions to enforce this
     statement = closure[ASSERT_INNER_VAR]
     addr = int(statement[DATA_ADDRESS_VAR][NUMBER_TAG])
     val = int(statement[NUMBER_TAG])
@@ -1109,7 +1132,7 @@ def process_value_assertion(closure,scope):
     if MESSAGE_TAG in closure and closure[MESSAGE_TAG]:
         msg = closure[MESSAGE_TAG]
     else:
-        msg = "value assertion"
+        msg = "{}: asserting value {} at {}".format(get_path(scope),val,addr)
     add_value_assertion_directive(offset,val,msg,scope)
    
 def process_bound_keyword(closure,scope): # resolve a bound keyword into assembly
@@ -1386,11 +1409,19 @@ def make_assert_closure(addr,value,msg=None):
 def add_value_assertion_directive(offset,val,msg,scope):
     make_directive(make_directive_text(VALUE_DIR,[offset,val],msg),scope)
 
-def lock_position(msg,scope):
-    return make_directive(make_directive_text(POS_LOCK_DIR,[],msg),scope)
+def lock_position(closure,msg,scope):
+    # if DIRECTIVE_INFO in closure:
+    #     emit_raw_text(closure[DIRECTIVE_INFO],scope)
+    #     return closure[DIRECTIVE_INFO]
+    marker = make_directive(make_directive_text(POS_LOCK_DIR,[],msg),scope)
+    # closure[DIRECTIVE_INFO] = marker
+    return marker
 
 def unlock_position(marker,scope):
     emit_raw_text(marker,scope)
+
+def make_print_directive(message,scope):
+    make_directive(make_directive_text(PRINT_DIR,[],message),scope)
 
 def make_directive_text(dtype,args,message):
     text = [COMMENT_DELIM,str(DIRECTIVE_CODES[dtype]),COMMENT_DELIM]
@@ -1526,6 +1557,9 @@ def build_modifier_chain(modifiers):
 def clear_value_assertion(addr,scope):
     # print("clearing {} from known values".format(addr))
     scope.get(KNOWN_VALUE_INFO).pop(addr)
+
+def get_path(scope):
+    return ':'.join([str(node) for node in scope.get(PATH_INFO)])
 
 # HELPER CLASSES ###############################################################
 
@@ -1720,7 +1754,7 @@ class SourceReader:
 
 # TOP LEVEL COMPILE ############################################################
 
-def compile_module(source,dest):
+def compile_module(source,dest,options):
     compiler_dir,_ = os.path.split(sys.argv[0])
     with open(compiler_dir+"/cow.json","r") as src:
         g = Grammar.create(json.loads(src.read()))
@@ -1731,7 +1765,7 @@ def compile_module(source,dest):
 
     module = module_loader(root_module_name,parser,path)
 
-    text = build(module,parser,path)
+    text = build(module,parser,path,options)
     
     with open(dest,"w") as target:
         for string in text:
@@ -1740,12 +1774,15 @@ def compile_module(source,dest):
     
 handler = BCCErrorHandler()
 
+def parse_options(flags):
+    return { TABLE_FLAG }
+
 def main():
     if len(sys.argv) < 3:
-        print("usage: bcc cow_file beef_file")
+        print("usage: bcc [-t] cow_file beef_file")
     cow = sys.argv[1]
     beef= sys.argv[2]
-    compile_module(cow,beef)
+    compile_module(cow,beef,parse_options(None))
         
 if __name__ == '__main__':
     main()

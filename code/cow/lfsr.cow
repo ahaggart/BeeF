@@ -1,0 +1,53 @@
+lfsr{
+    preamble{
+        >
+        EXIT_STACK
+        rebase{0}
+        lfsr_advance_layout
+        set{
+            seed   197
+            tap    79
+        }
+        goto{ start }
+        call{ advance }
+    }
+    depends{
+        bvm
+        common
+        bitwise
+    }
+    namespace{
+        advance{
+            lfsr_advance_layout
+            op_layout
+            set{
+                op1     tap
+                op2     seed
+            }
+            call{ bitwise u_xor }
+            call{ bitwise and   }
+        }
+        panic{
+            BREAK
+        }
+    }
+    bindings{
+        lfsr_advance_layout{
+            layout{
+                start   0
+                seed    1
+                tap     2
+            }
+        }
+        lfsr_encrypt_layout{
+            layout{
+                start   0
+                seed    1
+                data    2
+            }
+        }
+    }
+    postamble{
+
+    }
+}

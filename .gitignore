@@ -8,6 +8,9 @@
 *.bak
 processor/work/*
 
+# python precompiled
+*.pyc
+
 # Compiled Object files
 *.slo
 *.lo

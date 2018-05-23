@@ -12,7 +12,9 @@ def find_pc(program,pc):
             print("Unable to find PC")
             exit(1)
         cc = cc + 1
-        if c == '\n':
+        if c == '\n' or c == '#':
+            if c == '#':
+                program.readline()
             lc = lc + 1
             cc = 0
         elif c in BEEF:
