@@ -9,7 +9,7 @@ import re
 import json
 import pprint as pp
 
-from parse import ParsingAutomaton,Grammar,Util,Stack
+from parse import ParsingAutomaton,Grammar,Util,Stack,ParseError
 
 # CONSTANTS ####################################################################
 
@@ -144,8 +144,6 @@ COUNTING_BLOCK_FOOTER = "<[-]^]]_"
 
 EXEC_LOOP_HEADER = "<_["
 EXEC_LOOP_FOOTER = "_]>"
-
-NULL_SPACER_ASSEMBLY = "<>"
 
 CELL_MAX = 255
 
@@ -299,7 +297,11 @@ def build(module,parser,path):
 # HIGH LEVEL HELPER FUNCTIONS ##################################################
 
 def parse(source,parser):
-    tree = parser.parse(source)
+    try:
+        tree = parser.parse(source)
+    except ParseError as e:
+        print(e.message)
+        exit(1)
     assert(MODULE_VAR in tree)
     tree = Util.unroll(tree,parser.grammar)
 
@@ -329,7 +331,7 @@ def build_master_scope(root_module,module_loader_fn):
 def module_loader(module_name,parser,path):
     fname = str.join("/",path + [module_name + EXT])
     with open(fname,'r') as msrc: # find and parse the file
-        mod = parse(make_source_reader(msrc),parser)
+        mod = parse(make_source_reader(fname,msrc),parser)
     errstr = "Root module name must match file name: {} in {}".format(
         mod[NAME_TAG],fname)
     assert mod[NAME_TAG] == module_name,errstr
@@ -346,10 +348,10 @@ def collect_dependencies(module,acc,new_added):
 def brace_splitter(regex,token):
     return [tk for tk in regex.split(token) if tk]
 
-def make_source_reader(file):
+def make_source_reader(fname,file):
     brace_splitter_regex= re.compile(TOKEN_CHAR_REGEX)
     token_fn = lambda(tk):brace_splitter(brace_splitter_regex,tk)
-    return Tokenizer(SourceReader(file),token_fn)
+    return Tokenizer(SourceReader(fname,file),token_fn)
 
 def update_text_table(table,image):
     table_insert(table,image[PATH_INFO],image[TEXT_TARGET])
@@ -715,9 +717,12 @@ def traverse_binding_text(base,scope):
         yield binding
 
 def traverse_module_text(base,scope):
-    with scope.inner() as scope:
-        for name in base:
+    for name in base:
+        with scope.inner() as scope:
             module = base[name]
+            if module[IMPORT_VAR][MODULES_TAG]: # bind imported modules
+                for dep in module[IMPORT_VAR][MODULES_TAG]:
+                    bind_current_module(scope,base[dep[NAME_TAG]])
             bind_current_module(scope,module)
             for text in traverse_namespace_text(module[NAMESPACE_VAR],scope):
                 yield text
@@ -863,7 +868,7 @@ def emit_raw_text(text,scope):
         return
     with scope.use(TEXT_TARGET) as target:
         if scope.get(LAST_CHAR_INFO)[VALUE_TAG] == COMMENT_DELIM and text[0] == COMMENT_DELIM:
-            target.append(NULL_SPACER_ASSEMBLY)
+            target.append(BUILTINS["NOP"])
         target.append(text)
     scope.get(LAST_CHAR_INFO)[VALUE_TAG] = text[-1]
 
@@ -1187,7 +1192,7 @@ def process_bound_keyword(closure,scope): # resolve a bound keyword into assembl
                 if not scope.has(vvar):
                     raise ValueError(apperr)
                 dups = int(scope.get(vvar))
-            elif modifiers[MODIFIER_CHAIN_VAR] is not None:
+            if modifiers[MODIFIER_CHAIN_VAR] is not None:
                 raise ValueError(apperr)
             pass
     elif binding[MODIFIER_DEC_VAR] is not None:
@@ -1679,6 +1684,12 @@ class Tokenizer:
         for tk in self.post:
             for _tk in self.token_fn(tk):
                 yield(_tk)
+
+    def getLine(self):
+        return self.source.getLine()
+
+    def getFile(self):
+        return self.source.getFile()
     
     def prepend(self,token):
         self.pre.insert(0,token)
@@ -1687,7 +1698,8 @@ class Tokenizer:
         self.post.append(token)
 
 class SourceReader:
-    def __init__(self,file):
+    def __init__(self,name,file):
+        self.name = name
         self.file = file
         self.line = 0
     
@@ -1699,6 +1711,12 @@ class SourceReader:
                     break
                 yield token
             self.line = self.line + 1
+
+    def getLine(self):
+        return self.line
+
+    def getFile(self):
+        return self.name
 
 # TOP LEVEL COMPILE ############################################################
 

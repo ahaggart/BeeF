@@ -1,0 +1,10 @@
+bvm{
+    depends{}
+    namespace{}
+    bindings{
+        get_processor_info{
+            # bind values describing features specific to the BVM interpreter
+            value{ NUM_BITS 8 }
+        }
+    }
+}

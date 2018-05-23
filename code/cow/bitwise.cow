@@ -10,33 +10,58 @@ bitwise{
 
             { 5}    127
         }
+        goto{ start }
         call{ xor }
     }
-    depends{ common }
+    depends{ 
+        common
+        bvm     # processor-specific info
+    }
     namespace{
         xor{
-            get_op_width
-            save( 1 WIDTH )
-            double_expand( 3 )
-            unary_expander(8 3 2)
-            double_apply( pair_xor 3)
-            binary_compacter( 3 )
-            restore( 1 WIDTH )
+            apply_bitwise( logical_xor )
+        }
+        or{
+            apply_bitwise( logical_or )
+        }
+        and{
+            apply_bitwise( logical_and )
         }
     }
     bindings{
-        op_layout{
+        op_layout{ # memory footprint for bitwise ops
             layout{
-                start   0
-                op1     0
-                op2     1
+                start           0   # data head starts here
+                op1             0   # operand 1 (not preserved)
+                op2             1   # operand 2 (preserved)
+                scratch_start   2   # scratch space (preserved)
             }
         }
+        apply_bitwise(text logical_op){
+            get_processor_info
+
+            # configure the scope for bitwise operations
+            op_layout          
+            get_param__SCRATCH_SIZE
+            value{ THREE_WIDE 3 }
+
+            get( op2 )
+            # push scratch space to stack and wipe it
+            save_wipe( scratch_start SCRATCH_SIZE 0 )
+
+            double_expand( THREE_WIDE )
+            unary_expander(NUM_BITS THREE_WIDE 2) # place 2's to ease traversal
+            double_apply( logical_op THREE_WIDE )
+            binary_compacter( THREE_WIDE )
+
+            restore( scratch_start SCRATCH_SIZE )
+            put( op2 )
+        }
         binary_expander(value width){
+            # >(width) <    ::     >(width-1)
             [- >(width) < >(width) [ >(width) ] ++ [- <(width) ] <(width) >]
         }
         binary_compacter(value width){
-            # bind{common}
             > >(width) -[- >(width) ] <(width) # go to end of expansion
             [>[- <(width) ++ >(width) ] <(width) <]
             get( 1 )
@@ -54,16 +79,14 @@ bitwise{
         double_apply(text fn, value width){
             > >(width) [ >(width) ]  <(width) # go to end byte (unary expander)
             [
-                rebase{0}
-                lock{
+                lock{scope{                   # protect our namespace
                     > fn <                    # apply the function to bit pair
-                }
+                }}
                 <(width)                      # move to next pair                      
             ]
             <   # return to start
         }
         unary_expander(value count,value width, value mul){
-            # BREAK
             set{ 
                 { 0} count 
                 {+1} 0
@@ -71,13 +94,22 @@ bitwise{
             goto{ 0 }
             [ > >(width) [ >(width) ] +(mul) [ <(width) ] <-]
         }
-        pair_xor{
-            [>-<-]>[ < PUSH +> POP ]<
+        logical_xor{
+            SUB test_and_set
         }
-        get_op_width{
-            value{ WIDTH 26 }
+        logical_or{
+            ADD test_and_set
         }
-
+        logical_and{
+            PUSH [ POP > PUSH < ZERO ] POP
+        }
+        get_param__SCRATCH_SIZE{
+            # convention?: get_param__ prefix for single-value binding exports
+            value{ SCRATCH_SIZE 26 }
+        }
+        test_and_set{
+            >[< PUSH +> POP ]<
+        }
     }
     postamble{
 

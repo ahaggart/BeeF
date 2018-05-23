@@ -95,7 +95,6 @@ class Grammar:
         self.start          = start
         self.nonterminals   = dict([(nont.symbol,nont) for nont in nonterminals])
         self.rules          = dict([(rule.symbol,rule) for rule in rules])
-        self.start          = start
         self.generics       = generics
 
         if not self.start.symbol in self.nonterminals:
@@ -507,7 +506,16 @@ class ParsingAutomaton:
         print("rejected")
         return tree,True    
 
-    def parse(self,tokens):
+    def parse(self,tokenizer):
+        try:
+            return self._parse(tokenizer)
+        except ParseError as e:
+            line = tokenizer.getLine()
+            file = tokenizer.getFile()
+            raise ParseError("{}: Line {}: {}".format(
+                file,line,e.message))
+
+    def _parse(self,tokens):
         # print("PARSING:")
         # pp.pprint(self.dfa.table)
         processed = []
@@ -574,9 +582,27 @@ class ParsingAutomaton:
                             token,
                             self.action_table[old_state][sym])
         elif not matched:
-            parse_error("Unable to match symbol: \"{}\"".format(token))
+            context,sugg = self.get_context(stack)
+            context_msg = "During expansion of: {}".format(context)
+            sugg_msg = "Perhaps you meant: {}?".format(sugg)
+            parse_error("Unable to match symbol: \"{}\"\n{}\n{}".format(
+                token,context_msg,sugg_msg))
         return tree,False
 
+    def get_context(self,stack): # destructive
+        if not stack:
+            return "base"
+        state = stack[-1][1]
+        table = self.nfa.table
+        sugg = set()
+        context = []
+        for nfa_state in self.mapping[state]:
+            if REDUCTION_T in table[nfa_state].tags:
+                reduction = table[nfa_state].tags[REDUCTION_T][0]
+                context.append(reduction)
+                sugg.update(self.grammar.nonterminals[reduction].follow)
+        sugg_tokens = [format_token(tk,self.grammar) for tk in sugg]
+        return ' or '.join(context),' or '.join(sugg_tokens)
 
     def build(self):
         nfas = {}
@@ -634,6 +660,8 @@ class ParsingAutomaton:
                 else:
                     actions[tr] = (SHIFT_T,-1)
 
+        self.mapping = state_to_superstate
+        self.nfa = base
         self.dfa = parser         
         return parser
 
@@ -1024,6 +1052,19 @@ def follow(grammar):
         follows[nonterm.symbol] = set([follow for follow in nonterm.follow])
     return follows
 
+def format_token(token,grammar):
+    if token in grammar.generics:
+        return "\"<generic {}>\"".format(token)
+    else:
+        return "\"{}\"".format(token)
+
+class ParseError(Exception):
+    def __init__(self,message):
+        self.message = message
+
+    def __str__(self):
+        return self.message
+    
+
 def parse_error(reason):
-    raise AssertionError("Error: {}".format(reason))
-    exit(1)
+    raise ParseError("Error: {}".format(reason))
