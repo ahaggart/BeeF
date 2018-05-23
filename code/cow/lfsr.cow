@@ -2,14 +2,15 @@ lfsr{
     preamble{
         >
         EXIT_STACK
-        rebase{0}
+        rebase{ -1 }
         lfsr_advance_layout
         set{
-            seed   197
-            tap    79
+            seed    183
+            tap     250
+            data    69
         }
         goto{ start }
-        call{ advance }
+        call{ begin }
     }
     depends{
         bvm
@@ -17,6 +18,29 @@ lfsr{
         bitwise
     }
     namespace{
+        begin{
+            call{ run }
+        }
+        run{
+            call{ encrypt }
+            call{ advance }
+        }
+        encrypt{
+            scope{
+                lfsr_advance_layout
+                set{
+                    start   tap
+                    tap     seed
+                    seed    0
+                }
+            }
+            rebase{ -2 }
+            lfsr_encrypt_layout
+            goto{ start }
+            swap( seed data )
+            call{ clean encrypt }
+            call{ bitwise xor }
+        }
         advance{
             lfsr_advance_layout
             op_layout
@@ -24,8 +48,28 @@ lfsr{
                 op1     tap
                 op2     seed
             }
+            call{ clean advance }
             call{ bitwise u_xor }
             call{ bitwise and   }
+        }
+        namespace clean{
+            advance{
+                lfsr_advance_layout
+                swap( bitxor seed )
+                goto{ bitxor }
+                [->++<]
+                goto{ start }
+            }
+            encrypt{ # reorganize to lfsr advance layout
+                scope{
+                    lfsr_encrypt_return_layout
+                    set{
+                        seed        tap
+                        data        seed
+                        tap         data
+                    }
+                }
+            }
         }
         panic{
             BREAK
@@ -34,16 +78,28 @@ lfsr{
     bindings{
         lfsr_advance_layout{
             layout{
+                calling -1
                 start   0
+                bitxor  0
                 seed    1
                 tap     2
+                data    3
             }
         }
         lfsr_encrypt_layout{
             layout{
+                calling -1
                 start   0
+                seed    0
+                data    1
+            }
+        }
+        lfsr_encrypt_return_layout{
+            layout{
+                tap     -2
+                start   0
+                data    0
                 seed    1
-                data    2
             }
         }
     }

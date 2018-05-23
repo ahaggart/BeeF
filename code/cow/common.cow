@@ -4,7 +4,6 @@ common{
     bindings{
         swap(layout op1, layout op2){
             set{
-                {-1}    op2
                 op1     op2
                 op2     op1
             }

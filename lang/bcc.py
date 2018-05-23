@@ -1091,7 +1091,7 @@ def process_create_closure(closure,scope):
         actions = [
             make_goto_closure(addr),
             make_assembly_closure(ZERO_BINDING),
-            make_adjustment_text(0,target,INC_INSTR,DEC_INSTR,CELL_MAX)
+            make_adjustment_text(0,target,INC_INSTR,DEC_INSTR,CELL_MAX+1)
         ]
     else:
         msg = "{}:create: using value {} @ cell {} (from cell {})".format(
@@ -1103,7 +1103,7 @@ def process_create_closure(closure,scope):
             make_assembly_closure(PUSH_INSTR),
             make_goto_closure(addr),
             make_assembly_closure(POP_INSTR),
-            make_adjustment_text(best[1],target,INC_INSTR,DEC_INSTR,CELL_MAX)
+            make_adjustment_text(best[1],target,INC_INSTR,DEC_INSTR,CELL_MAX+1)
         ]
     actions.append(make_assert_closure(addr,target))
     actions.append(make_goto_closure(curr_addr))
@@ -1445,8 +1445,8 @@ def make_adjustment_text(curr,target,up,down,wrap=None):
     adj_amt = abs(curr-target)
     adj = None
     if wrap is not None:
-        wrap_up = abs(curr - wrap + 1) + abs(target)
-        wrap_down = abs(target - wrap + 1) + abs(curr)
+        wrap_up = abs(curr - wrap) + abs(target)
+        wrap_down = abs(target - wrap) + abs(curr)
         if wrap_up < adj_amt:
             adj_amt = wrap_up
             adj = up
