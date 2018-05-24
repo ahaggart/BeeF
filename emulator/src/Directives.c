@@ -165,7 +165,8 @@ PPD_RETURN_T ppd_toggle_position_lock(SRC_LEN_T line,PPD_DATA_PTR_T data, BVM* b
     }
 
     if(assertion->locked){
-        BVM_DEBUG("checking postion @ %u\n",assertion->address);
+        BVM_DEBUG("%u (id=%d): checking postion @ %u\n",
+            bvm->steps,index,assertion->address);
         if(bvm->data_head != assertion->address){
             return PPD_EXIT;
         }
@@ -174,7 +175,8 @@ PPD_RETURN_T ppd_toggle_position_lock(SRC_LEN_T line,PPD_DATA_PTR_T data, BVM* b
         assertion->locked = bvm->steps;
         assertion->pc = bvm->pc;
         assertion->address = bvm->data_head;
-        BVM_DEBUG("locking position @ %u\n",assertion->address);
+        BVM_DEBUG("%u (id=%d): locking position @ %u\n",
+            bvm->steps,index,assertion->address);
     }
     return PPD_SUCCESS;
 }

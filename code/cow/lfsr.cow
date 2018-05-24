@@ -25,6 +25,10 @@ lfsr{
             call{ encrypt }
             call{ advance }
         }
+        run_in_place{
+            call{ clean in_place }
+            call{ run }
+        }
         encrypt{
             scope{
                 lfsr_advance_layout
@@ -34,9 +38,8 @@ lfsr{
                     seed    0
                 }
             }
-            rebase{ -2 }
             lfsr_encrypt_layout
-            goto{ start }
+            goto{ end }
             swap( seed data )
             call{ clean encrypt }
             call{ bitwise xor }
@@ -57,18 +60,21 @@ lfsr{
                 lfsr_advance_layout
                 swap( bitxor seed )
                 goto{ bitxor }
-                [->++<]
+                [->++<]         # double the seed into the uxor result
                 goto{ start }
             }
             encrypt{ # reorganize to lfsr advance layout
                 scope{
-                    lfsr_encrypt_return_layout
+                    lfsr_encrypt_clean_layout
                     set{
                         seed        tap
                         data        seed
                         tap         data
                     }
                 }
+            }
+            in_place{ # reorganize encryption result to advancing format
+
             }
         }
         panic{
@@ -88,18 +94,26 @@ lfsr{
         }
         lfsr_encrypt_layout{
             layout{
-                calling -1
                 start   0
-                seed    0
-                data    1
+                calling 1
+                end     2
+                seed    2
+                data    3
+            }
+        }
+        lfsr_encrypt_clean_layout{
+            layout{
+                tap    -2
+                start   0
+                data    0
+                seed    1
             }
         }
         lfsr_encrypt_return_layout{
             layout{
-                tap     -2
-                start   0
-                data    0
-                seed    1
+                seed    0
+                data   -2
+                tap     1
             }
         }
     }

@@ -181,7 +181,7 @@ BUILTINS = {
     "EXIT":"!",
     "BREAK":"#0#",
     "NOP":"<>",
-    "EXIT_STACK":"[-]^^^",
+    "EXIT_STACK":"[-]^",
 }
 
 # TOP LEVEL COMPILER ROUTINE ###################################################
@@ -269,7 +269,6 @@ def build(module,parser,path,options):
     for call_info in build_call_stacks(depended,path_table):
         call_stack = call_info[0]
         call_loc   = call_info[1]
-        print(call_stack)
         insert_function_call(text_table,call_stack,call_loc,cache)
 
     if TABLE_FLAG in options:
@@ -609,15 +608,15 @@ def make_global_stack(caller,callee,path_table):
         exit_path.append(0)
     exit_path.pop()
     
-    print("partial call path: {}".format(call_path+exit_path))
+    # print("partial call path: {}".format(call_path+exit_path))
 
     return_path = []
-    print("path table: {}".format(path_table))
+    # print("path table: {}".format(path_table))
     path = tuple(caller)
 
     if path in path_table:
         caller_path = path_table[path]
-        print("caller path: {}".format(return_path))
+        # print("caller path: {}".format(return_path))
         for index in caller_path:
             return_path.append(index+1)
         return_path.pop() # dont re-call the function
@@ -640,7 +639,7 @@ def build_call_stacks(depended,path_table):
             exit_stack = [0]*(len(dep_path))
             call_stack.extend(exit_stack)
 
-            print(block)
+            # print(block)
 
             call_stack.extend(make_global_stack(dep_path+[node],block,path_table))
             call_stack.reverse()
@@ -656,9 +655,9 @@ def insert_function_call(text_table,call_stack,call_path,cache):
 
     text = compile_call_stack(call_stack,scope)
     target = cache[tuple(call_path)][TEXT_TARGET] # direct ref to the text table
-    target.append("$$$")
+    # target.append("$$$")
     target.extend(text)
-    target.append("$$$")
+    # target.append("$$$")
 
 def compile_call_stack(stack,scope):
     # cached scope allows us to use goto, create, and assembly closures
@@ -934,12 +933,12 @@ def process_bind_closure(closure,scope):
         binding_text = []
     prefix = text # get whatever else is there and prepend to list
     if TOKEN_VAR in prefix:
-        prefix = {TOKEN_VAR:prefix[TOKEN_VAR]}
+        prefix = [{TOKEN_VAR:prefix[TOKEN_VAR]}]
     else:
-        prefix = pack_keyword_closure({KEYWORD_VAR:prefix[KEYWORD_VAR]})
-    binding_text.insert(0,prefix)
+        prefix = [pack_keyword_closure({KEYWORD_VAR:prefix[KEYWORD_VAR]})]
+    # binding_text.insert(0,prefix)
 
-    bind_raw_text(name,binding_text,scope)
+    bind_raw_text(name,prefix+binding_text,scope)
 
 def process_layout_closure(layout,scope):
     for entry in layout[LAYOUT_INNER_VAR]:

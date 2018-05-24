@@ -102,7 +102,7 @@ int get_starting_mem(char* file,CELL** dest,int default_size){
       exit(1);
     }
     memcpy(readbuffer,streamloc,read);
-    readbuffer[read-1] = 0; //null terminate
+    readbuffer[read] = 0; //null terminate
     if(mem_size == total_size){
       CELL* tmp = (CELL*)malloc(total_size*2*sizeof(CELL));
       memcpy(tmp,mem,mem_size*sizeof(CELL));
@@ -216,7 +216,7 @@ int main(int argc, char** argv){
     insn = info->i_cache[vm->pc];
     if((status=bvm_process(vm,insn))>0){
       printf("Line %ld: Error: Interpreter exited with code: %d\n",
-              info->d_cache[vm->pc*2+1],status);
+              info->d_cache[(vm->pc-1)*2+1],status);
       break;
     }else if(status == BVM_REQ_BRANCH){ //vm requests pc branch
       vm->pc = info->br_cache[vm->pc-1]; //find matching brace

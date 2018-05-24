@@ -52,9 +52,10 @@ common{
         }
         save_wipe(layout offset, value amount, value clr){
             bind{ mkval to 
-                ZERO +(clr)
+                < ZERO +(clr) PUSH >
             }
-            apply(offset amount ^> mkval ^<_ )
+            apply(offset amount ^> mkval <_^ )
+            put( offset ) # discard the leftover value
         }        
         restore(layout offset, value amount){
             apply(offset amount > NOP <_ )

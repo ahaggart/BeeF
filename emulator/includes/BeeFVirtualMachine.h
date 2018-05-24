@@ -44,7 +44,7 @@
 #define ASSERT_CV CellValueAssertion
 
 typedef struct{
-  char locked;
+  PC_t locked;
   PC_t pc;
   CELL value;
   CELL_IDX address;
@@ -54,7 +54,7 @@ typedef struct{
 #define ASSERT_DH DataHeadAssertion
 
 typedef struct{
-  char locked;
+  PC_t locked;
   PC_t pc;
   CELL_IDX address;
 } DataHeadAssertion;
