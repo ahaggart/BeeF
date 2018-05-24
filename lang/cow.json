@@ -2,7 +2,8 @@
     "terminals":["module","preamble","postamble","depends","namespace",
         "bindings","postamble","binds","imports","{","}","(",")","to","value","text",",",
         "rebase","assert","goto","scope","set","panic","call","layout","bind","lock","create",
-        "curr","debug","tracking"],
+        "curr","debug","tracking",
+        "@","locked","scoped"],
     "generics":{
         "name":"^[a-zA-Z_]+[a-zA-Z_0-9]*$",
         "number":"^[+-]?[0-9]+$",
@@ -23,7 +24,7 @@
         "function_closure":["name { inline_text }"],
         "bindings_closure":["bindings { binding_closures }",null],
         "binding_closures":["binding_block binding_closures",null],
-        "binding_block":["name modifier_declaration { binding_text }"],
+        "binding_block":["name modifier_declaration { annotations binding_text }"],
         "postamble_closure":["postamble { binding_text }",null],
         "binding_text":["keyword_closure binding_text","text_token binding_text",null],
         "modifier_declaration":["( modifier_list )",null],
@@ -60,7 +61,10 @@
         "data_address":["{ number }"],
         "goto_statement":["name","number"],
         "assert_statement":["value data_address number"],
-        "debug_statement":["tracking"]
+        "debug_statement":["tracking"],
+        "annotations":["@ annotation annotation_list",null],
+        "annotation_list":[", annotation annotation_list",null],
+        "annotation":["locked","scoped"]
     
     },
     "start":"module_closure"

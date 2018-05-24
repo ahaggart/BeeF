@@ -61,7 +61,7 @@ bitwise{
                 scratch_start   1   # scratch space (preserved)
             }
         }
-        apply_bitwise(text logical_op){
+        apply_bitwise(text logical_op){ @ locked
             get_processor_info
 
             # configure the scope for bitwise operations
@@ -79,36 +79,29 @@ bitwise{
             restore( scratch_start, SCRATCH_SIZE )
             put( op2 )
         }
-        dense_binary_expander{
-            lock{ [->> [>] ++ [-<] <] }
+        dense_binary_expander{ @ locked
+            [->> [>] ++ [-<] <]
         }
-        binary_expander(value width){
+        binary_expander(value width){ @ locked
             # >(width) <    ::    >(width-1)
-            lock{
-                [- >(width) < >(width) [ >(width) ] ++ [- <(width) ] <(width) >]
-            }
+            [- >(width) < >(width) [ >(width) ] ++ [- <(width) ] <(width) >]
         }
-        binary_compacter(value width){
-            lock{
-                > >(width) -[- >(width) ] <(width) # go to end of expansion
-                [>[- <(width) ++ >(width) ] <(width) <]
-                > PUSH <
-                <(width) <
-                POP
-            }
+        binary_compacter(value width){ @ locked
+            > >(width) -[- >(width) ] <(width) # go to end of expansion
+            [>[- <(width) ++ >(width) ] <(width) <]
+            > PUSH <
+            <(width) <
+            POP
         }
-        double_expand(value width){
-            lock{scope{
-                op_layout
-                goto{ op1 }
-                binary_expander( width )
-                goto{ op2 }
-                binary_expander( width )
-                goto{ start }
-            }}
+        double_expand(value width){ @ locked, scoped
+            op_layout
+            goto{ op1 }
+            binary_expander( width )
+            goto{ op2 }
+            binary_expander( width )
+            goto{ start }
         }
-        double_apply(text fn, value width){
-            lock{
+        double_apply(text fn, value width){ @ locked
             > >(width) [ >(width) ]  <(width) # go to end byte (unary expander)
             [
                 lock{scope{                   # protect our namespace
@@ -117,7 +110,6 @@ bitwise{
                 <(width)                      # move to next pair                      
             ]
             <   # return to start
-            }
         }
         unary_expander(value count,value width, value mul){
             set{ 

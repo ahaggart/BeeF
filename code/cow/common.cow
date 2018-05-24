@@ -8,42 +8,37 @@ common{
                 op2     op1
             }
         }
-        get(layout source){
+        get(layout source){ @ locked, scoped
             # push the value at a location defined by the local layout info
             # then return the start location
-            # lock closure allows us to preserve the invoker's position tacking
-            lock{scope{
-                layout{ start curr }
-                goto{ source }
-                PUSH
-                goto{ start }
-            }}
+            # lock closure allows us to preserve the invoker's position tracking
+            layout{ start curr }
+            goto{ source }
+            PUSH
+            goto{ start }
         }
-        put(layout dest){
-            lock{scope{
-                layout{ start curr }
-                goto{ dest }
-                POP
-                goto{ start }
-            }} 
+        put(layout dest){ @ locked, scoped
+            layout{ start curr }
+            goto{ dest }
+            POP
+            goto{ start }
         }
         worm(layout start, value reach, value base, text acc){
+            @ locked, scoped
             # apply a binary function to an accumulator and the next value in
             #   a contiguous block of data
-            lock{scope{
-                layout{ init curr }
-                goto{ start }
-                set{ start reach }
-                PUSH < POP >
-                set{ start base  }
-                <                       # return to reach counter
-                lock{
-                    [-> lock{ acc } PUSH < PUSH > POP > POP <] > PUSH <
-                    ^<<[_^<]>_
-                }
-                goto{ init }
-                POP
-            }}
+            layout{ init curr }
+            goto{ start }
+            set{ start reach }
+            PUSH < POP >
+            set{ start base  }
+            <                       # return to reach counter
+            lock{
+                [-> lock{ acc } PUSH < PUSH > POP > POP <] > PUSH <
+                ^<<[_^<]>_
+            }
+            goto{ init }
+            POP
         }
         copy(layout source, layout target){
             get( source )
@@ -63,6 +58,7 @@ common{
             apply(start, amount, >, NOP, <_ )
         }
         apply(layout start,value amount,text go_fn, text there_fn, text ret_fn){
+            @ locked, scoped
             # start  (layout): location to begin application
             # amount  (value): number of cells to apply to
             # go_fn    (text): function to apply during initial pass
@@ -70,17 +66,16 @@ common{
             # ret_fn   (text): function to apply during return pass
             #
             # pattern for applying functions to a contiguous block of cells
-            # -- uses force_* bindings to control data head behavior            
-            lock{scope{
-                layout{ init curr }
-                goto{ start }
-                bind{ go to force_right(go_fn, 1) }
-                go(amount)
-                lock{ there_fn }
-                bind{ ret to force_left(ret_fn, 1) }
-                ret(amount)
-                goto{ init }
-            }}
+            # -- uses force_* bindings to control data head behavior     
+
+            layout{ init curr }
+            goto{ start }
+            bind{ go to force_right(go_fn, 1) }
+            go(amount)
+            lock{ there_fn }
+            bind{ ret to force_left(ret_fn, 1) }
+            ret(amount)
+            goto{ init }
         }
         force_right(text fn, value amount){
             # fn        (text): text to be controlled

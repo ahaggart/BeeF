@@ -72,6 +72,9 @@ CALL_PATH_VAR  = "call_path"
 
 KEYWORD_TERM    = "keyword"
 
+ANNOTATION_VAR = "annotation"
+ANNOTATIONS_INNER_VAR = "annotation_list"
+
 # SCOPE METADATA
 # use a tuple to prevent name collisions with other data
 DEPTH_INFO      = ("DEPTH","INFO")  
@@ -117,6 +120,7 @@ LOCK_TAG    = "lock"
 ASSERT_TAG  = "assert"
 TEXT_TAG    = "text"
 DEBUG_TAG = "debug"
+ANNOTATIONS_TAG = "annotations"
 ASSEMBLY_TAG= ASSEMBLY_VAR
 
 GOTO_TAG    = "goto"
@@ -134,6 +138,9 @@ ADDRESS_TAG = "address"
 CONSTANT_TAG= "constant"
 
 DATA_TAG    = "data"
+
+LOCK_ANNOTATION = "locked"
+SCOPED_ANNOTATION = "scoped"
 
 PUSH_INSTR  = "^"
 POP_INSTR   = "_"
@@ -158,6 +165,10 @@ CELL_MAX = 255
 TOKEN_CHAR_REGEX = "([{},()])"
 
 COMMENT_DELIM = "#"
+
+ANNOTATION_DELIM = "@"
+
+COMMA = ","
 
 DIRECTIVE_MARKER = COMMENT_DELIM + "{}" + COMMENT_DELIM
 
@@ -830,18 +841,25 @@ def traverse_unscoped_text(inline,scope):
                         yield txt
                 elif LOCK_TAG in sub:
                     # TODO: make lock directive generation better
-                    pos = get_tracked_pos(scope)
-                    path_text = get_path(scope)
-                    marker = lock_position(sub,path_text+":lock",scope)
+                    pos,marker = enter_position_lock(scope)
                     for txt in traverse_unscoped_text(sub[TEXT_VAR],scope):
                         yield txt
-                    update_tracking(scope,pos)
-                    unlock_position(marker,scope)
+                    exit_position_lock(pos,marker,scope)
                 else:
                     yield sub
             else: # call closure
                 call = text[INLINE_VAR][CALLING_VAR]
                 yield call
+
+def enter_position_lock(scope):
+    pos = get_tracked_pos(scope)
+    path_text = get_path(scope)
+    marker = lock_position(path_text+":lock",scope)
+    return pos,marker
+
+def exit_position_lock(pos,marker,scope):
+    update_tracking(scope,pos)
+    unlock_position(marker,scope)
 
 # CLOSURE PROCESSING STUFF #####################################################
 
@@ -1239,8 +1257,9 @@ def process_bound_keyword(closure,scope): # resolve a bound keyword into assembl
 
 def process_binding_text(closure,scope):
     # recursively resolve text in this binding
-    for text in traverse_unscoped_text(closure[BINDING_TEXT_VAR],scope):
-        process_inline_closure(text,scope)
+    with apply_annotations(closure,scope):
+        for text in traverse_unscoped_text(closure[BINDING_TEXT_VAR],scope):
+            process_inline_closure(text,scope)
 
 def process_value_closure(closure,scope):
     for statement in closure[VALUE_INNER_VAR]:
@@ -1426,12 +1445,8 @@ def make_assert_closure(addr,value,msg=None):
 def add_value_assertion_directive(offset,val,msg,scope):
     make_directive(make_directive_text(VALUE_DIR,[offset,val],msg),scope)
 
-def lock_position(closure,msg,scope):
-    # if DIRECTIVE_INFO in closure:
-    #     emit_raw_text(closure[DIRECTIVE_INFO],scope)
-    #     return closure[DIRECTIVE_INFO]
+def lock_position(msg,scope):
     marker = make_directive(make_directive_text(POS_LOCK_DIR,[],msg),scope)
-    # closure[DIRECTIVE_INFO] = marker
     return marker
 
 def unlock_position(marker,scope):
@@ -1588,6 +1603,9 @@ def get_path(scope):
     exp = [str(keyword) for keyword in scope.get(EXPANSION_INFO)]
     return ':'.join(path+exp)
 
+def apply_annotations(annotations,scope):
+    return AnnotationContextManager(annotations,scope)
+
 # HELPER CLASSES ###############################################################
 
 class Scope:
@@ -1715,6 +1733,57 @@ class ScopePartialContextManager:
                 raise AssertionError("Improper subscope termination")
         for symbol in self.rebind: # rebind any symbols that were removed
             self.scope.curr_symbols.add(symbol)
+
+class AnnotationContextManager:
+    def __init__(self,annotations,scope):
+        self.annotations = extract_annotations(annotations)
+        self.scope = scope
+        self.locks = []
+
+    def __enter__(self):
+        for a in self.annotations:
+            if a == LOCK_ANNOTATION:
+                # create a lock
+                self.locks.append(enter_position_lock(self.scope))
+            elif a == SCOPED_ANNOTATION:
+                enter_scoped_text(self.scope)
+    
+    def __exit__(self,exc_type,exc_value,traceback):
+        for a in self.annotations:
+            if a == LOCK_ANNOTATION:
+                info = self.locks.pop(0)
+                exit_position_lock(info[0],info[1],self.scope)
+            elif a == SCOPED_ANNOTATION:
+                exit_scoped_text(self.scope)
+
+def extract_annotations(annotations):
+    if ANNOTATIONS_TAG not in annotations:
+        return []
+    annotations = annotations[ANNOTATIONS_TAG]
+    if annotations is None:
+        return []
+    annotation_list = [get_annotation(annotations)]
+    if annotations[ANNOTATIONS_INNER_VAR]:
+        for annotation in annotations[ANNOTATIONS_INNER_VAR]:
+            annotation_list.append(get_annotation(annotation))
+    return list(set(annotation_list)) # list of unique annotations
+
+def get_annotation(annotation):
+    inner = annotation[ANNOTATION_VAR].copy()
+    inner.pop(COMMA,None)
+    return inner.popitem()[0]
+
+def enter_scoped_text(scope):
+    order = update_scope_order(scope)
+    scope.enter()
+    append_path(scope,order)
+    scope.bind(ASSERTED_VALUE_INFO,set())
+
+def exit_scoped_text(scope):
+    # clear assertions made in this scope
+    for addr in scope.get(ASSERTED_VALUE_INFO):
+        clear_value_assertion(addr,scope)
+    scope.exit()
 
 class CopyList(list):
     def copy(self):
