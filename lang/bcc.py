@@ -56,6 +56,9 @@ GOTO_INNER_VAR  = "goto_statement"
 
 ASSERT_INNER_VAR = "assert_statement"
 
+DEBUG_INNER_VAR = "debug_statement"
+DEBUG_TRACKING = "tracking"
+
 MODIFIER_CHAIN_VAR = "modifier_chain"
 MODIFIER_LIST_VAR  = "modifier_list"
 MODIFIER_ARG_VAR   = "modifier_arg"
@@ -90,6 +93,7 @@ SCOPE_CACHE     = ("SCOPE","CACHE")
 
 DIRECTIVE_HEADERS= ("DIRECTIVE","HEADERS")
 DIRECTIVE_INFO  =("DIRECTIVE","MAP")
+EXPANSION_INFO  = ("EXPANSION","INFO")
 
 TREE_DATA       = "$" # use illegal chars to avoid collisions
 DEP_COUNTER     = "#"
@@ -112,6 +116,7 @@ REBASE_TAG  = "rebase"
 LOCK_TAG    = "lock"
 ASSERT_TAG  = "assert"
 TEXT_TAG    = "text"
+DEBUG_TAG = "debug"
 ASSEMBLY_TAG= ASSEMBLY_VAR
 
 GOTO_TAG    = "goto"
@@ -225,6 +230,7 @@ def build(module,parser,path,options):
     scope.bind(SCOPE_CACHE,{})
     scope.bind(LAST_CHAR_INFO,{VALUE_TAG:None})
     scope.bind(DIRECTIVE_HEADERS,["#-1#global break condition"])
+    scope.bind(EXPANSION_INFO,Stack())
 
     bind_builtin_keywords(scope)
 
@@ -859,6 +865,8 @@ def process_inline_closure(closure,scope):
         process_assert_closure(closure,scope)
     elif VALUE_TAG in closure:
         process_value_closure(closure,scope)
+    elif DEBUG_TAG in closure:
+        process_debug_closure(closure,scope)
     else: # call closure
         process_call_closure(closure,scope)
 
@@ -950,7 +958,7 @@ def process_rebase_closure(closure,scope):
 def process_goto_closure(closure,scope):
     curr_loc = get_tracked_pos(scope)
     if curr_loc is None:
-        errstr = "Unable to resolve data head position for: {}".format(closure)
+        errstr = "Unable to resolve data head position for goto in: {}".format(get_path(scope))
         raise ValueError(errstr)
     
     inner = closure[GOTO_INNER_VAR]
@@ -1136,6 +1144,7 @@ def process_value_assertion(closure,scope):
 def process_bound_keyword(closure,scope): # resolve a bound keyword into assembly
     # pp.pprint(closure)
     keyword = closure[BOUND_KEYWORD_VAR]
+    scope.get(EXPANSION_INFO).push(keyword)
     if keyword not in scope.get(KEYWORD_INFO):
         raise KeyError("Keyword not in scope: {}".format(keyword))
     
@@ -1225,6 +1234,8 @@ def process_bound_keyword(closure,scope): # resolve a bound keyword into assembl
         while count < dups:
             process_binding_text(binding,scope)
             count = count + 1
+    assert (scope.get(EXPANSION_INFO).pop() == keyword), "asymmetric expansion pops"
+
 
 def process_binding_text(closure,scope):
     # recursively resolve text in this binding
@@ -1250,6 +1261,14 @@ def process_call_closure(call,scope):
         snapshot = scope.snapshot()
         snapshot[TRACKING_INFO] = Stack([make_pos_tracker(get_tracked_pos(scope))])
         scope.get(SCOPE_CACHE)[tuple(scope.get(PATH_INFO))] = snapshot
+
+def process_debug_closure(closure,scope):
+    statement = closure[DEBUG_INNER_VAR]
+    debug_msg = "DEBUG:{}:{}: {{msg}} {{info}}".format(get_path(scope),closure[NAME_TAG])
+    if DEBUG_TRACKING in statement:
+        print(debug_msg.format(msg="TRACKED ADDRESS",info=get_tracked_pos(scope)))
+    else:
+        raise ValueError("unrecognized debug statement")
 
 # SCOPE MANAGEMENT HELPER FUNCTIONS ############################################
 
@@ -1345,7 +1364,7 @@ def track_loop_exit(scope): # pop the current tracking scope
     old = destroy_tracking_scope(scope)
 
     # if tracking is invalid, nullify enclosing tracking
-    if old[ADDRESS_TAG] is None:
+    if old[ADDRESS_TAG] is None or old[ADDRESS_TAG] != get_tracked_pos(scope):
         invalidate_tracking(scope)
 
 def make_binding_var(binding,module=None):
@@ -1499,8 +1518,8 @@ def bind_layout_info(scope,info): # bind layout information into the scope
     if CURR_TAG in info:
         addr = get_tracked_pos(scope)
         if addr is None:
-            errstr = "Unable to resolve data head position for: {}".format(
-                info)
+            errstr = "Unable to resolve data head position for layout at: {}".format(
+                get_path(scope))
             raise ValueError(errstr)
     else:
         addr = int(info[NUMBER_TAG])
@@ -1565,7 +1584,9 @@ def clear_value_assertion(addr,scope):
     scope.get(KNOWN_VALUE_INFO).pop(addr)
 
 def get_path(scope):
-    return ':'.join([str(node) for node in scope.get(PATH_INFO)])
+    path = [str(node) for node in scope.get(PATH_INFO)]
+    exp = [str(keyword) for keyword in scope.get(EXPANSION_INFO)]
+    return ':'.join(path+exp)
 
 # HELPER CLASSES ###############################################################
 
@@ -1744,7 +1765,7 @@ class SourceReader:
         self.line = 0
     
     def __iter__(self):
-        self.line = 0
+        self.line = 1
         for line in self.file:
             for token in line.strip().split():
                 if token[0] == COMMENT_DELIM:

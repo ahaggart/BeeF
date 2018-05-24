@@ -41,7 +41,7 @@ lfsr{
             }
             lfsr_encrypt_layout
             goto{ end }
-            swap( seed data )
+            swap( seed, data )
             call{ clean encrypt }
             call{ bitwise xor }
         }
@@ -59,7 +59,7 @@ lfsr{
         namespace clean{
             advance{
                 lfsr_advance_layout
-                swap( bitxor seed )
+                swap( bitxor, seed )
                 goto{ bitxor }
                 [->++<]         # double the seed into the uxor result
                 goto{ start }
@@ -76,13 +76,7 @@ lfsr{
             }
             in_place{ # reorganize encryption result to advancing format
                 lfsr_encrypt_clean_layout
-                get( data )
-                get( seed )
-                get( tap  )
-                rebase{ 1 }
-                put( tap  )
-                put( seed )
-                put( data )
+                shift3(1, data, seed, tap )
             }
         }
         panic{
@@ -120,6 +114,7 @@ lfsr{
         lfsr_encrypt_return_layout{
             layout{
                 data   -2
+                start   0
                 seed    0
                 tap     1
             }

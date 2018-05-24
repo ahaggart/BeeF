@@ -23,7 +23,7 @@ bitwise{
             get( op2 )
             set{ op2 0 }
             [->++<]
-            swap( op1 op2 )
+            swap( op1, op2 )
             put( op2 )
         }
         xor{
@@ -39,10 +39,10 @@ bitwise{
             u_op_layout
             get_param__U_SCRATCH_SIZE
 
-            save_wipe( scratch_start U_SCRATCH_SIZE 0 )
+            save_wipe( scratch_start, U_SCRATCH_SIZE, 0 )
             dense_binary_expander
-            worm( 1 8 0 logical_xor )
-            restore( scratch_start U_SCRATCH_SIZE )
+            worm( 1, 8, 0, logical_xor )
+            restore( scratch_start, U_SCRATCH_SIZE )
         }
     }
     bindings{
@@ -71,40 +71,44 @@ bitwise{
             
             get( op2 )
             # push scratch space to stack and wipe it
-            save_wipe( scratch_start SCRATCH_SIZE 0 )
+            save_wipe( scratch_start, SCRATCH_SIZE, 0 )
             double_expand( THREE_WIDE )
-            unary_expander(NUM_BITS THREE_WIDE 2) # place 2's to ease traversal
-            double_apply( logical_op THREE_WIDE )
+            unary_expander(NUM_BITS, THREE_WIDE, 2) # place 2's to ease traversal
+            double_apply( logical_op, THREE_WIDE )
             binary_compacter( THREE_WIDE )
-            restore( scratch_start SCRATCH_SIZE )
+            restore( scratch_start, SCRATCH_SIZE )
             put( op2 )
         }
         dense_binary_expander{
-            [->> [>] ++ [-<] <]
+            lock{ [->> [>] ++ [-<] <] }
         }
         binary_expander(value width){
             # >(width) <    ::    >(width-1)
-            [- >(width) < >(width) [ >(width) ] ++ [- <(width) ] <(width) >]
+            lock{
+                [- >(width) < >(width) [ >(width) ] ++ [- <(width) ] <(width) >]
+            }
         }
         binary_compacter(value width){
-            > >(width) -[- >(width) ] <(width) # go to end of expansion
-            [>[- <(width) ++ >(width) ] <(width) <]
-            scope{ 
-                rebase{ 0 } 
-                get( 1 ) 
+            lock{
+                > >(width) -[- >(width) ] <(width) # go to end of expansion
+                [>[- <(width) ++ >(width) ] <(width) <]
+                > PUSH <
+                <(width) <
+                POP
             }
-            <(width) <
-            POP
         }
         double_expand(value width){
-            op_layout
-            goto{ op1 }
-            binary_expander( width )
-            goto{ op2 }
-            binary_expander( width )
-            goto{ start }
+            lock{scope{
+                op_layout
+                goto{ op1 }
+                binary_expander( width )
+                goto{ op2 }
+                binary_expander( width )
+                goto{ start }
+            }}
         }
         double_apply(text fn, value width){
+            lock{
             > >(width) [ >(width) ]  <(width) # go to end byte (unary expander)
             [
                 lock{scope{                   # protect our namespace
@@ -113,6 +117,7 @@ bitwise{
                 <(width)                      # move to next pair                      
             ]
             <   # return to start
+            }
         }
         unary_expander(value count,value width, value mul){
             set{ 
@@ -120,7 +125,9 @@ bitwise{
                 {+1} 0
             }
             goto{ 0 }
-            [ > >(width) [ >(width) ] +(mul) [ <(width) ] <-]
+            lock{
+                [ > >(width) [ >(width) ] +(mul) [ <(width) ] <-]
+            }
         }
         logical_xor{
             SUB test_and_set

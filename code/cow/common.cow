@@ -27,21 +27,21 @@ common{
                 goto{ start }
             }} 
         }
-        worm(layout offset, value reach, value base, text acc){
+        worm(layout start, value reach, value base, text acc){
             # apply a binary function to an accumulator and the next value in
             #   a contiguous block of data
             lock{scope{
-                rebase{ 0 }
-                goto{ offset }
-                set{ offset reach }
+                layout{ init curr }
+                goto{ start }
+                set{ start reach }
                 PUSH < POP >
-                set{ offset base  }
+                set{ start base  }
                 <                       # return to reach counter
                 lock{
                     [-> lock{ acc } PUSH < PUSH > POP > POP <] > PUSH <
                     ^<<[_^<]>_
                 }
-                goto{ 0 }
+                goto{ init }
                 POP
             }}
         }
@@ -49,21 +49,21 @@ common{
             get( source )
             put( target )
         }
-        save(layout offset, value amount){
-            apply(offset amount ^> NOP < )
+        save(layout start, value amount){
+            apply(start, amount, ^>, NOP, < )
         }
-        save_wipe(layout offset, value amount, value clr){
+        save_wipe(layout start, value amount, value clr){
             bind{ mkval to 
                 < ZERO +(clr) PUSH >
             }
-            apply(offset amount ^> mkval <_^ )
-            put( offset ) # discard the leftover value
+            apply(start, amount, ^>, mkval, <_^ )
+            put( start ) # discard the leftover value
         }        
-        restore(layout offset, value amount){
-            apply(offset amount > NOP <_ )
+        restore(layout start, value amount){
+            apply(start, amount, >, NOP, <_ )
         }
-        apply(layout offset,value amount,text go_fn, text there_fn, text ret_fn){
-            # offset (layout): offset from start location to begin application
+        apply(layout start,value amount,text go_fn, text there_fn, text ret_fn){
+            # start  (layout): location to begin application
             # amount  (value): number of cells to apply to
             # go_fn    (text): function to apply during initial pass
             # there_fn (text): function to apply in-place after initial pass
@@ -72,14 +72,14 @@ common{
             # pattern for applying functions to a contiguous block of cells
             # -- uses force_* bindings to control data head behavior            
             lock{scope{
-                layout{ start curr }
-                goto{ offset }
-                bind{ go to force_right(go_fn 1) }
+                layout{ init curr }
+                goto{ start }
+                bind{ go to force_right(go_fn, 1) }
                 go(amount)
                 lock{ there_fn }
-                bind{ ret to force_left(ret_fn 1) }
+                bind{ ret to force_left(ret_fn, 1) }
                 ret(amount)
-                goto{ start }
+                goto{ init }
             }}
         }
         force_right(text fn, value amount){
@@ -98,6 +98,21 @@ common{
         force_left(text fn, value amount){
             # see documentation for force_right
             <(amount) lock{ >(amount) fn } 
+        }
+        shift3(value amount, layout op1, layout op2, layout op3){
+            <(amount)
+            lock{scope{
+                >(amount)
+                layout{ init curr }
+                get( op1 )
+                get( op2 )
+                get( op3  )
+                rebase{ 1 }
+                put( op3  )
+                put( op2 )
+                put( op1 )
+                goto{ init }
+            }}
         }
     }
 }
