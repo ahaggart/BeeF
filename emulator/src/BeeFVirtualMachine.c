@@ -40,6 +40,7 @@ void bvm_dump(BVM* g,int full){
   }
   printf("Dumping Virtual Machine...\n");
   printf(FMT_INDENT "Data Head Position: %u\n",g->data_head);
+  printf(FMT_INDENT "Program Counter: %u\n",g->pc);
   bvms_dump(g->stack);
   printf("Cells:\n");
   int i;

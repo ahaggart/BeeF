@@ -123,6 +123,8 @@ MESSAGE_TAG = "message"
 
 VALUE_TAG = "value"
 
+CURR_TAG = "curr"
+
 ADDRESS_TAG = "address"
 CONSTANT_TAG= "constant"
 
@@ -821,10 +823,7 @@ def traverse_unscoped_text(inline,scope):
                     for txt in traverse_scoped_text(sub[TEXT_VAR],scope):
                         yield txt
                 elif LOCK_TAG in sub:
-                    # maintain tracking
-                    # locks do not create a new variable scope
-                    # >> allow locks on bindings while still updating scope
-                    # TODO: add VM locks to enforce
+                    # TODO: make lock directive generation better
                     pos = get_tracked_pos(scope)
                     path_text = get_path(scope)
                     marker = lock_position(sub,path_text+":lock",scope)
@@ -1497,7 +1496,15 @@ def bind_module(scope,name):
             bound_list.add(bname)
 
 def bind_layout_info(scope,info): # bind layout information into the scope
-    scope.bind(make_layout_var(info[NAME_TAG]),int(info[NUMBER_TAG]))
+    if CURR_TAG in info:
+        addr = get_tracked_pos(scope)
+        if addr is None:
+            errstr = "Unable to resolve data head position for: {}".format(
+                info)
+            raise ValueError(errstr)
+    else:
+        addr = int(info[NUMBER_TAG])
+    scope.bind(make_layout_var(info[NAME_TAG]),addr)
 
 def format_modifiers(modifier):
     text = ["("]

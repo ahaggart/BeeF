@@ -11,7 +11,7 @@ bitwise{
             { 5}    127
         }
         goto{ start }
-        call{ LSL }
+        call{ xor }
     }
     depends{ 
         bvm     # processor-specific info
@@ -68,7 +68,7 @@ bitwise{
             op_layout          
             get_param__SCRATCH_SIZE
             value{ THREE_WIDE 3 }
-
+            
             get( op2 )
             # push scratch space to stack and wipe it
             save_wipe( scratch_start SCRATCH_SIZE 0 )
@@ -76,7 +76,6 @@ bitwise{
             unary_expander(NUM_BITS THREE_WIDE 2) # place 2's to ease traversal
             double_apply( logical_op THREE_WIDE )
             binary_compacter( THREE_WIDE )
-
             restore( scratch_start SCRATCH_SIZE )
             put( op2 )
         }
@@ -90,7 +89,10 @@ bitwise{
         binary_compacter(value width){
             > >(width) -[- >(width) ] <(width) # go to end of expansion
             [>[- <(width) ++ >(width) ] <(width) <]
-            get( 1 )
+            scope{ 
+                rebase{ 0 } 
+                get( 1 ) 
+            }
             <(width) <
             POP
         }

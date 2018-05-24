@@ -28,7 +28,7 @@ void process_user_input(char input,int* autorun,BVM* vm){
   switch(input){
     case '\n':
       bvm_dump(vm,0);
-      break;
+      return;
     case 'q':
       *autorun = 1;
       break;
@@ -37,6 +37,7 @@ void process_user_input(char input,int* autorun,BVM* vm){
     default:
       break;
   }
+  while(getchar() != '\n'); //consume rest of line
 }
 
 void parse_args(int argc,char** argv,arg_info* dest){
@@ -240,10 +241,19 @@ int main(int argc, char** argv){
           //ignore the break
         }else if(debugging){
           printf("Continue in debug mode? (return):");
-          if(getchar() == '\n'){
-            autorun = 0;
-          } else {
-            break;
+          char c = getchar();
+          printf("char: %c\n",c);
+          switch(c){
+            case '\n':
+              autorun = 0;
+              break;
+            case 'q':
+            printf("got here\n");
+              running = 0;
+              break;
+            default:
+              running = 0;
+              break;
           }
         } else{
           break;

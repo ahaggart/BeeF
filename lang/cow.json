@@ -1,7 +1,8 @@
 {
     "terminals":["module","preamble","postamble","depends","namespace",
         "bindings","postamble","binds","imports","{","}","(",")","to","value","text",",",
-        "rebase","assert","goto","scope","set","panic","call","layout","bind","lock","create"],
+        "rebase","assert","goto","scope","set","panic","call","layout","bind","lock","create",
+        "curr"],
     "generics":{
         "name":"^[a-zA-Z_]+[a-zA-Z_0-9]*$",
         "number":"^[+-]?[0-9]+$",
@@ -50,7 +51,7 @@
         "unimplemented":["panic"],
         "bind_statement":["name","name to non_empty_binding_text"],
         "non_empty_binding_text":["keyword_closure binding_text","text_token binding_text"],
-        "layout_statement":["name number layout_statement","name number"],
+        "layout_statement":["name number layout_statement","name number","name curr"],
         "set_statement":["set_pair set_statement","set_pair"],
         "set_pair":["data_target data_source"],
         "data_target":["name","data_address"],

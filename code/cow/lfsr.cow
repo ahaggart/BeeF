@@ -9,6 +9,7 @@ lfsr{
             tap     250
             data    69
         }
+
         goto{ start }
         call{ begin }
     }
@@ -19,7 +20,7 @@ lfsr{
     }
     namespace{
         begin{
-            call{ run }
+            call{ run_in_place }
         }
         run{
             call{ encrypt }
@@ -74,7 +75,14 @@ lfsr{
                 }
             }
             in_place{ # reorganize encryption result to advancing format
-
+                lfsr_encrypt_clean_layout
+                get( data )
+                get( seed )
+                get( tap  )
+                rebase{ 1 }
+                put( tap  )
+                put( seed )
+                put( data )
             }
         }
         panic{
@@ -111,8 +119,8 @@ lfsr{
         }
         lfsr_encrypt_return_layout{
             layout{
-                seed    0
                 data   -2
+                seed    0
                 tap     1
             }
         }

@@ -12,22 +12,24 @@ common{
             # push the value at a location defined by the local layout info
             # then return the start location
             # lock closure allows us to preserve the invoker's position tacking
-            lock{
-                rebase{0}
-                goto{source}
+            lock{scope{
+                layout{ start curr }
+                goto{ source }
                 PUSH
-                goto{0}
-            }
+                goto{ start }
+            }}
         }
         put(layout dest){
-            lock{
-                rebase{0}
-                goto{dest}
+            lock{scope{
+                layout{ start curr }
+                goto{ dest }
                 POP
-                goto{0}
-            }   
+                goto{ start }
+            }} 
         }
         worm(layout offset, value reach, value base, text acc){
+            # apply a binary function to an accumulator and the next value in
+            #   a contiguous block of data
             lock{scope{
                 rebase{ 0 }
                 goto{ offset }
@@ -68,17 +70,17 @@ common{
             # ret_fn   (text): function to apply during return pass
             #
             # pattern for applying functions to a contiguous block of cells
-            # -- uses force_* bindings to control data head behavior
-            scope{
-                rebase{0}
-                goto{offset}
+            # -- uses force_* bindings to control data head behavior            
+            lock{scope{
+                layout{ start curr }
+                goto{ offset }
                 bind{ go to force_right(go_fn 1) }
                 go(amount)
                 lock{ there_fn }
                 bind{ ret to force_left(ret_fn 1) }
                 ret(amount)
-                goto{0}
-            }
+                goto{ start }
+            }}
         }
         force_right(text fn, value amount){
             # fn        (text): text to be controlled
