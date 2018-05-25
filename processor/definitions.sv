@@ -48,7 +48,7 @@ typedef enum logic{
 
 typedef enum logic{
   ENABLE    = 1'b1,
-  DISABLE   = 0
+  DISABLE   = 1'b0
 } CONTROL;
 
 typedef enum logic{
