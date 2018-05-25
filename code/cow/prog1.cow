@@ -1,0 +1,85 @@
+prog1{
+    preamble{
+        > EXIT_STACK
+        rebase{ 0 }
+        bind{ lfsr  }
+        bind{ ascii }
+        get_encryption_params
+        use_ascii
+        lfsr_advance_layout
+        set{
+            seed    SEED
+            tap     TAP
+            data    SP #ascii space
+        }
+
+        goto{ start }
+        call{ setup }
+    }
+    depends{
+        common
+        lfsr
+        ascii
+    }
+    namespace{
+        setup{
+            encrypt_header_layout
+            param__HEADER_LENGTH
+
+            set{ count HEADER_LENGTH }
+            ZERO PUSH
+            call{ encrypt_header }
+            call{ lfsr run_in_place }
+        }
+        encrypt_header{
+            < uncall_half >
+            scope{
+                lfsr_advance_layout
+                use_ascii
+                get( data )
+                set{
+                    data SP
+                }
+            }
+            encrypt_header_layout
+            < ZERO PUSH >
+            call{ encrypt_message }
+            goto{ count }
+            DEC
+            PUSH
+            [
+                POP
+                >>
+                uncall
+                ZERO PUSH
+                call{ encrypt_header }
+                call{ lfsr run_in_place }
+                <<                
+                PUSH ZERO
+            ]
+            POP
+            goto{ start }
+        }
+        encrypt_message{
+            EXIT # for now
+        }
+    }
+    bindings{
+        get_encryption_params{
+            value{ SEED 13 }
+            value{ TAP 250 }
+        }
+        param__HEADER_LENGTH{
+            value{ HEADER_LENGTH 16 }
+        }
+        encrypt_header_layout{
+            lfsr_advance_layout
+            layout{
+                count   4
+            }
+        }
+    }
+    postamble{
+
+    }
+}

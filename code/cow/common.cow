@@ -109,5 +109,45 @@ common{
                 goto{ init }
             }}
         }
+        if_nonzero(text fn){
+            PUSH
+            [
+                POP
+                lock{ fn }
+                PUSH ZERO
+            ]
+            POP
+        }
+        uncall{ @ locked, scoped
+            # remove a call from the call stack, destroys the current cell and { +1}
+            # call stacks follow a reliable format
+            # 1. exit stack: exit the calling namespace into global (all zeros)
+            # 2. call stack: enter the called namespace (all nonzero)
+            # 3. call exit: exit the called namespace (all zero)
+            # 4. caller reentry: re-enter the caller's namespace (all nonzero)
+
+            > ZERO  +               # make a flag cell
+            [< POP [>-< ZERO ] >] < # pop until something nonzero decrements the flag
+            +[ POP ] > +            # remove the exit stack
+            [< POP [>-< ZERO ] >] <
+            +[ POP ]                # expect a spacing zero placed by invoker
+        }
+        uncall_half{ @ locked, scoped
+            > ZERO  +               # make a flag cell
+            [< POP [>-< ZERO ] >] < # pop until something nonzero decrements the flag
+            +[ POP ]                # remove the exit stack
+        }
+        dec( layout target ){ @ scoped, locked
+            layout{ init curr }
+            goto{ target }
+            DEC
+            goto{ init }
+        }
+        inc( layout target ){ @ scoped, locked
+            layout{ init curr }
+            goto{ target }
+            INC
+            goto{ init }
+        }
     }
 }

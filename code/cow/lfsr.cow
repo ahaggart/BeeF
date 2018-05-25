@@ -75,8 +75,18 @@ lfsr{
                 }
             }
             in_place{ # reorganize encryption result to advancing format
-                lfsr_encrypt_clean_layout
-                shift3(1, data, seed, tap )
+                scope{
+                    lfsr_encrypt_return_layout
+                    get( data )
+                    get( seed )
+                    get( tap  )
+                }
+                rebase{ 2 }
+                lfsr_advance_layout
+                put( tap  )
+                put( seed )
+                put( data )
+                goto{ start }
             }
         }
         panic{

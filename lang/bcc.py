@@ -123,6 +123,8 @@ DEBUG_TAG = "debug"
 ANNOTATIONS_TAG = "annotations"
 ASSEMBLY_TAG= ASSEMBLY_VAR
 
+SCOPE_DEPTH_INFO = "scope_depth"
+
 GOTO_TAG    = "goto"
 PUSH_TAG    = "push"
 POP_TAG     = "pop"
@@ -198,7 +200,7 @@ BUILTINS = {
     "INC":"+",
     "EXIT":"!",
     "BREAK":"#0#",
-    "NOP":"<>",
+    "NOP":"><",
     "EXIT_STACK":"[-]^",
 }
 
@@ -1330,6 +1332,10 @@ def process_debug_closure(closure,scope):
         get_line(closure),get_path(scope),closure[NAME_TAG])
     if DEBUG_TRACKING in statement:
         print(debug_msg.format(msg="TRACKED ADDRESS",info=get_tracked_pos(scope)))
+    elif LAYOUT_TAG in statement:
+        print(debug_msg.format(msg="LAYOUT",info=get_layout_info(scope)))
+    elif SCOPE_DEPTH_INFO in statement:
+        print(debug_msg.format(msg="SCOPE DEPTH = ",info=scope.depth()))
     else:
         raise ValueError("unrecognized debug statement")
 
@@ -1662,6 +1668,15 @@ def get_line(closure,token=None):
 def apply_annotations(annotations,scope):
     return AnnotationContextManager(annotations,scope)
 
+def get_layout_info(scope):
+    info = {}
+    for item in scope:
+        if item.__class__.__name__ == "tuple":
+            if item[0] == LAYOUT_TAG:
+                info[item[1]] = scope.get(item)
+    return pp.pformat(info)
+                
+
 # HELPER CLASSES ###############################################################
 
 class Scope:
@@ -1677,6 +1692,12 @@ class Scope:
 
     def __str__(self):
         return pp.pformat(self.snapshot())
+
+    def __len__(self):
+        return len(self.symbols)
+
+    def depth(self):
+        return len(self.defined)
 
     def snapshot(self):
         values = {}
@@ -1735,6 +1756,11 @@ class Scope:
         for symbol in self.curr_symbols:
             self.symbols[symbol].pop()
         self.curr_symbols = self.defined.pop()
+
+    def __iter__(self):
+        for symbol in self.symbols:
+            if len(self.symbols[symbol]):
+                yield symbol
 
 class ScopeContextManager:
     def __init__(self,scope):
@@ -1825,9 +1851,12 @@ def extract_annotations(annotations):
     return list(set(annotation_list)) # list of unique annotations
 
 def get_annotation(annotation):
-    inner = annotation[ANNOTATION_VAR].copy()
-    inner.pop(COMMA,None)
-    return inner.popitem()[0]
+    annotation = annotation[ANNOTATION_VAR]
+    if LOCK_ANNOTATION in annotation:
+        return LOCK_ANNOTATION
+    elif SCOPED_ANNOTATION in annotation:
+        return SCOPED_ANNOTATION
+    raise KeyError("no annotation found: {}".format(annotation))
 
 def enter_scoped_text(scope):
     order = update_scope_order(scope)

@@ -2,7 +2,8 @@
     "terminals":["module","preamble","postamble","depends","namespace",
         "bindings","postamble","binds","imports","{","}","(",")","to","value","text",",",
         "rebase","assert","goto","scope","set","panic","call","layout","bind","lock","create",
-        "curr","debug","tracking",
+        "curr",
+        "debug","tracking","scope_depth",
         "@","locked","scoped"],
     "generics":{
         "name":"^[a-zA-Z_]+[a-zA-Z_0-9]*$",
@@ -61,7 +62,7 @@
         "data_address":["{ number }"],
         "goto_statement":["name","number"],
         "assert_statement":["value data_address number"],
-        "debug_statement":["tracking"],
+        "debug_statement":["tracking","layout","scope_depth"],
         "annotations":["@ annotation annotation_list",null],
         "annotation_list":[", annotation annotation_list",null],
         "annotation":["locked","scoped"]

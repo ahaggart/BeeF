@@ -242,7 +242,7 @@ int main(int argc, char** argv){
         }else if(debugging){
           printf("Continue in debug mode? (return):");
           char c = getchar();
-          printf("char: %c\n",c);
+          // printf("char: %c\n",c);
           switch(c){
             case '\n':
               autorun = 0;
