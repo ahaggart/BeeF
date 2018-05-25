@@ -32,7 +32,7 @@ prog1{
             call{ lfsr run_in_place }
         }
         encrypt_header{
-            < uncall_half >
+            uncall_half
             scope{
                 lfsr_advance_layout
                 use_ascii
@@ -42,16 +42,17 @@ prog1{
                 }
             }
             encrypt_header_layout
-            < ZERO PUSH >
+            < prep_uncall >
             call{ encrypt_message }
             goto{ count }
             DEC
             PUSH
             [
                 POP
-                >>
+                >>>
                 uncall
-                ZERO PUSH
+                <
+                prep_uncall
                 call{ encrypt_header }
                 call{ lfsr run_in_place }
                 <<                
@@ -61,7 +62,79 @@ prog1{
             goto{ start }
         }
         encrypt_message{
-            EXIT # for now
+            uncall_half
+            scope{
+                lfsr_advance_layout
+                get( seed )
+                get( tap  )
+            }
+            < rebase{ 0 }
+            scope{
+                param__MESSAGE_START
+                goto{ MESSAGE_START }
+            }
+            lfsr_advance_layout
+            rebase{ data }
+            goto{ start }
+            put( tap  )
+            put( seed )
+            
+            prep_uncall
+            call{ encrypt_looper }
+            call{ lfsr run }
+        }
+        encrypt_looper{
+            scope{
+                lfsr_encrypt_return_layout
+                rebase{ start }
+                goto{ data }
+                < ZERO PUSH >
+                PUSH < POP > POP
+                goto{ start }
+                <
+                rebase{ 0 }
+            }
+            lfsr_advance_layout
+            rebase{ start }
+            uncall_half
+            prep_uncall 
+            call{ encrypt_done }
+            goto{ data }
+            PUSH
+            lock{[
+                POP
+                goto{ start }
+                uncall
+                prep_uncall
+                call{ encrypt_looper }
+                call{ lfsr run }
+                goto{ data }
+                PUSH
+                ZERO
+            ]}
+            POP
+            goto{ start }
+        }
+        encrypt_done{
+            uncall_half
+            lfsr_encrypt_return_layout
+            goto{ data }
+            rebase{ 0 }
+            param__MESSAGE_SIZE
+            layout{ counter +1 }
+            debug{ MESSAGE_SIZE value }
+            set{
+                counter    MESSAGE_SIZE
+            }
+            memshiftu( 4, counter )
+            >(3)
+
+            # dump the stack (message prefix)
+            +(12)
+            [ PUSH < POP DEC > POP <]
+            POP
+            
+            EXIT # done!
         }
     }
     bindings{
@@ -71,6 +144,12 @@ prog1{
         }
         param__HEADER_LENGTH{
             value{ HEADER_LENGTH 16 }
+        }
+        param__MESSAGE_START{
+            layout{ MESSAGE_START 16 }
+        }
+        param__MESSAGE_SIZE{
+            value{ MESSAGE_SIZE 41 }
         }
         encrypt_header_layout{
             lfsr_advance_layout

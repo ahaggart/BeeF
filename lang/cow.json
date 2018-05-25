@@ -42,12 +42,13 @@
                             "layout { layout_statement }",
                             "set { set_statement }",
                             "goto { goto_statement }",
-                            "rebase { number }",
+                            "rebase { rebase_statement }",
                             "create { data_address number }",
                             "assert { assert_statement }",
                             "value { value_statement }",
                             "debug { name debug_statement }"
                         ],
+        "rebase_statement":["number","name"],
         "value_statement":["name number","name number value_statement"],
         "call_closure":["call { call_path }"],
         "call_path":["name","name name"],
@@ -62,7 +63,7 @@
         "data_address":["{ number }"],
         "goto_statement":["name","number"],
         "assert_statement":["value data_address number"],
-        "debug_statement":["tracking","layout","scope_depth"],
+        "debug_statement":["tracking","layout","scope_depth","value"],
         "annotations":["@ annotation annotation_list",null],
         "annotation_list":[", annotation annotation_list",null],
         "annotation":["locked","scoped"]

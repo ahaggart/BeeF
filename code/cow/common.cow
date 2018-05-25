@@ -118,6 +118,9 @@ common{
             ]
             POP
         }
+        prep_uncall{
+            ZERO PUSH
+        }
         uncall{ @ locked, scoped
             # remove a call from the call stack, destroys the current cell and { +1}
             # call stacks follow a reliable format
@@ -126,15 +129,15 @@ common{
             # 3. call exit: exit the called namespace (all zero)
             # 4. caller reentry: re-enter the caller's namespace (all nonzero)
 
-            > ZERO  +               # make a flag cell
-            [< POP [>-< ZERO ] >] < # pop until something nonzero decrements the flag
-            +[ POP ] > +            # remove the exit stack
-            [< POP [>-< ZERO ] >] <
+            < ZERO  +               # make a flag cell
+            [> POP [<-> ZERO ] <] > # pop until something nonzero decrements the flag
+            +[ POP ] < +            # remove the exit stack
+            [> POP [<-> ZERO ] <] >
             +[ POP ]                # expect a spacing zero placed by invoker
         }
         uncall_half{ @ locked, scoped
-            > ZERO  +               # make a flag cell
-            [< POP [>-< ZERO ] >] < # pop until something nonzero decrements the flag
+            < ZERO  +               # make a flag cell
+            [> POP [<-> ZERO ] <] > # pop until something nonzero decrements the flag
             +[ POP ]                # remove the exit stack
         }
         dec( layout target ){ @ scoped, locked
@@ -148,6 +151,17 @@ common{
             goto{ target }
             INC
             goto{ init }
+        }
+        memshiftu( value amount, layout counter ){ @ scoped
+            layout{ data curr }
+            goto{ counter }
+            [
+                rebase{ counter }
+                goto{ data }
+                PUSH >(amount) POP <(amount)
+                goto{ counter }
+                PUSH < POP DEC
+            ]
         }
     }
 }

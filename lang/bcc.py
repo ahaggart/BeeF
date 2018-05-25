@@ -59,6 +59,8 @@ ASSERT_INNER_VAR = "assert_statement"
 DEBUG_INNER_VAR = "debug_statement"
 DEBUG_TRACKING = "tracking"
 
+REBASE_INNER_VAR = "rebase_statement"
+
 MODIFIER_CHAIN_VAR = "modifier_chain"
 MODIFIER_LIST_VAR  = "modifier_list"
 MODIFIER_ARG_VAR   = "modifier_arg"
@@ -1007,7 +1009,11 @@ def process_layout_closure(layout,scope):
         bind_layout_info(scope,entry)
 
 def process_rebase_closure(closure,scope):
-    base = int(closure[NUMBER_TAG])
+    statement = closure[REBASE_INNER_VAR]
+    if NUMBER_TAG in statement:
+        base = int(statement[NUMBER_TAG])
+    else:
+        base = int(scope.get(make_layout_var(statement[NAME_TAG])))
     update_tracking(scope,base)
 
 def process_goto_closure(closure,scope):
@@ -1327,15 +1333,22 @@ def process_call_closure(call,scope):
         scope.get(SCOPE_CACHE)[tuple(scope.get(PATH_INFO))] = snapshot
 
 def process_debug_closure(closure,scope):
+    name = closure[NAME_TAG]
     statement = closure[DEBUG_INNER_VAR]
     debug_msg = "DEBUG:{}{}:{}: {{msg}} {{info}}".format(
         get_line(closure),get_path(scope),closure[NAME_TAG])
     if DEBUG_TRACKING in statement:
         print(debug_msg.format(msg="TRACKED ADDRESS",info=get_tracked_pos(scope)))
     elif LAYOUT_TAG in statement:
-        print(debug_msg.format(msg="LAYOUT",info=get_layout_info(scope)))
+        print(debug_msg.format(
+            msg="LAYOUT: ",
+            info=get_layout_info(scope)))
     elif SCOPE_DEPTH_INFO in statement:
         print(debug_msg.format(msg="SCOPE DEPTH = ",info=scope.depth()))
+    elif VALUE_TAG in statement:
+        print(debug_msg.format(
+            msg="VALUE {}= ".format(name),
+            info=scope.get(make_value_var(name))))
     else:
         raise ValueError("unrecognized debug statement")
 
