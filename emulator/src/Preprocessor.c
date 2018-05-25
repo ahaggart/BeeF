@@ -190,7 +190,7 @@ PP_INFO_T* ppreprocessor(FILE* src){
             refbuffer[(i_count)*2+1] = info->line_count;
             i_count++;
         } else if(insn == PP_DELIM){
-            if(i_count == 0){
+            if(i_count == 0 || refbuffer[(i_count-1)*2] != PPD_REF_INVALID){
                 printf("Error: Unable to bind reference\n");
                 pp_link_debug_info(src,maxlen); //consume the ref, skip linking
                 continue;

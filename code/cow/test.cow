@@ -1,122 +1,23 @@
 test{ 
     preamble{
-        ++ ++ ++
-        some_more_assembly
-        call{ function }
+        > EXIT_STACK
+        rebase{ 0 }
+        set{
+            { 1}    5
+            { 2}    6
+        }
+        call{ run }
     }
     depends{
-        bitwise2
+        common
     }
     namespace{
-        function{
-            ><_^ ( +2 )
-            layout{
-                test +10
-            }
-            bind{sub to ++++ ++++ ++++}
-            hello ( some_more_assembly test +-+-+ +3 )
-            sub
-            call{other_function}
-            goto{test}
-            bind{ testing_keyword to 
-                --
-                ^^__ 
-                ++-- 
-                >><< 
-            }
-            bind{ super_deep_nesting to <<>> _+_+ }
-            scope{
-                rebase{ 0 }
-                goodbye
-                lock{
-                    ++ ++ ++
-                    testing_keyword
-                    +^+^_-_-
-                    scope{
-                        super_deep_nesting
-                    }
-                    --++^^__
-                    goto{
-                        +3
-                    }
-                    goto{
-                        +1
-                    }
-                    scope{
-                        << >>> <<>> [>]
-                        call{nested nested_function}
-                    }
-                    rebase{0}
-                    goto{
-                        +1
-                    }
-                }
-            }
-            call{ bitwise2 function }
-        }
-        other_function{
-
-        }
-        namespace nested{
-            nested_function {
-                bitwise_binding
-                scope{
-                    bind{ bitwise2 }
-                    bitwise_binding
-                    scope{
-                        some_assembly
-                        _><_^+
-                        call{bitwise2 function}
-                    }
-                }
-                bitwise_binding
-                bind{ local to  ><  } # some commented text
-                layout{ #some more commented text
-                    target      +4
-                    target2     +9
-                    target3     +10
-                }
-                assert{ value {+2} 12 }
-                set{
-                    target      12
-                    {+2}        target2
-                }
-                call{double_nesting double_nested_function}
-            }
-            namespace double_nesting{
-                double_nested_function{
-                    ++ -- ++ -- ++ --
-                    call{bitwise2 function}
-                }
-            }
+        run{
+            get( 2 )
         }
     }
     bindings {
-        hello( text sub, layout layout, text raw, value val ){
-            ><> (2)
-            <>< (val)
-            ><
-            sub (val)
-            raw (val)
-            scope{
-                >> << ^^ __
-            }
-            goto{layout}
-            goodbye
-            layout{
-                test 0
-            }
-        }
-        goodbye{
-            ++++----
-            bind{ testing_keyword to _-_-_- }
-        }
-        some_more_assembly{
-            -- -- --
-        }
-        bitwise_binding{
-            -----
-        }
+
     }
     postamble{
 

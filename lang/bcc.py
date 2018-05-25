@@ -318,7 +318,7 @@ def build(module,parser,path,options):
     
     scope.exit()
 
-    return master_text
+    return finalize_directives(master_text)
 
 # HIGH LEVEL HELPER FUNCTIONS ##################################################
 
@@ -740,6 +740,18 @@ def wrap_and_flatten_text(master_table,dest=None):
         dest.append(EXEC_LOOP_FOOTER)
     return dest
 
+def finalize_directives(master_text):
+    dheader = True
+    dflag = False
+    for token in master_text:
+        if token[0] == '#':
+            if not dheader:
+                if dflag:
+                    yield BUILTINS["NOP"] # pad adjacent directives with NOPs
+                dflag = True
+        else:
+            dheader = False
+        yield token
 
 # RECURSIVE TREE TRAVERSAL AND SCOPE MANAGMENT #################################
 
@@ -912,13 +924,11 @@ def process_text_closure(closure,scope):
         process_bound_keyword(closure,scope)
 
 def emit_raw_text(text,scope):
-    if not text:
-        return
     with scope.use(TEXT_TARGET) as target:
-        if scope.get(LAST_CHAR_INFO)[VALUE_TAG] == COMMENT_DELIM and text[0] == COMMENT_DELIM:
-            target.append(BUILTINS["NOP"])
+        # if scope.get(LAST_CHAR_INFO)[VALUE_TAG] == COMMENT_DELIM and text[0] == COMMENT_DELIM:
+        #     target.append(BUILTINS["NOP"])
         target.append(text)
-    scope.get(LAST_CHAR_INFO)[VALUE_TAG] = text[-1]
+    # scope.get(LAST_CHAR_INFO)[VALUE_TAG] = text[-1]
 
 def emit_tracked_text(text,scope):
     if not text:
@@ -1170,10 +1180,10 @@ def process_bound_keyword(closure,scope): # resolve a bound keyword into assembl
     binding = scope.get(make_binding_var(keyword))
 
     # build a partial scope for resolving modifiers
-    partial = {}
+    partial = { # capture the generated text so we can duplicate it
+        TEXT_TARGET:CopyList()
+    }
 
-    # this is a bad way to do this
-    # TODO: add a way to intercept emitted text and duplicate it
     dups = 1
 
     if closure[MODIFIER_VAR] is not None:
@@ -1245,13 +1255,17 @@ def process_bound_keyword(closure,scope): # resolve a bound keyword into assembl
             pass
     elif binding[MODIFIER_DEC_VAR] is not None:
         # binding expects modifiers
-        raise ValueError("Binding {} expects modifiers".format(keyword))
+        binding_def = format_binding_def(binding)
+        raise ValueError("Binding {} expects modifiers: {}".format(
+            keyword, binding_def))
 
     with scope.partial(partial) as scope:
-        count = 0
-        while count < dups:
-            process_binding_text(binding,scope)
-            count = count + 1
+        process_binding_text(binding,scope)
+        binding_text = scope.get(TEXT_TARGET)
+
+    for tk in (binding_text*dups):
+        emit_raw_text(tk,scope)
+
     assert (scope.get(EXPANSION_INFO).pop() == keyword), "asymmetric expansion pops"
 
 
