@@ -21,8 +21,8 @@ module alu#(parameter width=8) (
 
 always_comb	begin
   case (op_i)   						     
-    ALU_INC: alu_result_o <= alu_data_i + {0,1'b1}; //INC
-    ALU_DEC: alu_result_o <= alu_data_i - {0,1'b1}; //DEC
+    ALU_DEC: alu_result_o <= alu_data_i - {{(width-1){1'b0}} ,1'b1}; //DEC
+    default: alu_result_o <= alu_data_i + {{(width-1){1'b0}} ,1'b1}; //INC
   endcase
 end
 
