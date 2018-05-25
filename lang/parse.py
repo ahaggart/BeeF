@@ -34,6 +34,7 @@ REJECT_T        = "_REJECT_"
 SYMBOL_I        = 0
 STATE_I         = 1
 TREE_I          = 2
+LINE_I          = 3
 
 VERBOSE = False
 
@@ -258,6 +259,7 @@ class Derivation(Expression):
             top = stack.pop()
             actual = str(top[SYMBOL_I])
             expected = str(symbols.pop())
+            line = top[LINE_I]
                 
             if expected in generics:
                 if generics[expected].match(actual) == None:
@@ -273,12 +275,14 @@ class Derivation(Expression):
                     tree[expected].insert(0,actual)
                 else:
                     tree[expected] = actual
+                    tree[("LINE",actual)] = line
             elif expected != actual:
                 # print("{} == {} : {}".format(expected,actual,expected==actual))
                 parse_error("Expected symbol in reduction: \"{}\"\nGot: \"{}\"".format(
                     expected,actual))
             else:
                 tree[expected] = top[TREE_I]
+                tree[("LINE",actual)] = line
         return tree
 
     # build a simple NFA representing this derivation
@@ -449,16 +453,16 @@ class ParsingAutomaton:
         self.dfa            = None
         self.build()
 
-    def act(self,stack,tree,backlog,token,action_data):
+    def act(self,stack,tree,backlog,token,action_data,line):
         action = action_data[0]
         data = action_data[1]
         # print(action_data)
         if action == GO_T:
-            return self.go(stack,tree,backlog,token)
+            return self.go(stack,tree,backlog,token,line)
         elif action == REDUCTION_T:
             return self.reduce(stack,tree,backlog,token,data)
         elif action == SHIFT_T:
-            return self.shift(stack,tree,backlog,token)
+            return self.shift(stack,tree,backlog,token,line)
         elif action == ACCEPT_T:
             return self.accept(stack,tree,backlog,token)
         elif action == REJECT_T:
@@ -488,12 +492,12 @@ class ParsingAutomaton:
         # pp.pprint(tree)
         return tree,False
 
-    def go(self,stack,tree,backlog,token):
-        stack.push((token,self.dfa.state,tree))
+    def go(self,stack,tree,backlog,token,line):
+        stack.push((token,self.dfa.state,tree,line))
         return tree,False
 
-    def shift(self,stack,tree,backlog,token):
-        stack.push((token,self.dfa.state,token))
+    def shift(self,stack,tree,backlog,token,line):
+        stack.push((token,self.dfa.state,token,line))
         return {},False
 
     def accept(self,stack,tree,backlog,token):
@@ -531,17 +535,18 @@ class ParsingAutomaton:
 
         done = False
         for token in tokens:
+            line = tokens.getLine()
             while backlog: # parse the nonterminal backlog first
                 nt = backlog.pop()
                 # print(nt)
-                working_tree,done = self.process(stack,working_tree,backlog,nt)
+                working_tree,done = self.process(stack,working_tree,backlog,nt,line)
                 # print()
                 if done:
                     break                
             if done:
                 break 
             # print(token)
-            working_tree,done = self.process(stack,working_tree,backlog,token)
+            working_tree,done = self.process(stack,working_tree,backlog,token,line)
             processed.append(token)
             # pp.pprint(tree)
             # print()
@@ -552,7 +557,7 @@ class ParsingAutomaton:
         # pp.pprint(working_tree)
         return working_tree
 
-    def process(self,stack,tree,backlog,token):
+    def process(self,stack,tree,backlog,token,line):
         old_state = self.dfa.state
         p = self.dfa.process(token)
         sym = token
@@ -580,7 +585,8 @@ class ParsingAutomaton:
                             tree,
                             backlog,
                             token,
-                            self.action_table[old_state][sym])
+                            self.action_table[old_state][sym],
+                            line)
         elif not matched:
             context,sugg = self.get_context(stack)
             context_msg = "During expansion of: {}".format(context)

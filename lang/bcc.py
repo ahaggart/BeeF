@@ -285,9 +285,7 @@ def build(module,parser,path,options):
     path_table,base_table,order_table = resolve_table_ordering(depended,dep_table)
 
     cache = scope.get(SCOPE_CACHE)
-    for call_info in build_call_stacks(depended,path_table):
-        call_stack = call_info[0]
-        call_loc   = call_info[1]
+    for (call_stack,call_loc) in build_call_stacks(depended,path_table):
         insert_function_call(text_table,call_stack,call_loc,cache)
 
     if TABLE_FLAG in options:
@@ -305,9 +303,9 @@ def build(module,parser,path,options):
 
     # pp.pprint(exec_loop)
 
-    # 9. Build preamble and postamble text
+    # 9. Build master text table
     master_text = []
-    master_text.extend(scope.get(DIRECTIVE_HEADERS))
+    header = scope.get(DIRECTIVE_HEADERS)
     master_text.extend(build_from_table_path(text_table,preamble_path))
     master_text.extend(exec_loop)
 
@@ -318,7 +316,16 @@ def build(module,parser,path,options):
     
     scope.exit()
 
-    return finalize_directives(master_text)
+    # remove any unused directives
+    header = prune_directives(header,master_text)
+
+    header.extend(master_text) # append the directive header
+    master_text = header
+
+    # add NOPs between adjacent directive markers
+    master_text = finalize_directives(master_text) # this is a generator
+
+    return master_text
 
 # HIGH LEVEL HELPER FUNCTIONS ##################################################
 
@@ -451,9 +458,10 @@ def build_dependency_table(text_table,scope):
         local_scope,func_name = extract_path(ref[0])
         call_path = ref[1][:]
         first = call_path.pop(0)
-        path_error = KeyError("Could not find function for path: {}".format(ref[1]))
         local_path = local_scope+[first]
         full_path = local_scope+[func_name]
+        path_error = KeyError("Could not find function for path: {} (called by {})".format(
+            ref[1],':'.join(full_path)))
         if table_check(text_table,local_path): # local scope
             if call_path:
                 local_path = local_path+call_path
@@ -740,6 +748,23 @@ def wrap_and_flatten_text(master_table,dest=None):
         dest.append(EXEC_LOOP_FOOTER)
     return dest
 
+def prune_directives(directives,master_text):
+    refs = {}
+    for i in xrange(0,len(master_text)):
+        token = master_text[i]
+        if token[0] == COMMENT_DELIM:
+            ref = int(token[1:-1])
+            if ref not in refs:
+                refs[ref] = []
+            refs[ref].append(i)
+    headers = []
+    for ref in refs:
+        index = len(headers)
+        headers.append(directives[ref])
+        for i in refs[ref]:
+            master_text[i] = DIRECTIVE_MARKER.format(index)
+    return headers
+
 def finalize_directives(master_text):
     dheader = True
     dflag = False
@@ -986,7 +1011,8 @@ def process_rebase_closure(closure,scope):
 def process_goto_closure(closure,scope):
     curr_loc = get_tracked_pos(scope)
     if curr_loc is None:
-        errstr = "Unable to resolve data head position for goto in: {}".format(get_path(scope))
+        errstr = "{}Unable to resolve data head position for goto in: {}".format(
+            get_line(closure),get_path(scope))
         raise ValueError(errstr)
     
     inner = closure[GOTO_INNER_VAR]
@@ -1166,7 +1192,8 @@ def process_value_assertion(closure,scope):
     if MESSAGE_TAG in closure and closure[MESSAGE_TAG]:
         msg = closure[MESSAGE_TAG]
     else:
-        msg = "{}: asserting value {} at {}".format(get_path(scope),val,addr)
+        msg = "{}: asserting value {} at {}".format(
+            get_path(scope),val,addr)
     add_value_assertion_directive(offset,val,msg,scope)
    
 def process_bound_keyword(closure,scope): # resolve a bound keyword into assembly
@@ -1174,7 +1201,8 @@ def process_bound_keyword(closure,scope): # resolve a bound keyword into assembl
     keyword = closure[BOUND_KEYWORD_VAR]
     scope.get(EXPANSION_INFO).push(keyword)
     if keyword not in scope.get(KEYWORD_INFO):
-        raise KeyError("Keyword not in scope: {}".format(keyword))
+        raise KeyError("{}Keyword not in scope: {}".format(
+            get_line(closure,keyword),keyword))
     
     # grab the binding from the local scope
     binding = scope.get(make_binding_var(keyword))
@@ -1190,9 +1218,9 @@ def process_bound_keyword(closure,scope): # resolve a bound keyword into assembl
         # print("got here {}".format(keyword))
         modifiers = closure[MODIFIER_VAR]
         binding_def = format_binding_def(binding)
-        apperr = "Cannot apply {} to binding: {}".format(
-                format_modifiers(modifiers),binding_def)
-        matcherr = "Cannot match \"{}\" to \"{}\" in {}"
+        apperr = "{}Cannot apply {} to binding: {}".format(
+                get_line(closure),format_modifiers(modifiers),binding_def)
+        matcherr = "{}Cannot match \"{}\" to \"{}\" in {}"
         if binding[MODIFIER_DEC_VAR] is not None:
             applied = build_modifier_chain(modifiers)
             declared = binding[MODIFIER_DEC_VAR][MODIFIER_LIST_VAR]
@@ -1206,7 +1234,8 @@ def process_bound_keyword(closure,scope): # resolve a bound keyword into assembl
                 param = declared[i][MODIFIER_ARG_VAR]
                 arg = applied[i]
                 arg_val = arg[1]
-                match_error = ValueError(matcherr.format(arg_val,param[NAME_TAG],binding_def))
+                match_error = ValueError(matcherr.format(
+                    get_line(closure),arg_val,param[NAME_TAG],binding_def))
 
                 if LAYOUT_TAG in param:
                     layout_var = make_layout_var(arg_val)
@@ -1256,8 +1285,8 @@ def process_bound_keyword(closure,scope): # resolve a bound keyword into assembl
     elif binding[MODIFIER_DEC_VAR] is not None:
         # binding expects modifiers
         binding_def = format_binding_def(binding)
-        raise ValueError("Binding {} expects modifiers: {}".format(
-            keyword, binding_def))
+        raise ValueError("{}Binding {} expects modifiers: {}".format(
+            get_line(closure),keyword, binding_def))
 
     with scope.partial(partial) as scope:
         process_binding_text(binding,scope)
@@ -1297,7 +1326,8 @@ def process_call_closure(call,scope):
 
 def process_debug_closure(closure,scope):
     statement = closure[DEBUG_INNER_VAR]
-    debug_msg = "DEBUG:{}:{}: {{msg}} {{info}}".format(get_path(scope),closure[NAME_TAG])
+    debug_msg = "DEBUG:{}{}:{}: {{msg}} {{info}}".format(
+        get_line(closure),get_path(scope),closure[NAME_TAG])
     if DEBUG_TRACKING in statement:
         print(debug_msg.format(msg="TRACKED ADDRESS",info=get_tracked_pos(scope)))
     else:
@@ -1547,8 +1577,8 @@ def bind_layout_info(scope,info): # bind layout information into the scope
     if CURR_TAG in info:
         addr = get_tracked_pos(scope)
         if addr is None:
-            errstr = "Unable to resolve data head position for layout at: {}".format(
-                get_path(scope))
+            errstr = "{}Unable to resolve data head position for layout at: {}".format(
+                get_line(info),get_path(scope))
             raise ValueError(errstr)
     else:
         addr = int(info[NUMBER_TAG])
@@ -1616,6 +1646,18 @@ def get_path(scope):
     path = [str(node) for node in scope.get(PATH_INFO)]
     exp = [str(keyword) for keyword in scope.get(EXPANSION_INFO)]
     return ':'.join(path+exp)
+
+def get_line(closure,token=None):
+    if token is not None:
+        line = closure[("LINE",token)]
+    else:
+        max_line = 0
+        for item in closure:
+            if item[0] == "LINE":
+                if closure[item] > max_line:
+                    max_line = closure[item]
+        line = max_line
+    return "Line {}: ".format(line)
 
 def apply_annotations(annotations,scope):
     return AnnotationContextManager(annotations,scope)
