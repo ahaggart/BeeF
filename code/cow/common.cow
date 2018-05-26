@@ -177,5 +177,13 @@ common{
             [ PUSH > POP DEC < POP >]
             POP
         }
+        up(layout step){ @ scoped
+            rebase{ 0 }
+            goto{ step }
+        }
+        down(layout step){ @ scoped
+            rebase{ step }
+            goto{ 0 }
+        }
     }
 }

@@ -13,7 +13,7 @@ prog2{
     depends{
         common
         ascii
-        ds
+        stack
         rails
         lfsr
     }
@@ -27,14 +27,13 @@ prog2{
                 set{ taps NUM_TAPS }
                 get( taps )
             }
-            ds_create_stack_layout
+            stack_layout
             rebase{ start }
-            put( size )
             call{ finish setup }
         }
         namespace finish{
             setup{
-                ds_stack_layout
+                stack_layout
                 rebase{ start }
                 stack_taps
             }
@@ -83,14 +82,15 @@ prog2{
                 {7}     TAP6
                 {8}     TAP7
             }
-            ds_stack_push(1, -2, <, > )
-            ds_stack_push(2, -2, <, > )
-            ds_stack_push(3, -2, <, > )
-            ds_stack_push(4, -2, <, > )
-            ds_stack_push(5, -2, <, > )
-            ds_stack_push(6, -2, <, > )
-            ds_stack_push(7, -2, <, > )
-            ds_stack_push(8, -2, <, > )
+            bind{ put_fn_1 to put( -1 ) }
+            stack_push(1, -2, put_fn_1 )
+            stack_push(2, -2, put_fn_1 )
+            stack_push(3, -2, put_fn_1 )
+            stack_push(4, -2, put_fn_1 )
+            stack_push(5, -2, put_fn_1 )
+            stack_push(6, -2, put_fn_1 )
+            stack_push(7, -2, put_fn_1 )
+            stack_push(8, -2, put_fn_1 )
             ZERO PUSH + [_^>]_ # wipe the taps
             <(NUM_TAPS) <
         }

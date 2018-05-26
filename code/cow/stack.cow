@@ -1,0 +1,45 @@
+stack{
+    depends{
+        common
+        rails
+    }
+    namespace{
+
+    }
+    bindings{
+        stack_layout{ @ pure
+            layout{
+                stack  -2
+                start   0
+            }
+        }
+        stack_push(layout data,layout step,text put_fn){ @ locked, scoped
+            get( data )
+            stack_top(step)
+            + lock{ put_fn }
+            stack_return( step )
+        }
+        stack_pop(layout step,text get_fn){ @ locked, scoped
+            stack_top(step)
+            down( step )
+            - lock{ get_fn }
+            down( step )
+            stack_return( step )
+        }
+        stack_top(layout step){
+            stack_layout
+            rebase{ start }
+            ZERO
+            goto{ stack }
+            [
+                up( step )
+            ]
+            rebase{ 0 }
+        }
+        stack_return(layout step){
+            [
+                down( step )
+            ]
+        }
+    }
+}
