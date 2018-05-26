@@ -143,8 +143,11 @@ CONSTANT_TAG= "constant"
 
 DATA_TAG    = "data"
 
+POSTAMBLE_TAG = "postamble"
+
 LOCK_ANNOTATION = "locked"
 SCOPED_ANNOTATION = "scoped"
+PURE_ANNOTATION = "pure"
 
 PUSH_INSTR  = "^"
 POP_INSTR   = "_"
@@ -1679,7 +1682,15 @@ def get_line(closure,token=None):
     return "Line {}: ".format(line)
 
 def apply_annotations(annotations,scope):
-    return AnnotationContextManager(annotations,scope)
+    if NAME_TAG in annotations:
+        name = annotations[NAME_TAG]
+    elif PREAMBLE_VAR in annotations:
+        name = PREAMBLE_DATA
+    elif POSTAMBLE_TAG in annotations:
+        name = POSTAMBLE_DATA
+    else:
+        raise KeyError("Could not find name for annotation: {}".format(annotations))
+    return AnnotationContextManager(name,annotations,scope)
 
 def get_layout_info(scope):
     info = {}
@@ -1688,8 +1699,17 @@ def get_layout_info(scope):
             if item[0] == LAYOUT_TAG:
                 info[item[1]] = scope.get(item)
     return pp.pformat(info)
-                
 
+def make_purity_trap(name):
+    err = make_purity_error(name)
+    def purity_trap(symbol,value):
+        if len(value):
+            raise err
+    return ScopeTrap(purity_trap)
+
+def make_purity_error(name):
+    return AssertionError("Pure Binding emits text: {}".format(name))
+                
 # HELPER CLASSES ###############################################################
 
 class Scope:
@@ -1697,6 +1717,7 @@ class Scope:
         self.defined = Stack()
         self.curr_symbols = set()
         self.symbols = {}
+        self.traps = {}
         self.image_hook = image_hook    
 
         if image:
@@ -1731,6 +1752,8 @@ class Scope:
         return ScopeCopyContextManager(self,symbol)
 
     def bind(self,symbol,value):
+        if symbol in self.traps and len(self.traps[symbol]):
+            self.traps[symbol].peek().trip(symbol,value)
         if symbol in self.curr_symbols:
             self.symbols[symbol].swap(value)
         else:
@@ -1760,6 +1783,16 @@ class Scope:
     def enter(self):
         self.defined.push(self.curr_symbols.copy())
         self.curr_symbols = set()
+
+    def trap(self,symbol,trap):
+        if symbol not in self.traps:
+            self.traps[symbol] = Stack()
+        self.traps[symbol].push(trap)
+
+    def untrap(self,symbol):
+        if symbol not in self.traps or not len(self.traps[symbol]):
+            raise KeyError("Untrapping non-trapped symbol: {}".format(symbol))
+        self.traps[symbol].pop()
 
     def exit(self):
         if not len(self.defined):
@@ -1798,6 +1831,8 @@ class ScopeCopyContextManager:
         return self.hold
 
     def __exit__(self,exc_type,exc_value,traceback):
+        if exc_type is not None:
+            return False
         # bind the value back into scope
         # print("restoring: {}".format(self.symbol))
         self.scope.bind(self.symbol,self.hold)
@@ -1822,6 +1857,8 @@ class ScopePartialContextManager:
         return self.scope
 
     def __exit__(self,exc_type,exc_value,traceback):
+        if exc_type is not None:
+            return False
         for symbol in self.subset:
             self.scope.unbind(symbol)
             if self.lock[symbol] != len(self.scope.symbols[symbol]):
@@ -1829,8 +1866,15 @@ class ScopePartialContextManager:
         for symbol in self.rebind: # rebind any symbols that were removed
             self.scope.curr_symbols.add(symbol)
 
+class ScopeTrap:
+    def __init__(self,trigger_fn):
+        self.trigger_fn = trigger_fn
+    def trip(self,symbol,value):
+        self.trigger_fn(symbol,value)
+
 class AnnotationContextManager:
-    def __init__(self,annotations,scope):
+    def __init__(self,name,annotations,scope):
+        self.name = name
         self.annotations = extract_annotations(annotations)
         self.scope = scope
         self.locks = []
@@ -1842,6 +1886,10 @@ class AnnotationContextManager:
                 self.locks.append(enter_position_lock(self.scope))
             elif a == SCOPED_ANNOTATION:
                 enter_scoped_text(self.scope)
+            elif a == PURE_ANNOTATION:
+                self.scope.trap(TEXT_TARGET,make_purity_trap(self.name))
+            else:
+                raise AssertionError("Non-annotation found")
     
     def __exit__(self,exc_type,exc_value,traceback):
         for a in self.annotations:
@@ -1850,6 +1898,8 @@ class AnnotationContextManager:
                 exit_position_lock(info[0],info[1],self.scope)
             elif a == SCOPED_ANNOTATION:
                 exit_scoped_text(self.scope)
+            elif a == PURE_ANNOTATION:
+                self.scope.untrap(TEXT_TARGET)
 
 def extract_annotations(annotations):
     if ANNOTATIONS_TAG not in annotations:
@@ -1869,6 +1919,8 @@ def get_annotation(annotation):
         return LOCK_ANNOTATION
     elif SCOPED_ANNOTATION in annotation:
         return SCOPED_ANNOTATION
+    elif PURE_ANNOTATION in annotation:
+        return PURE_ANNOTATION
     raise KeyError("no annotation found: {}".format(annotation))
 
 def enter_scoped_text(scope):

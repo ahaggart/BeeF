@@ -163,5 +163,19 @@ common{
                 PUSH < POP DEC
             ]
         }
+        ddump( value amount ){ @ scoped
+            # amount (value): number of items to dump
+            #
+            # dump the contents of the stack, moving downwards
+
+            +(amount)
+            [ PUSH < POP DEC > POP <]
+            POP
+        }
+        udump( value amount ){ @ scoped
+            +(amount)
+            [ PUSH > POP DEC < POP >]
+            POP
+        }
     }
 }

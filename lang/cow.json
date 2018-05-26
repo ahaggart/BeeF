@@ -4,7 +4,7 @@
         "rebase","assert","goto","scope","set","panic","call","layout","bind","lock","create",
         "curr",
         "debug","tracking","scope_depth",
-        "@","locked","scoped"],
+        "@","locked","scoped","pure"],
     "generics":{
         "name":"^[a-zA-Z_]+[a-zA-Z_0-9]*$",
         "number":"^[+-]?[0-9]+$",
@@ -66,7 +66,7 @@
         "debug_statement":["tracking","layout","scope_depth","value"],
         "annotations":["@ annotation annotation_list",null],
         "annotation_list":[", annotation annotation_list",null],
-        "annotation":["locked","scoped"]
+        "annotation":["locked","scoped","pure"]
     
     },
     "start":"module_closure"

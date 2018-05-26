@@ -6,7 +6,7 @@
 """
 import sys
 
-ASSEMBLY_CHARS = {'_','^','>','<','+','-','[',']'}
+ASSEMBLY_CHARS = {'_','^','>','<','+','-','[',']','!'}
 COMPLEMENT = { # instructions which cancel each other when adjacent
     '+':'-',
     '-':'+',

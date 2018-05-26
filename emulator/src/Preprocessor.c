@@ -203,6 +203,7 @@ PP_INFO_T* ppreprocessor(FILE* src){
     }
 
     printf("Found %ld instructions\n",i_count);
+    printf("Max nesting depth: %u\n",bvms_max(br_stack));
 
     //create the final buffers
     info->i_cache  = (BF_INSN_PTR_T)malloc(i_count*sizeof(BF_INSN_T));

@@ -1,0 +1,101 @@
+prog2{
+    preamble{
+        EXIT_STACK
+        scope{
+            param__ENC_MSG_START
+            goto{ ENC_MSG_START }
+        }
+        seed_find_layout
+        rebase{ message }
+        goto{ start }
+        call{ setup }
+    }
+    depends{
+        common
+        ascii
+        ds
+        rails
+        lfsr
+    }
+    namespace{
+        setup{
+            scope{
+                seed_find_layout
+                param__TAPS
+                rebase{ start }
+                goto{ taps }
+                set{ taps NUM_TAPS }
+                get( taps )
+            }
+            ds_create_stack_layout
+            rebase{ start }
+            put( size )
+            call{ finish setup }
+        }
+        namespace finish{
+            setup{
+                ds_stack_layout
+                rebase{ start }
+                stack_taps
+            }
+        }
+        exit{ EXIT }
+    }
+    bindings{
+        param__TAPS{ @ pure
+            value{
+                # [178, 180, 184, 198, 212, 225, 243, 250]
+                TAP0        178
+                TAP1        180
+                TAP2        184
+                TAP3        198
+                TAP4        212
+                TAP5        225
+                TAP6        243
+                TAP7        250  
+                NUM_TAPS    8
+            }
+        }
+        param__NUM_TEST_CHARS{ @ pure
+            value{ NUM_TEST_CHARS   8 }
+        }
+        param__ENC_MSG_START{ @ pure
+            layout{ ENC_MSG_START    64 }
+        }
+        seed_find_layout{ @ pure
+            layout{
+                taps       -4
+                start       0
+                message     8
+            }
+        }
+        stack_taps{ @ scoped, locked
+            param__TAPS
+            rebase{ 0 }
+            set{
+                {0}     0
+                {1}     TAP0
+                {2}     TAP1
+                {3}     TAP2
+                {4}     TAP3
+                {5}     TAP4
+                {6}     TAP5
+                {7}     TAP6
+                {8}     TAP7
+            }
+            ds_stack_push(1, -2, <, > )
+            ds_stack_push(2, -2, <, > )
+            ds_stack_push(3, -2, <, > )
+            ds_stack_push(4, -2, <, > )
+            ds_stack_push(5, -2, <, > )
+            ds_stack_push(6, -2, <, > )
+            ds_stack_push(7, -2, <, > )
+            ds_stack_push(8, -2, <, > )
+            ZERO PUSH + [_^>]_ # wipe the taps
+            <(NUM_TAPS) <
+        }
+    }
+    postamble{
+
+    }
+}

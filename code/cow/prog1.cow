@@ -130,9 +130,7 @@ prog1{
             >(3)
 
             # dump the stack (message prefix)
-            +(12)
-            [ PUSH < POP DEC > POP <]
-            POP
+            dumps( 12 )
             
             EXIT # done!
         }

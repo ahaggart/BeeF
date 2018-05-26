@@ -1,0 +1,32 @@
+rails{
+    depends{
+        common
+    }
+    namespace{
+
+    }
+    bindings{
+        mkrail( layout step, layout steps ){ @ scoped, locked
+            get( steps )
+            rebase{ 0 }
+            ZERO
+            goto{ step }
+            rebase{ 0 }
+            put( 0 ) +
+            DEC
+            [
+                rebase{ 0 }
+                PUSH
+                goto{ step }
+                POP DEC
+            ]
+            rebase{ step }
+            goto{ 0 }
+            [
+                ZERO +
+                rebase{ step }
+                goto{ 0 }
+            ]
+        }
+    }
+}

@@ -15,6 +15,7 @@
 #define BVMS BVMStack
 
 typedef struct{
+    BVMS_PTR_T max;   //max size reached
     BVMS_PTR_T top;   //top element index
     BVMS_PTR_T size;  //in elements
     BVMS_WIDTH_T width; //in bytes
@@ -26,5 +27,6 @@ int bvms_push(BVMS* stack,BVMS_DATA_PTR_T source);
 BVMS_DATA_PTR_T bvms_pop(BVMS* stack);
 void bvms_dump(BVMS* stack);
 int bvms_destroy(BVMS* stack);
+BVMS_PTR_T  bvms_max(BVMS* stack);
 
 #endif //BVMS_H
