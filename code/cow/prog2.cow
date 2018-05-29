@@ -14,6 +14,7 @@ prog2{
         common
         ascii
         stack
+        list
         rails
         lfsr
     }
@@ -21,22 +22,34 @@ prog2{
         setup{
             scope{
                 seed_find_layout
-                param__TAPS
                 rebase{ start }
                 goto{ taps }
-                set{ taps NUM_TAPS }
-                get( taps )
             }
             stack_layout
             rebase{ start }
+            call{ find_tap }
+            call{ list create }
             call{ finish setup }
         }
         namespace finish{
             setup{
-                stack_layout
-                rebase{ start }
-                stack_taps
+                scope{
+                    stack_layout
+                    rebase{ start }
+                    stack_taps
+                }
+                seed_find_layout
+                rebase{ taps }
+                goto{ message_cache }
+                param__NUM_TEST_CHARS
+                set{ message_cache NUM_TEST_CHARS }
             }
+        }
+        find_tap{
+            EXIT
+            seed_find_layout
+            rebase{ taps }
+            goto{ start }
         }
         exit{ EXIT }
     }
@@ -63,9 +76,10 @@ prog2{
         }
         seed_find_layout{ @ pure
             layout{
-                taps       -4
-                start       0
-                message     8
+                taps           -9
+                message_cache  -8
+                start           0
+                message         8
             }
         }
         stack_taps{ @ scoped, locked
@@ -82,15 +96,17 @@ prog2{
                 {7}     TAP6
                 {8}     TAP7
             }
-            bind{ put_fn_1 to put( -1 ) }
-            stack_push(1, -2, put_fn_1 )
-            stack_push(2, -2, put_fn_1 )
-            stack_push(3, -2, put_fn_1 )
-            stack_push(4, -2, put_fn_1 )
-            stack_push(5, -2, put_fn_1 )
-            stack_push(6, -2, put_fn_1 )
-            stack_push(7, -2, put_fn_1 )
-            stack_push(8, -2, put_fn_1 )
+            bind{ putfn to 
+                put( -1 )
+            }
+            stack_push(1, -2, putfn )
+            stack_push(2, -2, putfn )
+            stack_push(3, -2, putfn )
+            stack_push(4, -2, putfn )
+            stack_push(5, -2, putfn )
+            stack_push(6, -2, putfn )
+            stack_push(7, -2, putfn )
+            stack_push(8, -2, putfn )
             ZERO PUSH + [_^>]_ # wipe the taps
             <(NUM_TAPS) <
         }

@@ -63,7 +63,7 @@
         "data_address":["{ number }"],
         "goto_statement":["name","number"],
         "assert_statement":["value data_address number"],
-        "debug_statement":["tracking","layout","scope_depth","value"],
+        "debug_statement":["tracking","layout","scope_depth","value","text"],
         "annotations":["@ annotation annotation_list",null],
         "annotation_list":[", annotation annotation_list",null],
         "annotation":["locked","scoped","pure"]

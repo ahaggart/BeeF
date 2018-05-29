@@ -1,0 +1,55 @@
+list{
+    depends{
+        common
+        rails
+    }
+    namespace{
+        create{ # basic list creation
+            list_create_layout
+            sub( size, 2 )
+            mkrail(2,size)
+            rail_up( 2 )
+            INC
+            rail_down( 2 )
+            INC
+        }
+        index{ # from low end of list
+            list_index_layout
+            rebase{ start }
+            lock{
+                goto{ scratch }
+                PUSH ZERO 
+                goto{ start }
+            }
+            get( index )
+            put( start )
+            [
+                rebase{ count }
+                get( prev )
+                dec( count )
+                get( count )
+                put( next )
+                put( count )
+                goto{ next }
+            ]
+        }
+    }
+    bindings{
+        list_create_layout{ @ pure
+            layout{
+                start   0
+                size    0
+            }
+        }
+        list_index_layout{
+            layout{
+                scratch -2
+                prev    -2
+                start   0
+                current count
+                index   0
+                next    0
+            }
+        }
+    }
+}

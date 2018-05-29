@@ -1,7 +1,6 @@
 stack{
     depends{
         common
-        rails
     }
     namespace{
 
@@ -26,7 +25,7 @@ stack{
             down( step )
             stack_return( step )
         }
-        stack_top(layout step){
+        stack_top(layout step){ @ scoped 
             stack_layout
             rebase{ start }
             ZERO
@@ -36,7 +35,7 @@ stack{
             ]
             rebase{ 0 }
         }
-        stack_return(layout step){
+        stack_return(layout step){ @ scoped
             [
                 down( step )
             ]

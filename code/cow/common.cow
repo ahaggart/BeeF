@@ -146,6 +146,12 @@ common{
             DEC
             goto{ init }
         }
+        sub(layout target, value amount){ @ scoped, locked
+            layout{ init curr }
+            goto{ target }
+            DEC( amount )
+            goto{ init }
+        }
         inc( layout target ){ @ scoped, locked
             layout{ init curr }
             goto{ target }

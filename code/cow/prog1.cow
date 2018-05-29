@@ -140,10 +140,10 @@ prog1{
             value{ SEED 13 }
             value{ TAP 250 }
         }
-        param__HEADER_LENGTH{
+        param__HEADER_LENGTH{ @ pure
             value{ HEADER_LENGTH 16 }
         }
-        param__MESSAGE_START{
+        param__MESSAGE_START{ @ pure
             layout{ MESSAGE_START 16 }
         }
         param__MESSAGE_SIZE{

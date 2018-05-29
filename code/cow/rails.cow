@@ -28,5 +28,17 @@ rails{
                 goto{ 0 }
             ]
         }
+        rail_up( layout step ){ @ scoped
+            up( step )
+            [
+                up( step )
+            ]
+        }
+        rail_down(layout step){
+            down( step )
+            [
+                down( step )
+            ]
+        }
     }
 }

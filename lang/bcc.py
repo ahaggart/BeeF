@@ -1352,6 +1352,10 @@ def process_debug_closure(closure,scope):
         print(debug_msg.format(
             msg="VALUE {}= ".format(name),
             info=scope.get(make_value_var(name))))
+    elif TEXT_TAG in statement:
+        print(debug_msg.format(
+            msg="TEXT {}= ".format(name),
+            info=scope.get(make_binding_var(name))))
     else:
         raise ValueError("unrecognized debug statement")
 
