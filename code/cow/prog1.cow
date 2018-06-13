@@ -1,6 +1,25 @@
 prog1{
     preamble{
         > EXIT_STACK
+        lock{scope{
+            get_encryption_params
+            param__MESSAGE_SIZE
+            param__HEADER_LENGTH
+            goto{ MESSAGE_SIZE }
+            get( SEED )
+            get( TAP  )
+            lock{scope{
+                rebase{ 0 }
+                layout{
+                    counter     1
+                }
+                memshiftu( HEADER_LENGTH, counter )
+                rebase{ counter }
+                goto{ 0 }
+                < (HEADER_LENGTH)
+            }}
+            goto{ 0 }
+        }}
         rebase{ 0 }
         bind{ lfsr  }
         bind{ ascii }
@@ -8,10 +27,11 @@ prog1{
         use_ascii
         lfsr_advance_layout
         set{
-            seed    SEED
-            tap     TAP
+            # seed    SEED
+            # tap     TAP
             data    SP #ascii space
-        }
+        put( tap  )
+        put( seed )
 
         goto{ start }
         call{ setup }
@@ -137,8 +157,12 @@ prog1{
     }
     bindings{
         get_encryption_params{
-            value{ SEED 13 }
-            value{ TAP 250 }
+            layout{
+                SEED    43
+                TAP     42
+            }
+            # value{ SEED 13 }
+            # value{ TAP 250 }
         }
         param__HEADER_LENGTH{ @ pure
             value{ HEADER_LENGTH 16 }

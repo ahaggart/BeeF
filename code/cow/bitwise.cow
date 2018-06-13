@@ -1,8 +1,9 @@
 bitwise{
     preamble{
+        # test comment
         >
         EXIT_STACK
-        rebase{0}
+        rebase{ 0 }
         op_layout
         set{
             op1     197

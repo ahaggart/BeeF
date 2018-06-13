@@ -169,6 +169,17 @@ common{
                 PUSH < POP DEC
             ]
         }
+        memshiftd( value amount, layout counter ){ @ scoped
+            layout{ data curr }
+            goto{ counter }
+            [
+                rebase{ counter }
+                goto{ data }
+                PUSH <(amount) POP >(amount)
+                goto{ counter }
+                PUSH > POP DEC
+            ]
+        }
         ddump( value amount ){ @ scoped
             # amount (value): number of items to dump
             #
