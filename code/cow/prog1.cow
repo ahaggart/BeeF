@@ -1,55 +1,144 @@
 prog1{
-    preamble{
-        > EXIT_STACK
+    preamble{ BIG_NOP
+        PUSH ZERO
+        bind{ common }
+        bind{ lfsr  }
+        bind{ ascii }
+        bind{ rails }
+        # ugly code because the assignment keeps changing
+        # account for the variable-length header requirement that got added
+        layout{
+            step    1
+            unstep -1
+        }
         lock{scope{
             get_encryption_params
             param__MESSAGE_SIZE
-            param__HEADER_LENGTH
-            goto{ MESSAGE_SIZE }
+            >( MESSAGE_SIZE )
             get( SEED )
             get( TAP  )
-            lock{scope{
+            get( HEADER_LENGTH )
+            scope{
+                use_ascii
                 rebase{ 0 }
                 layout{
-                    counter     1
+                    steps   0
                 }
-                memshiftu( HEADER_LENGTH, counter )
-                rebase{ counter }
-                goto{ 0 }
-                < (HEADER_LENGTH)
-            }}
-            goto{ 0 }
+                put( steps )
+                get( steps )
+                scope{
+                    param__TOTAL_PAD_LENGTH
+                    set{ step TOTAL_PAD_LENGTH }
+                }
+                SUB
+                get( step  )
+                put( steps )
+                set{ step SP }
+                [
+                    PUSH
+                    > PUSH PUSH > POP < < POP
+                    > POP
+                    DEC
+                ]
+                rebase{ 0 }
+                param__FINAL_OFFSET
+                scope{
+                    set{
+                        steps   FINAL_OFFSET
+                    }
+                }
+                put( 1 )
+                get( 1 )
+                ADD
+                get( 1 )
+                put( 0 )
+                sub(steps, 2)
+                mkrail( step, steps )
+                put( 0 ) get( 0 )
+                > ZERO <
+                SUB
+                +(FINAL_OFFSET)
+                ADD
+                swap(0,1)
+                inc( 1 )
+                transport_up(step, -1, 0)
+                rail_up(step)
+                rebase{ 0 }
+                scope{
+                    layout{
+                        msg_start  +1
+                        header      0
+                        tap        -1
+                        seed       -2
+                    }
+                    put( header     )
+                    put( tap        )
+                    put( seed       )
+                    put( msg_start  )
+                    get( seed       )
+                    get( tap        )
+                    get( header     )
+                    goto{ header }
+                    ZERO +
+                    copy( header, seed )
+                    copy( header, tap  )
+                    -
+                }
+                rail_down(step)
+            }
         }}
-        rebase{ 0 }
-        bind{ lfsr  }
-        bind{ ascii }
-        get_encryption_params
+        rail_up( step )
+        param__MESSAGE_START
+        > rebase{ MESSAGE_START }
+        goto{ 0 }
+        ZERO
+        rmrail( step )
         use_ascii
         lfsr_advance_layout
         set{
-            # seed    SEED
-            # tap     TAP
             data    SP #ascii space
-        put( tap  )
-        put( seed )
+        }
 
         goto{ start }
+        encrypt_header_layout
+        put( count )
+        copy( count, header_size )
+        put( tap  )
+        put( seed )
         call{ setup }
     }
     depends{
+        bvm
         common
+        bitwise
         lfsr
         ascii
+        rails
     }
     namespace{
         setup{
-            encrypt_header_layout
-            param__HEADER_LENGTH
-
-            set{ count HEADER_LENGTH }
+            scope{
+                encrypt_header_layout
+                get( seed )
+            }
+            lock{scope{
+                op_layout
+                rebase{ op2 }
+                layout{ curr curr }
+                goto{ start }
+                put( op1 )
+                scope{ use_ascii set{op2 SP} }
+                apply_bitwise( logical_xor )
+                get( op1 )
+                goto{ curr }
+            }}
+            scope{
+                lfsr_advance_layout
+                put( data )
+            }
             ZERO PUSH
             call{ encrypt_header }
-            call{ lfsr run_in_place }
+            # call{ lfsr run_in_place }
         }
         encrypt_header{
             uncall_half
@@ -62,6 +151,7 @@ prog1{
                 }
             }
             encrypt_header_layout
+            get(header_size)
             < prep_uncall >
             call{ encrypt_message }
             goto{ count }
@@ -70,7 +160,7 @@ prog1{
             [
                 POP
                 >>>
-                uncall
+                uncall POP
                 <
                 prep_uncall
                 call{ encrypt_header }
@@ -88,7 +178,7 @@ prog1{
                 get( seed )
                 get( tap  )
             }
-            < rebase{ 0 }
+            rebase{ 0 }
             scope{
                 param__MESSAGE_START
                 goto{ MESSAGE_START }
@@ -140,29 +230,46 @@ prog1{
             lfsr_encrypt_return_layout
             goto{ data }
             rebase{ 0 }
-            param__MESSAGE_SIZE
+            param__FINAL_OFFSET
             layout{ counter +1 }
-            debug{ MESSAGE_SIZE value }
-            set{
-                counter    MESSAGE_SIZE
-            }
+            goto{ counter }
+            put( counter ) # put the header size on the counter
+            get( counter ) # keep the counter on the stack
+            SUB
+            scope{set{
+                counter    FINAL_OFFSET
+            }}
+            ADD
+            swap(counter, 2)
+            goto{ 0 }
             memshiftu( 4, counter )
             >(3)
-
-            # dump the stack (message prefix)
-            dumps( 12 )
             
-            EXIT # done!
+            # dump the stack (message prefix)
+            rebase{ 0 }
+            layout{ header_size 0 }
+            put( header_size )        # unstack the header size
+            ddump( header_size )
+            
+            ZERO PUSH PUSH # we're done, push a bunch of zeros to exit gracefully
+        }
+        panic{
+            EXIT
         }
     }
     bindings{
         get_encryption_params{
             layout{
-                SEED    43
-                TAP     42
+                SEED            43
+                TAP             42
+                HEADER_LENGTH   41
             }
-            # value{ SEED 13 }
-            # value{ TAP 250 }
+        }
+        param__TOTAL_PAD_LENGTH{
+            value{ TOTAL_PAD_LENGTH 23 }
+        }
+        param__FINAL_OFFSET{
+            value{ FINAL_OFFSET     64 }
         }
         param__HEADER_LENGTH{ @ pure
             value{ HEADER_LENGTH 16 }
@@ -176,11 +283,15 @@ prog1{
         encrypt_header_layout{
             lfsr_advance_layout
             layout{
-                count   4
+                count           4
+                header_size    -4
             }
         }
     }
     postamble{
-
+        bind{ wipe to
+            PUSH < POP
+        }
+        wipe(63)
     }
 }

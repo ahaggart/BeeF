@@ -40,6 +40,12 @@ common{
             goto{ init }
             POP
         }
+        do_at(layout loc, text action){ @ scoped, locked
+            layout{ start curr }
+            goto{ loc }
+            action
+            goto{ start }
+        }
         copy(layout source, layout target){
             get( source )
             put( target )
@@ -180,17 +186,18 @@ common{
                 PUSH > POP DEC
             ]
         }
-        ddump( value amount ){ @ scoped
+        ddump( layout amount ){ @ scoped
             # amount (value): number of items to dump
             #
             # dump the contents of the stack, moving downwards
-
-            +(amount)
+            layout{ curr curr }
+            copy( amount, curr )
             [ PUSH < POP DEC > POP <]
             POP
         }
-        udump( value amount ){ @ scoped
-            +(amount)
+        udump( layout amount ){ @ scoped
+            layout{ curr curr }
+            copy( amount, curr )
             [ PUSH > POP DEC < POP >]
             POP
         }

@@ -41,19 +41,37 @@ BEEF = {
 def main():
     assembly_source     = None
     machine_code_dest   = None
+    mode = "w"
+    if "-a" in sys.argv:
+        sys.argv.remove("-a")
+        mode = "a"
+    halted = False
     if len(sys.argv) != 3:
         print("usage: assemble.py assembly_file machine_code_file")
     with open(sys.argv[1],"r") as assembly:
-        with open(sys.argv[2],"w") as machine:
+        with open(sys.argv[2],mode) as machine:
+            # buffer the assembly for startup weirdness
+            for i in range(10):
+                emit(machine,MACHINE_CODE[NOP])
+            emit(machine,MACHINE_CODE[MVR])
+            emit(machine,MACHINE_CODE[MVL])
             for line in assembly:
+                halted = False
                 instr = line.strip()
                 chars = list(instr)
                 if any([c for c in chars if c in BEEF]):
                     for c in chars:
+                        halted = False
                         if c in BEEF:
                             emit(machine,MACHINE_CODE[BEEF[c]])
+                            if c == "!":
+                                halted = True
                 elif instr in MACHINE_CODE:
                     emit(machine,MACHINE_CODE[instr])
+                    if instr == HLT:
+                        halted = True
+            if not halted:
+                emit(machine,MACHINE_CODE[HLT])
 
 def emit(file,text): # insert a NOP so we can see whats going on in memory
     # file.write(text + '\n' + MACHINE_CODE[NOP] + '\n')

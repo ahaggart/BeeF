@@ -1,0 +1,36 @@
+prog1_redo{
+    preamble{
+
+    }
+    depends{
+        common
+        ascii
+        lfsr
+    }
+    namespace{
+
+    }
+    bindings{
+        get_encryption_params{
+            layout{
+                SEED    43
+                TAP     42
+            }
+        }
+        param__MESSAGE_START{ @ pure
+            layout{ MESSAGE_START 16 }
+        }
+        param__MESSAGE_SIZE{
+            value{ MESSAGE_SIZE 41 }
+        }
+        encrypt_header_layout{
+            lfsr_advance_layout
+            layout{
+                count   4
+            }
+        }
+    }
+    postamble{
+
+    }
+}

@@ -27,7 +27,7 @@ assign select_upper = CONTROL'(~loader_select);
 BYTE byte_zero, cache_start;
 
 assign byte_zero = BYTE'(0);
-assign cache_start = BYTE'(8'd192);
+assign cache_start = BYTE'(8'd212);
 
 BYTE cached_lower;
 

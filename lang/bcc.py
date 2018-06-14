@@ -207,6 +207,7 @@ BUILTINS = {
     "BREAK":"#0#",
     "NOP":"><",
     "EXIT_STACK":"[-]^",
+    "BIG_NOP":">+<->-<+", # complex NOP that isn't trivially removed
 }
 
 # TOP LEVEL COMPILER ROUTINE ###################################################

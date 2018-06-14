@@ -72,7 +72,7 @@ control_register head(
 control_register stack(
     .clk(clk),
     .reset(reset),
-    .init(8'd64),
+    .init(8'd130),
 	.in_data(alu_out),
 	.enable(signals.stack_write),
 	.out_data(stack_out)

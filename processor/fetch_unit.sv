@@ -14,6 +14,12 @@ module fetch_unit(
 PROGRAM_COUNTER pc_selected,new_pc;
 op_code at_pc;
 
+logic pc_clk;
+
+assign pc_clk = clk && !reset;
+
+CONTROL pc_reset;
+
 INSTRUCTION _instruction;
 // assign instruction = op_code'(_instruction);
 
@@ -43,8 +49,8 @@ two_one_mux#(.width($bits(PROGRAM_COUNTER))) pc_mux(
 );
 
 control_register#(.width($bits(PROGRAM_COUNTER))) program_counter(
-    .clk(clk),
-    .reset(reset),
+    .clk(pc_clk),
+    .reset(1'b0),
     .init(16'h0),
     .in_data(pc_selected),
     .enable(pc_write),

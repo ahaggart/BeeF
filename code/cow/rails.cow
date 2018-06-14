@@ -28,6 +28,16 @@ rails{
                 goto{ 0 }
             ]
         }
+        rmrail(layout step){ @ scoped, locked
+            rail_up( step )
+            PUSH
+            down( step )
+            [
+                POP PUSH
+                down( step )
+            ]
+            POP
+        }
         rail_up( layout step ){ @ scoped
             up( step )
             [
@@ -38,6 +48,23 @@ rails{
             down( step )
             [
                 down( step )
+            ]
+        }
+        transport_up(layout step,layout data,layout amount){ @ scoped
+            get( amount )
+            rebase{ 0 }
+            put( 0 )
+            [
+                DEC PUSH
+                get( data )
+                > ZERO PUSH + < POP
+                rail_up( step )
+                POP
+                rebase{ step }
+                goto{ 0 }
+                ZERO
+                rail_down( step )
+                + < POP
             ]
         }
     }
