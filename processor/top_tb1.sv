@@ -93,7 +93,7 @@ module top_tb ()            ;
     init = 1;  // activate reset
 
     // program 1 -- precompute encrypted message
-    lfsr_ptrn[0] = LFSR_ptrn[1];  // select one of 8 permitted
+    lfsr_ptrn[0] = LFSR_ptrn[$urandom%8];  // select one of 8 permitted
     lfsr1[0]     = LFSR_init[0];  // any nonzero value (zero may be helpful for debug)
     $display("run program 1 for the first time");
     $display("%s",str1);          // print original message in transcript window
@@ -120,7 +120,7 @@ module top_tb ()            ;
     $display("\n");
 
     // program 2 -- precompute encrypted message
-    lfsr_ptrn[1] = LFSR_ptrn[4];  // select one of 8 permitted
+    lfsr_ptrn[1] = LFSR_ptrn[$urandom%8];  // select one of 8 permitted
     lfsr2[0]     = LFSR_init[1];  // any nonzero value (zero may be helpful for debug)
     $display("run program 2");
     $display("%s",str2);          // print original message in transcript window
@@ -151,7 +151,7 @@ module top_tb ()            ;
     $display("\n");
 
     // program 1 -- precompute encrypted message
-    lfsr_ptrn[2] = LFSR_ptrn[5];  // select one of 8 permitted
+    lfsr_ptrn[2] = LFSR_ptrn[$urandom%8];  // select one of 8 permitted
     lfsr3[0]     = LFSR_init[2];  // any nonzero value (zero may be helpful for debug)
     $display("run program 1 for the second time");
     $display("%s",str3);          // print original message in transcript window
@@ -178,7 +178,7 @@ module top_tb ()            ;
     $display("\n");
 
     // program 3 -- precompute encrypted message
-    lfsr_ptrn[3] = LFSR_ptrn[6];  // select one of 8 permitted
+    lfsr_ptrn[3] = LFSR_ptrn[$urandom%8];  // select one of 8 permitted
     lfsr4[0]     = LFSR_init[3];  // any nonzero value (zero may be helpful for debug)
     $display("run program 3");
     $display("%s",str4)        ;  // print original message in transcript window

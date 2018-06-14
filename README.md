@@ -1,7 +1,11 @@
-# BeeF Processor Design Notes
+# BeeF Design Notes
+_BeeF_ is an Instruction Set Architecture with 8 functional instructions, inspired
+by the language described [here](https://en.wikipedia.org/wiki/Brainfuck). This 
+contains a number of tools created for working with the _BeeF_ ISA, including a 
+synthesizable processor and a compiled language targetting _BeeF_ assembly.
+
 ***
 ## ISA: width: 3 bits (8 instructions)
-*see: https://en.wikipedia.org/wiki/Brainfuck*
 
 `^`: __PSH__ - push current cell to stack 
 
@@ -40,10 +44,6 @@ assembly files by optimizing or removing common instruction patterns.
     * An assembler for converting ASCII-type BeeF programs into ASCII-binary files,
     which can be run by the processor
 
-## Assembly:
-
-* BeeF is a minimal ISA, so the assembler must do extra work to provide some basic functionality
-
 ***
 ## Writing Code
 ### Basic Building Blocks
@@ -65,6 +65,34 @@ assembly files by optimizing or removing common instruction patterns.
 
 * NOT: logical not of the current cell ```>^[-]^<[ [-]->_+^- ] + >__```
     * use the right adjacent cell as scratch space loop condition
+
+***
+
+## TODO
+
+* Fix all the other READMEs
+* Compiler refinement. More on this in the `lang` directory.
+    * Parser overhaul
+    * Fix scoping issues
+    * More features
+* Virtual machine improvement.
+    * memory-mapped syscalls
+    * more VM assertions for catching errors
+* Processor improvement
+    * Branch Target Buffer for `[`s
+    * Wider address space
+    * Memory Management Unit
+    * priviledged modes
+    * memory-mapped devices
+    * Interrupt and Exception support
+* Standard library development
+    * Build core bindings and functions into compiler
+    * Expand `common.cow` with more design patterns
+    * Support for more data structures
+    * Memory management module
+    * Kernel? needs MMU
+* Remove or reorganize project files used for class.
+
 
 
 
