@@ -36,8 +36,8 @@ module top_tb ()            ;
   string     str1  = "Mr. Watson, come here. I want to see you.";  // 1st program 1 input
   string     str2  = "Knowledge comes, but wisdom lingers.     ";  // program 2 output
   string     str3  = "  01234546789abcdefghijklmnopqrstuvwxyz. ";  // 2nd program 1 input
-//  string     str4  = "  f       A joke is a very serious thing.";  // program 3 output
-  string     str4  = "Ajok          ";  // program 3 output
+  string     str4  = "    f     A joke is a very serious thing.";  // program 3 output
+//  string     str4  = "               Ajok          ";  // program 3 output
 
   // displayed encrypted string will go here:
   string     str_enc1[64];  // first program 1 output
@@ -65,7 +65,7 @@ module top_tb ()            ;
   assign pre_length[0] = 9 ;  // 1st program 1 run
   assign pre_length[1] = 9 ;  // program 2 run
   assign pre_length[2] = 11;  // 2nd program 1 run
-  assign pre_length[3] = 10;  // program 3 run
+  assign pre_length[3] = 13;  // program 3 run
 
   int lk;                     // counts leading spaces for program 3
 
@@ -93,7 +93,7 @@ module top_tb ()            ;
     init = 1;  // activate reset
 
     // program 1 -- precompute encrypted message
-    lfsr_ptrn[0] = LFSR_ptrn[$urandom%8];  // select one of 8 permitted
+    lfsr_ptrn[0] = LFSR_ptrn[4];  // select one of 8 permitted
     lfsr1[0]     = LFSR_init[0];  // any nonzero value (zero may be helpful for debug)
     $display("run program 1 for the first time");
     $display("%s",str1);          // print original message in transcript window
@@ -245,8 +245,8 @@ module top_tb ()            ;
     $readmemb("empty.bin", dut.data_mem.dm1.DM);
     for(int n=64; n<128; n++)
       dut.data_mem.dm1.DM[n] = msg_crypto2[n - 64];
-    for(int n=0; n<255; n++)
-      $display("%d: %h",n,dut.data_mem.dm1.DM[n]);
+    // for(int n=0; n<256; n++)
+    //   $display("%d: %h",n,dut.data_mem.dm1.DM[n]);
 // load new constants into data_mem for program 2 here
     #20ns init = 0;
     #60ns;                             // wait for 6 clock cycles of nominal 10ns each
@@ -295,8 +295,8 @@ module top_tb ()            ;
     $readmemb("empty.bin", dut.data_mem.dm1.DM);
     for(int n=64; n<128; n++)
       dut.data_mem.dm1.DM[n] = msg_crypto4[n - 64];
-    for(int n=0; n<255; n++)
-      $display("%d: %h",n,dut.data_mem.dm1.DM[n]);
+    // for(int n=0; n<256; n++)
+    //   $display("%d: %h",n,dut.data_mem.dm1.DM[n]);
     #20ns init = 0;
     #60ns;                             // wait for 6 clock cycles of nominal 10ns each
     wait(done);                        // wait for DUT's done flag to go high
