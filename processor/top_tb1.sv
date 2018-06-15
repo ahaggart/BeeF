@@ -37,7 +37,7 @@ module top_tb ()            ;
   string     str2  = "Knowledge comes, but wisdom lingers.     ";  // program 2 output
   string     str3  = "  01234546789abcdefghijklmnopqrstuvwxyz. ";  // 2nd program 1 input
 //  string     str4  = "  f       A joke is a very serious thing.";  // program 3 output
-  string     str4  = "                           Ajok          ";  // program 3 output
+  string     str4  = "Ajok          ";  // program 3 output
 
   // displayed encrypted string will go here:
   string     str_enc1[64];  // first program 1 output
@@ -242,8 +242,11 @@ module top_tb ()            ;
     // run program 2
 // ***** load operands into your data memory *****
 // ***** use your instance name for data memory and its internal core *****
+    $readmemb("empty.bin", dut.data_mem.dm1.DM);
     for(int n=64; n<128; n++)
       dut.data_mem.dm1.DM[n] = msg_crypto2[n - 64];
+    for(int n=0; n<255; n++)
+      $display("%d: %h",n,dut.data_mem.dm1.DM[n]);
 // load new constants into data_mem for program 2 here
     #20ns init = 0;
     #60ns;                             // wait for 6 clock cycles of nominal 10ns each
@@ -289,8 +292,11 @@ module top_tb ()            ;
     init = 1;                          // activate reset
 // ***** load operands into your data memory *****
 // ***** use your instance name for data memory and its internal core *****
+    $readmemb("empty.bin", dut.data_mem.dm1.DM);
     for(int n=64; n<128; n++)
       dut.data_mem.dm1.DM[n] = msg_crypto4[n - 64];
+    for(int n=0; n<255; n++)
+      $display("%d: %h",n,dut.data_mem.dm1.DM[n]);
     #20ns init = 0;
     #60ns;                             // wait for 6 clock cycles of nominal 10ns each
     wait(done);                        // wait for DUT's done flag to go high
